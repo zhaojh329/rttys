@@ -240,6 +240,16 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
     go wsConn.wsWriteLoop()
 }
 
+func handlerList(w http.ResponseWriter, r *http.Request) {
+    devs := make([]string, 0)
+    for k, _ := range dev2wsConnection {
+        devs = append(devs, k)
+    }
+
+    js, _ := json.Marshal(devs)
+    fmt.Fprintf(w, "%s", js)
+}
+
 func main() {
     port := flag.Int("port", 5912, "http service port")
     flag.Parse()
@@ -254,6 +264,7 @@ func main() {
 
     http.HandleFunc("/ws/device", serveWs)
     http.HandleFunc("/ws/browser", serveWs)
+    http.HandleFunc("/list", handlerList)
     http.Handle("/", http.FileServer(statikFS))
     log.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
 }
