@@ -3,6 +3,7 @@ package main
 import (
     "flag"
     "fmt"
+    "log"
     "sync"
     "time"
     "errors"
@@ -13,6 +14,9 @@ import (
     "encoding/hex"
     "encoding/json"
     "github.com/gorilla/websocket"
+
+    _ "github.com/zhaojh329/rttys/statik"
+    "github.com/rakyll/statik/fs"
 )
 
 var upgrader = websocket.Upgrader{}
@@ -238,13 +242,18 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 
 func main() {
     port := flag.Int("port", 5912, "http service port")
-    document := flag.String("document", "./www", "http service document dir")
     flag.Parse()
 
     rand.Seed(time.Now().Unix())
 
+    statikFS, err := fs.New()
+    if err != nil {
+        log.Fatal(err)
+        return
+    }
+
     http.HandleFunc("/ws/device", serveWs)
     http.HandleFunc("/ws/browser", serveWs)
-    http.Handle("/", http.FileServer(http.Dir(*document)))
-    http.ListenAndServe(":" + strconv.Itoa(*port), nil)
+    http.Handle("/", http.FileServer(statikFS))
+    log.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
 }
