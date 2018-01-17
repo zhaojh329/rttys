@@ -6,6 +6,10 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
 
 `Keep Watching for More Actions on This Space`
 
+![](/rtty.svg)
+
+![](/rtty.gif)
+
 # How to install
 Install the GO language environment (if you haven't installed it)
 
