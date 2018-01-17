@@ -32,7 +32,7 @@
 
 # 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
-[CONTRIBUTING_ZH.md](https://github.com/zhaojh329/rttys/blobs/master/CONTRIBUTING_ZH.md)。
+[CONTRIBUTING_ZH.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING_ZH.md)。
 
 # 技术交流
 QQ群：153530783
