@@ -35,6 +35,12 @@ type RttyFrame struct {
     Err string `json:"err"`
 }
 
+/* Used for /list */
+type DeviceInfo struct {
+    ID string `json:"id"`
+    Description string `json:"description"`
+}
+
 type wsMessage struct {
     msgType int
     data []byte
@@ -43,8 +49,9 @@ type wsMessage struct {
 type wsConnection struct {
     from int
     did string
-    sid string      /* only valid for from browser */
-    active int      /* only valid for from device */
+    sid string          /* only valid for from browser */
+    active int          /* only valid for from device */
+    description string  /* only valid for from device */
     ws *websocket.Conn
     inChan chan *wsMessage
     outChan chan *wsMessage
@@ -181,6 +188,7 @@ func (wsConn *wsConnection)procLoop() {
 
 func serveWs(w http.ResponseWriter, r *http.Request) {
     path := r.URL.Path
+    description := r.URL.Query().Get("des")
     did := r.URL.Query().Get("did")
     if did == "" {
         return
@@ -210,6 +218,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
             ws.Close()
             return
         }
+        wsConn.description = description
         wsConn.active = 3
         dev2wsConnection[did] = wsConn
         fmt.Println("New Device:", did)
@@ -241,9 +250,10 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlerList(w http.ResponseWriter, r *http.Request) {
-    devs := make([]string, 0)
-    for k, _ := range dev2wsConnection {
-        devs = append(devs, k)
+    devs := make([]DeviceInfo, 0)
+    for k, con := range dev2wsConnection {
+        d := DeviceInfo{k, con.description}
+        devs = append(devs, d)
     }
 
     js, _ := json.Marshal(devs)
