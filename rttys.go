@@ -262,6 +262,7 @@ func handlerList(w http.ResponseWriter, r *http.Request) {
 
 func main() {
     port := flag.Int("port", 5912, "http service port")
+    ssl := flag.Bool("ssl", false, "Use ssl")
     flag.Parse()
 
     rand.Seed(time.Now().Unix())
@@ -276,5 +277,12 @@ func main() {
     http.HandleFunc("/ws/browser", serveWs)
     http.HandleFunc("/list", handlerList)
     http.Handle("/", http.FileServer(statikFS))
-    log.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
+
+    if *ssl {
+        fmt.Println("Listen on: ", *port, "SSL on")
+        log.Fatal(http.ListenAndServeTLS(":" + strconv.Itoa(*port), "server.crt", "server.key", nil))
+    } else {
+        fmt.Println("Listen on: ", *port, "SSL off")
+        log.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
+    }
 }

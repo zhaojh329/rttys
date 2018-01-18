@@ -40,7 +40,10 @@
 		}
 
 		function new_session(did) {
-			ws = new WebSocket('ws://' + location.host + '/ws/browser?did=' + did);
+			var protocol = 'ws://';
+			if (location.protocol == 'https:')
+				protocol = 'wss://';
+			ws = new WebSocket(protocol + location.host + '/ws/browser?did=' + did);
 			ws.onopen = function() {
 				term = new Terminal({
 					focus: true,
