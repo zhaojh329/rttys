@@ -38,6 +38,7 @@ type RttyFrame struct {
 /* Used for /list */
 type DeviceInfo struct {
     ID string `json:"id"`
+    Uptime int64 `json:"uptime"`
     Description string `json:"description"`
 }
 
@@ -48,6 +49,7 @@ type wsMessage struct {
 
 type wsConnection struct {
     from int
+    contime int64        /* connect time */
     did string
     sid string          /* only valid for from browser */
     active int          /* only valid for from device */
@@ -202,6 +204,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 
     wsConn := &wsConnection{
         from: FromDevice,
+        contime: time.Now().Unix(),
         did: did,
         ws: ws,
         inChan: make(chan *wsMessage, 1000),
@@ -252,7 +255,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 func handlerList(w http.ResponseWriter, r *http.Request) {
     devs := make([]DeviceInfo, 0)
     for k, con := range dev2wsConnection {
-        d := DeviceInfo{k, con.description}
+        d := DeviceInfo{k, time.Now().Unix() - con.contime, con.description}
         devs = append(devs, d)
     }
 
