@@ -22,7 +22,10 @@
 		var ws;
 		var term;
 		var sid;
-		var did;
+		var did = getQueryString('id');
+		var username = getQueryString('username');
+		var password = getQueryString('password');
+		var recvDataCnt = 0;
 
 		function getQueryString(name) {
 			var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
@@ -65,7 +68,20 @@
 						sid = resp.sid;
 						term.open($('#terminal-container')[0], true);
 					} else if (type == 'data') {
-						term.write(Base64.decode(resp.data));
+						recvDataCnt++;
+						var data = Base64.decode(resp.data);
+						if (recvDataCnt < 5) {
+							if (data.match('login:') && username && username != '') {
+								ws.send(JSON.stringify({type: 'data', did: did, sid: sid, data: Base64.encode(username + '\n')}));
+								return;
+							}
+							
+							if (data.match('Password:') && password && password != '') {
+								ws.send(JSON.stringify({type: 'data', did: did, sid: sid, data: Base64.encode(password + '\n')}));
+								return;
+							}
+						} 
+						term.write(data);
 					} else if (type == 'logout') {
 						ws.close();
 					}
@@ -92,7 +108,6 @@
 		});
 
 		$(function() {
-			did = getQueryString('id');
 			if (did && did != '') {
 				do_connect();
 			}
