@@ -35,6 +35,10 @@
 			return null;
 		}
 
+		function sendMsg(data) {
+			ws.send(JSON.stringify({type: 'data', did: did, sid: sid, data: Base64.encode(data)}));
+		}
+
 		function new_session(did) {
 			ws = new WebSocket('ws://' + location.host + '/ws/browser?did=' + did);
 			ws.onopen = function() {
@@ -45,7 +49,7 @@
 				});
 				
 				term.on('data', function(data) {
-					ws.send(JSON.stringify({type: 'data', did: did, sid: sid, data: Base64.encode(data)}));
+					sendMsg(data);
 				});
 				
 				term.on('open', function() {
@@ -72,12 +76,12 @@
 						var data = Base64.decode(resp.data);
 						if (recvDataCnt < 5) {
 							if (data.match('login:') && username && username != '') {
-								ws.send(JSON.stringify({type: 'data', did: did, sid: sid, data: Base64.encode(username + '\n')}));
+								sendMsg(username + '\n');
 								return;
 							}
 							
 							if (data.match('Password:') && password && password != '') {
-								ws.send(JSON.stringify({type: 'data', did: did, sid: sid, data: Base64.encode(password + '\n')}));
+								sendMsg(password + '\n');
 								return;
 							}
 						} 
