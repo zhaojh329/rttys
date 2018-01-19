@@ -10,6 +10,7 @@ import (
     "strconv"
     "net/http"
     "math/rand"
+    "log/syslog"
     "crypto/md5"
     "encoding/hex"
     "encoding/json"
@@ -19,6 +20,7 @@ import (
     "github.com/rakyll/statik/fs"
 )
 
+var slog *log.Logger
 var upgrader = websocket.Upgrader{}
 var dev2wsConnection = make(map[string] *wsConnection)
 var sid2wsConnection = make(map[string] *wsConnection)
@@ -198,7 +200,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 
     ws, err := upgrader.Upgrade(w, r, nil)
     if err != nil {
-        fmt.Println("upgrade:", err)
+        slog.Println("upgrade:", err)
         return
     }
 
@@ -224,7 +226,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
         wsConn.description = description
         wsConn.active = 3
         dev2wsConnection[did] = wsConn
-        fmt.Println("New Device:", did)
+        slog.Println("New Device:", did)
     } else {
         wsConn.from = FromBrowser
 
@@ -267,13 +269,22 @@ func main() {
     port := flag.Int("port", 5912, "http service port")
     cert := flag.String("cert", "", "certFile Path")
     key := flag.String("key", "", "keyFile Path")
+
     flag.Parse()
 
     rand.Seed(time.Now().Unix())
 
-    statikFS, err := fs.New()
+    _slog, err := syslog.New(syslog.LOG_INFO, "rttys")
     if err != nil {
         log.Fatal(err)
+        return
+    }
+    defer _slog.Close()
+    slog = log.New(_slog, "", log.Lshortfile | log.LstdFlags)
+
+    statikFS, err := fs.New()
+    if err != nil {
+        slog.Fatal(err)
         return
     }
 
@@ -283,10 +294,10 @@ func main() {
     http.Handle("/", http.FileServer(statikFS))
 
     if *cert != "" && *key != "" {
-        fmt.Println("Listen on: ", *port, "SSL on")
-        log.Fatal(http.ListenAndServeTLS(":" + strconv.Itoa(*port), *cert, *key, nil))
+        slog.Println("Listen on: ", *port, "SSL on")
+        slog.Fatal(http.ListenAndServeTLS(":" + strconv.Itoa(*port), *cert, *key, nil))
     } else {
-        fmt.Println("Listen on: ", *port, "SSL off")
-        log.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
+        slog.Println("Listen on: ", *port, "SSL off")
+        slog.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
     }
 }
