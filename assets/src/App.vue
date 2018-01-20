@@ -15,6 +15,7 @@
             </Form>
         </Card>
         <div ref="terminal" class="terminal-container" :style="{display: termOn ? 'block' : 'none'}"></div>
+        <Spin size="large" fix v-if="loading"></Spin>
     </div>
 </template>
 
@@ -30,6 +31,7 @@ export default {
     data() {
         return {
             termOn: false,
+            loading: false,
             msg: '',
             sid: '',
             recvCnt: 0,
@@ -86,6 +88,8 @@ export default {
                     var type = resp.type;
 
                     if (type == 'login') {
+                        this.loading = false;
+
                         if (resp.err) {
                             this.msg = resp.err;
                             this.logout(ws, term);
@@ -127,6 +131,7 @@ export default {
             this.msg = '';
             this.$refs['form'].validate((valid) => {
                 if (valid) {
+                    this.loading = true;
                     this.termOn = true;
                     window.setTimeout(this.login, 200);
                 }
@@ -144,6 +149,7 @@ export default {
             this.password = password;
 
         if (id) {
+            this.loading = true;
             this.termOn = true;
             this.form.id = id;
             window.setTimeout(this.login, 200);
