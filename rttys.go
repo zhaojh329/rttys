@@ -178,9 +178,13 @@ func (wsConn *wsConnection)procLoop() {
                     f := &RttyFrame{Type: "pong"}
                     js, _ := json.Marshal(f)
                     wsConn.wsWrite(websocket.TextMessage, js)
-                } else if f.Type == "data" || f.Type == "logout" {
+                } else if f.Type == "data" {
                     if bwCon, ok := sid2wsConnection[f.SID]; ok {
                         bwCon.wsWrite(websocket.TextMessage, msg.data)
+                    }
+                } else if f.Type == "logout" {
+                    if bwCon, ok := sid2wsConnection[f.SID]; ok {
+                        bwCon.wsClose();
                     }
                 }
             } else {

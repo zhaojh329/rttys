@@ -4,7 +4,7 @@
             <p slot="title">Login</p>
             <Form ref="form" :model="form" :rules="ruleValidate">
                 <FormItem prop="id">
-                    <Input type="text" v-model="form.id" size="large" auto-complete="off" placeholder="Enter device ID...">
+                    <Input type="text" v-model="form.id" size="large" auto-complete="off" placeholder="Enter your device ID...">
                         <Icon type="social-tux" slot="prepend"></Icon>
                     </Input>
                 </FormItem>
@@ -94,7 +94,7 @@ export default {
 
                         this.sid = resp.sid;
                         term.on('data', (data)=> {
-                            data = JSON.stringify({type: 'data', did: this.form.id, sid: this.sid, data: Base64.encode(data)});
+                            data = JSON.stringify({type: 'data', sid: this.sid, data: Base64.encode(data)});
                             ws.send(data);
                         });
                     } else if (type == 'data') {
@@ -103,24 +103,22 @@ export default {
 
                         if (this.recvCnt < 4) {
                             if (data.match('login:') && this.username != '') {
-                                data = JSON.stringify({type: 'data', did: this.form.id, sid: this.sid, data: Base64.encode(this.username + '\n')});
+                                data = JSON.stringify({type: 'data', sid: this.sid, data: Base64.encode(this.username + '\n')});
                                 ws.send(data);
                                 return;
                             }
 
                             if (data.match('Password:') && this.password != '') {
-                                data = JSON.stringify({type: 'data', did: this.form.id, sid: this.sid, data: Base64.encode(this.password + '\n')});
+                                data = JSON.stringify({type: 'data', sid: this.sid, data: Base64.encode(this.password + '\n')});
                                 ws.send(data);
                                 return;
                             }
                         }
                         term.write(data);
-                    } else if (type == 'logout') {
-                        this.logout(ws, term);
                     }
                 });
 
-                ws.on('destroy', ()=> {
+                ws.on('close', ()=> {
                     this.logout(null, term);
                 });
             })
@@ -164,6 +162,7 @@ export default {
 	#app {
 	    width: 100%;
 	    height: 100%;
+        background-color: #555;
     }
 
     .login-container {
