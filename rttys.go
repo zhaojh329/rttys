@@ -21,7 +21,11 @@ import (
 )
 
 var slog *log.Logger
-var upgrader = websocket.Upgrader{}
+var upgrader = websocket.Upgrader{
+    CheckOrigin: func(r *http.Request) bool {
+        return true
+    },
+}
 var dev2wsConnection = make(map[string] *wsConnection)
 var sid2wsConnection = make(map[string] *wsConnection)
 
