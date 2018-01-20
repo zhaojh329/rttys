@@ -5,9 +5,10 @@
             <Form ref="form" :model="form" :rules="ruleValidate">
                 <FormItem prop="id">
                     <Input type="text" v-model="form.id" size="large" auto-complete="off" placeholder="Enter device ID...">
-                        <Icon type="ios-person-outline" slot="prepend"></Icon>
+                        <Icon type="social-tux" slot="prepend"></Icon>
                     </Input>
                 </FormItem>
+                <Alert v-show="msg" type="error">{{msg}}</Alert>
                 <FormItem>
                     <Button type="primary" long size="large" icon="log-in" @click="handleSubmit">Login</Button>
                 </FormItem>
@@ -25,29 +26,15 @@ import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit';
 import { Base64 } from 'js-base64';
 
-
-/**
- *  * Convert an Uint8Array into a string.
- *   *
- *    * @returns {String}
- *     */
-function Decodeuint8arr(uint8array){
-        return new TextDecoder("utf-8").decode(uint8array);
-}
-
-/**
- *  * Convert a string into a Uint8Array.
- *   *
- *    * @returns {Uint8Array}
- *     */
-function Encodeuint8arr(myString){
-        return new TextEncoder("utf-8").encode(myString);
-}
-
 export default {
     data() {
         return {
             termOn: false,
+            msg: '',
+            sid: '',
+            recvCnt: 0,
+            username: '',
+            password: '',
             form: {
                 id: ''
             },
@@ -60,50 +47,108 @@ export default {
     },
 
     methods: {
+        getQueryString(name) {
+            var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+            var r = window.location.search.substr(1).match(reg);
+            if (r != null)
+                return unescape(r[2]);
+            return null;
+        },
+        logout(ws, term) {
+            this.termOn = false;
+
+            if (ws)
+                ws.destroy();
+            if (term)
+                term.destroy();
+        },
         login() {
             Terminal.applyAddon(fit);
-            var term = new Terminal();
+            var term = new Terminal({
+                cursorBlink: true
+            });
             term.open(this.$refs['terminal']);
             term.fit();
+            term.focus();
+
+            window.addEventListener("resize", function(event) {
+                term.fit();
+            });
 
             var protocol = 'ws://';
             if (location.protocol == 'https://')
                 protocol = 'wss://';
 
-            var ws = new Socket(protocol + '192.168.0.100:5912' + '/ws/browser?did=' + this.form.id);
+            var ws = new Socket(protocol + location.host + '/ws/browser?did=' + this.form.id);
             ws.on('connect', ()=> {
-                ws._ws.onmessage = (e)=>{
-                    var resp = JSON.parse(e.data);
+                ws.on('data', (data)=>{
+                    var resp = JSON.parse(data);
                     var type = resp.type;
 
                     if (type == 'login') {
-                        var sid = resp.sid;
+                        if (resp.err) {
+                            this.msg = resp.err;
+                            this.logout(ws, term);
+                            return;
+                        }
 
+                        this.sid = resp.sid;
                         term.on('data', (data)=> {
-                            data = JSON.stringify({type: 'data', did: this.form.id, sid: sid, data: Base64.encode(data)});
+                            data = JSON.stringify({type: 'data', did: this.form.id, sid: this.sid, data: Base64.encode(data)});
                             ws.send(data);
                         });
                     } else if (type == 'data') {
-                        term.write(Base64.decode(resp.data));
+                        this.recvCnt++;
+                        var data = Base64.decode(resp.data);
+
+                        if (this.recvCnt < 4) {
+                            if (data.match('login:') && this.username != '') {
+                                data = JSON.stringify({type: 'data', did: this.form.id, sid: this.sid, data: Base64.encode(this.username + '\n')});
+                                ws.send(data);
+                                return;
+                            }
+
+                            if (data.match('Password:') && this.password != '') {
+                                data = JSON.stringify({type: 'data', did: this.form.id, sid: this.sid, data: Base64.encode(this.password + '\n')});
+                                ws.send(data);
+                                return;
+                            }
+                        }
+                        term.write(data);
                     } else if (type == 'logout') {
-                        term.destroy();
-                        this.termOn = false;
+                        this.logout(ws, term);
                     }
-                };
+                });
 
                 ws.on('destroy', ()=> {
-                    term.destroy();
-                    this.termOn = false;
+                    this.logout(null, term);
                 });
             })
         },
         handleSubmit() {
+            this.msg = '';
             this.$refs['form'].validate((valid) => {
                 if (valid) {
                     this.termOn = true;
                     window.setTimeout(this.login, 200);
                 }
             });
+        }
+    },
+    mounted() {
+        var id = this.getQueryString('id');
+        var username = this.getQueryString('username');
+        var password = this.getQueryString('password');
+
+        if (username)
+            this.username = username;
+        if (password)
+            this.password = password;
+
+        if (id) {
+            this.termOn = true;
+            this.form.id = id;
+            window.setTimeout(this.login, 200);
         }
     }
 }
@@ -113,6 +158,7 @@ export default {
     html, body {
 		width: 100%;
 	    height: 100%;
+        background-color: #555;
     }
 
 	#app {
