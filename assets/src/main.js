@@ -4,13 +4,15 @@ import Vue from 'vue'
 import App from './App'
 import iView from 'iview'
 import 'iview/dist/styles/iview.css'
+import VueContextMenu from '@xunlei/vue-context-menu'
 
 Vue.config.productionTip = false
 
 Vue.use(iView);
+Vue.use(VueContextMenu)
 
 /* eslint-disable no-new */
 new Vue({
     el: '#app',
     render: (h)=>h(App)
-})
+});

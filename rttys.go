@@ -188,7 +188,7 @@ func (wsConn *wsConnection)procLoop() {
                     }
                 }
             } else {
-                if f.Type == "data" {
+                if f.Type == "data" || f.Type == "upfile" {
                     if devCon, ok := dev2wsConnection[wsConn.did]; ok {
                         devCon.wsWrite(websocket.TextMessage, msg.data)
                     }   

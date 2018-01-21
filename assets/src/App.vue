@@ -8,14 +8,30 @@
                         <Icon type="social-tux" slot="prepend"></Icon>
                     </Input>
                 </FormItem>
-                <Alert v-show="msg" type="error">{{msg}}</Alert>
+                <Alert v-show="errmsg" type="error">{{errmsg}}</Alert>
                 <FormItem>
                     <Button type="primary" long size="large" icon="log-in" @click="handleSubmit">Login</Button>
                 </FormItem>
             </Form>
         </Card>
-        <div ref="terminal" class="terminal-container" :style="{display: termOn ? 'block' : 'none'}"></div>
-        <Spin size="large" fix v-if="loading"></Spin>
+        <div ref="terminal" :style="{display: termOn ? 'block' : 'none', height: '100%'}"></div>
+        <Spin size="large" fix v-if="terminal_loading"></Spin>
+        <context-menu class="right-menu" :target="contextMenuTarget" :show="contextMenuVisible" @update:show="showMenu">
+            <a href="javascript:;" @click="openUpModal">Upload file to device</a>
+            <a href="javascript:;" @click="downFile">Download file from device</a>
+        </context-menu>
+        <Modal v-model="upmodal" width="360">
+            <p slot="header">
+                <span>Upload file to device</span>
+            </p>
+            <Upload :before-upload="beforeUpload" action="//jsonplaceholder.typicode.com/posts/">
+                <Button type="ghost" icon="Upload">Select the file to upload</Button>
+            </Upload>
+            <div v-if="file !== null">Upload file: {{ file.name }}</div>
+            <div slot="footer">
+                <Button type="primary" size="large" long :loading="modal_loading" @click="doUpload">{{ modal_loading ? 'Uploading' : 'Click to upload' }}</Button>
+            </div>
+        </Modal>
     </div>
 </template>
 
@@ -30,9 +46,15 @@ import { Base64 } from 'js-base64';
 export default {
     data() {
         return {
+            contextMenuTarget: document.body,
+            contextMenuVisible: false,
             termOn: false,
-            loading: false,
-            msg: '',
+            terminal_loading: false,
+            modal_loading: false,
+            upmodal: false,
+            file: null,
+            ws: null,
+            errmsg: '',
             sid: '',
             recvCnt: 0,
             username: '',
@@ -49,6 +71,53 @@ export default {
     },
 
     methods: {
+        beforeUpload (file) {
+            this.file = file;
+            return false;
+        },
+        doUpload () {
+            this.modal_loading = true;
+
+            var pos = 0;
+            var step = 1024;
+            var reader = new FileReader();
+            reader.onload = (e) => {
+                var msg = {type: 'upfile', sid: this.sid, name: this.file.name, data: Base64.encode(reader.result)};
+                this.ws.send(JSON.stringify(msg));
+
+                pos += e.loaded;
+
+                if (pos < this.file.size) {
+                    var blob = this.file.slice(pos, pos + step);
+                    reader.readAsText(blob, 'utf-8');
+                } else {
+                    msg.data = '';
+                    this.ws.send(JSON.stringify(msg));
+
+                    this.file = null;
+                    this.upmodal = false;
+                    this.modal_loading = false;
+                    this.$Message.success('Upload Success');
+                }
+            };
+
+            var blob = this.file.slice(pos, pos + step);
+            reader.readAsText(blob, 'utf-8');
+        },
+        showMenu(show) {
+            if (!this.termOn)
+                show = false;
+            this.contextMenuVisible = show;
+        },
+        openUpModal () {
+            this.contextMenuVisible = false;
+            this.upmodal = true;
+            this.modal_loading = false;
+        },
+        downFile () {
+            alert('downFile');
+            this.contextMenuVisible = false
+        },
         getQueryString(name) {
             var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
             var r = window.location.search.substr(1).match(reg);
@@ -88,14 +157,14 @@ export default {
                     var type = resp.type;
 
                     if (type == 'login') {
-                        this.loading = false;
+                        this.terminal_loading = false;
 
                         if (resp.err) {
-                            this.msg = resp.err;
+                            this.errmsg = resp.err;
                             this.logout(null, term);
                             return;
                         }
-
+                        this.ws = ws;
                         this.sid = resp.sid;
                         term.on('data', (data)=> {
                             data = JSON.stringify({type: 'data', sid: this.sid, data: Base64.encode(data)});
@@ -128,10 +197,10 @@ export default {
             })
         },
         handleSubmit() {
-            this.msg = '';
+            this.errmsg = '';
             this.$refs['form'].validate((valid) => {
                 if (valid) {
-                    this.loading = true;
+                    this.terminal_loading = true;
                     this.termOn = true;
                     window.setTimeout(this.login, 200);
                 }
@@ -149,7 +218,7 @@ export default {
             this.password = password;
 
         if (id) {
-            this.loading = true;
+            this.terminal_loading = true;
             this.termOn = true;
             this.form.id = id;
             window.setTimeout(this.login, 200);
@@ -180,7 +249,26 @@ export default {
         margin-top: -120px;
     }
 
-    .terminal-container {
-        height: 100%;
+    .right-menu {
+        position: fixed;
+        background: #fff;
+        border-radius: 3px;
+        z-index: 999;
+        display: none;
+    }
+
+    .right-menu a {
+        width: 150px;
+        height: 28px;
+        line-height: 28px;
+        text-align: left;
+        display: block;
+        color: #1a1a1a;
+        border: solid 1px rgba(0, 0, 0, .2);
+    }
+
+    .right-menu a:hover {
+        background: #42b983;
+        color: #fff;
     }
 </style>

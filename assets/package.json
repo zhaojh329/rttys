@@ -10,6 +10,7 @@
     "build": "node build/build.js"
   },
   "dependencies": {
+    "@xunlei/vue-context-menu": "^1.0.2",
     "iview": "^2.8.0",
     "js-base64": "^2.4.1",
     "simple-websocket": "^5.1.0",
