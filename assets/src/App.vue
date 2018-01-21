@@ -92,7 +92,7 @@ export default {
 
                         if (resp.err) {
                             this.msg = resp.err;
-                            this.logout(ws, term);
+                            this.logout(null, term);
                             return;
                         }
 
