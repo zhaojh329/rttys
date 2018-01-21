@@ -1,6 +1,15 @@
 # rttys([中文](/README_ZH.md))
 
-![](https://img.shields.io/badge/license-GPLV3-brightgreen.svg?style=plastic "License")
+[1]: https://img.shields.io/badge/license-GPLV3-brightgreen.svg?style=plastic
+[2]: /LICENSE
+[3]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=plastic
+[4]: https://github.com/zhaojh329/rttys/pulls
+[5]: https://img.shields.io/badge/Issues-welcome-brightgreen.svg?style=plastic
+[6]: https://github.com/zhaojh329/rttys/issues/new
+
+[![license][1]][2]
+[![PRs Welcome][3]][4]
+[![Issue Welcome][5]][6]
 
 The server side of [rtty](https://github.com/zhaojh329/rtty)
 
