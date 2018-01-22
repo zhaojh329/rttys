@@ -1,0 +1,8 @@
+package: github.com/zhaojh329/rttys
+import:
+- package: github.com/gorilla/websocket
+  version: v1.2.0
+- package: github.com/rakyll/statik
+  version: v0.1.1
+  subpackages:
+  - fs
