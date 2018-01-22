@@ -151,17 +151,6 @@ func (wsConn *wsConnection)wsRead() (*wsMessage, error) {
 }
 
 func (wsConn *wsConnection)procLoop() {
-    go func() {
-        for {
-            time.Sleep(5 * time.Second)
-            wsConn.active--
-            if wsConn.active == 0 {
-                wsConn.wsClose()
-                break
-            }
-        }
-    }()
-
     for {
         msg, err := wsConn.wsRead()
         if err != nil {
@@ -273,6 +262,19 @@ func handlerList(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "%s", js)
 }
 
+func flushDevice() {
+    for {
+        for _, con := range dev2wsConnection {
+            con.active--
+            fmt.Println("flushDevice:", con.did, con.active)
+            if con.active == 0 {
+                con.wsClose()
+            }
+        }
+        time.Sleep(5 * time.Second)
+    }
+}
+
 func main() {
     port := flag.Int("port", 5912, "http service port")
     cert := flag.String("cert", "", "certFile Path")
@@ -295,6 +297,8 @@ func main() {
         slog.Fatal(err)
         return
     }
+
+    go flushDevice()
 
     http.HandleFunc("/ws/device", serveWs)
     http.HandleFunc("/ws/browser", serveWs)
