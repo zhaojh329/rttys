@@ -53,6 +53,8 @@ export default {
             modal_loading: false,
             upmodal: false,
             file: null,
+            filePos: 0,
+            fileStep: 512,
             ws: null,
             errmsg: '',
             sid: '',
@@ -75,21 +77,43 @@ export default {
             this.file = file;
             return false;
         },
+        readFile(fr) {
+            var blob = this.file.slice(this.filePos, this.filePos + this.fileStep);
+            fr.readAsArrayBuffer(blob);
+        },
+        arrayBufferToBase64(buffer) {
+            var binary = '';
+            var bytes = new Uint8Array(buffer);
+            var len = bytes.byteLength;
+            for (var i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[ i ]);
+            }
+            return window.btoa(binary);
+        },
         doUpload () {
             this.modal_loading = true;
 
-            var pos = 0;
-            var step = 1024;
-            var reader = new FileReader();
-            reader.onload = (e) => {
-                var msg = {type: 'upfile', sid: this.sid, name: this.file.name, data: Base64.encode(reader.result)};
+            var fr = new FileReader();
+            fr.onload = (e) => {
+                var msg = {
+                    type: 'upfile',
+                    sid: this.sid,
+                    name: this.file.name,
+                    data: this.arrayBufferToBase64(fr.result)
+                };
                 this.ws.send(JSON.stringify(msg));
 
-                pos += e.loaded;
+                this.filePos += e.loaded;
 
-                if (pos < this.file.size) {
-                    var blob = this.file.slice(pos, pos + step);
-                    reader.readAsText(blob, 'utf-8');
+                if (this.filePos < this.file.size) {
+                    /* Control the client read speed based on the current buffer */
+                    if (this.ws.bufferedAmount > this.fileStep * 10) {
+                        setTimeout(() => {
+                            this.readFile(fr);
+                        }, 3);
+                    } else {
+                        this.readFile(fr);
+                    }
                 } else {
                     msg.data = '';
                     this.ws.send(JSON.stringify(msg));
@@ -101,8 +125,7 @@ export default {
                 }
             };
 
-            var blob = this.file.slice(pos, pos + step);
-            reader.readAsText(blob, 'utf-8');
+            this.readFile(fr);
         },
         showMenu(show) {
             if (!this.termOn)
