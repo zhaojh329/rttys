@@ -8,7 +8,6 @@
                         <Icon type="social-tux" slot="prepend"></Icon>
                     </Input>
                 </FormItem>
-                <Alert v-show="errmsg" type="error">{{errmsg}}</Alert>
                 <FormItem>
                     <Button type="primary" long size="large" icon="log-in" @click="handleSubmit">Login</Button>
                 </FormItem>
@@ -55,7 +54,6 @@ export default {
             filePos: 0,
             fileStep: 512,
             ws: null,
-            errmsg: '',
             sid: '',
             recvCnt: 0,
             username: '',
@@ -191,7 +189,7 @@ export default {
                         this.terminal_loading = false;
 
                         if (resp.err) {
-                            this.errmsg = resp.err;
+                             this.$Message.error(resp.err);
                             this.logout(null, term);
                             return;
                         }
@@ -228,7 +226,6 @@ export default {
             })
         },
         handleSubmit() {
-            this.errmsg = '';
             this.$refs['form'].validate((valid) => {
                 if (valid) {
                     this.terminal_loading = true;
@@ -273,7 +270,7 @@ export default {
 
     .login-container {
         width: 400px;
-        height: 240px;
+        height: 200px;
         top: 50%;
         left: 50%;
         margin-left: -200px;
