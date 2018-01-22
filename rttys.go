@@ -266,7 +266,6 @@ func flushDevice() {
     for {
         for _, con := range dev2wsConnection {
             con.active--
-            fmt.Println("flushDevice:", con.did, con.active)
             if con.active == 0 {
                 con.wsClose()
             }
