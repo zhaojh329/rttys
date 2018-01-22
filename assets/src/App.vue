@@ -91,7 +91,7 @@ export default {
         },
         doUpload () {
             this.modal_loading = true;
-
+            this.filePos = 0;
             var fr = new FileReader();
             fr.onload = (e) => {
                 var msg = {
