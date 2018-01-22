@@ -72,6 +72,14 @@ export default {
     },
 
     methods: {
+        /* ucs-2 string to base64 encoded ascii */
+        utoa(str) {
+            return window.btoa(unescape(encodeURIComponent(str)));
+        },
+        /* base64 encoded ascii to ucs-2 string */
+        atou(str) {
+            return decodeURIComponent(escape(window.atob(str)));
+        },
         beforeUpload (file) {
             this.file = file;
             return false;
@@ -87,7 +95,7 @@ export default {
             for (var i = 0; i < len; i++) {
             binary += String.fromCharCode(bytes[ i ]);
             }
-            return window.btoa(binary);
+            return this.utoa(binary);
         },
         doUpload () {
             this.modal_loading = true;
@@ -190,22 +198,22 @@ export default {
                         this.ws = ws;
                         this.sid = resp.sid;
                         term.on('data', (data)=> {
-                            data = JSON.stringify({type: 'data', sid: this.sid, data: window.btoa(data)});
+                            data = JSON.stringify({type: 'data', sid: this.sid, data: this.utoa(data)});
                             ws.send(data);
                         });
                     } else if (type == 'data') {
                         this.recvCnt++;
-                        var data = window.atob(resp.data);
+                        var data = this.atou(resp.data);
 
                         if (this.recvCnt < 4) {
                             if (data.match('login:') && this.username != '') {
-                                data = JSON.stringify({type: 'data', sid: this.sid, data: window.btoa(this.username + '\n')});
+                                data = JSON.stringify({type: 'data', sid: this.sid, data: this.utoa(this.username + '\n')});
                                 ws.send(data);
                                 return;
                             }
 
                             if (data.match('Password:') && this.password != '') {
-                                data = JSON.stringify({type: 'data', sid: this.sid, data: window.btoa(this.password + '\n')});
+                                data = JSON.stringify({type: 'data', sid: this.sid, data: this.utoa(this.password + '\n')});
                                 ws.send(data);
                                 return;
                             }
