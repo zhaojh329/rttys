@@ -41,7 +41,6 @@ import * as Socket from 'simple-websocket';
 import { Terminal } from 'xterm'
 import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit';
-import { Base64 } from 'js-base64';
 
 export default {
     data() {
@@ -191,22 +190,22 @@ export default {
                         this.ws = ws;
                         this.sid = resp.sid;
                         term.on('data', (data)=> {
-                            data = JSON.stringify({type: 'data', sid: this.sid, data: Base64.encode(data)});
+                            data = JSON.stringify({type: 'data', sid: this.sid, data: window.btoa(data)});
                             ws.send(data);
                         });
                     } else if (type == 'data') {
                         this.recvCnt++;
-                        var data = Base64.decode(resp.data);
+                        var data = window.atob(resp.data);
 
                         if (this.recvCnt < 4) {
                             if (data.match('login:') && this.username != '') {
-                                data = JSON.stringify({type: 'data', sid: this.sid, data: Base64.encode(this.username + '\n')});
+                                data = JSON.stringify({type: 'data', sid: this.sid, data: window.btoa(this.username + '\n')});
                                 ws.send(data);
                                 return;
                             }
 
                             if (data.match('Password:') && this.password != '') {
-                                data = JSON.stringify({type: 'data', sid: this.sid, data: Base64.encode(this.password + '\n')});
+                                data = JSON.stringify({type: 'data', sid: this.sid, data: window.btoa(this.password + '\n')});
                                 ws.send(data);
                                 return;
                             }

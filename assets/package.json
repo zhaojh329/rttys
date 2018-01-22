@@ -12,7 +12,6 @@
   "dependencies": {
     "@xunlei/vue-context-menu": "^1.0.2",
     "iview": "^2.8.0",
-    "js-base64": "^2.4.1",
     "simple-websocket": "^5.1.0",
     "vue": "^2.5.2",
     "xterm": "^3.0.2"
