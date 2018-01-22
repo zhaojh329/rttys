@@ -52,7 +52,7 @@ export default {
             upmodal: false,
             file: null,
             filePos: 0,
-            fileStep: 512,
+            fileStep: 1024,
             ws: null,
             sid: '',
             recvCnt: 0,
@@ -86,28 +86,12 @@ export default {
             var blob = this.file.slice(this.filePos, this.filePos + this.fileStep);
             fr.readAsArrayBuffer(blob);
         },
-        arrayBufferToBase64(buffer) {
-            var binary = '';
-            var bytes = new Uint8Array(buffer);
-            var len = bytes.byteLength;
-            for (var i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[ i ]);
-            }
-            return this.utoa(binary);
-        },
         doUpload () {
             this.modal_loading = true;
             this.filePos = 0;
             var fr = new FileReader();
             fr.onload = (e) => {
-                var msg = {
-                    type: 'upfile',
-                    sid: this.sid,
-                    name: this.file.name,
-                    data: this.arrayBufferToBase64(fr.result)
-                };
-                this.ws.send(JSON.stringify(msg));
-
+                this.ws.send(fr.result);
                 this.filePos += e.loaded;
 
                 if (this.filePos < this.file.size) {
@@ -115,22 +99,28 @@ export default {
                     if (this.ws.bufferedAmount > this.fileStep * 10) {
                         setTimeout(() => {
                             this.readFile(fr);
-                        }, 3);
+                        }, 100);
                     } else {
                         this.readFile(fr);
                     }
                 } else {
-                    msg.data = '';
-                    this.ws.send(JSON.stringify(msg));
-
-                    this.file = null;
-                    this.upmodal = false;
                     this.modal_loading = false;
-                    this.$Message.success('Upload Success');
+                    this.upmodal = false;
+                    this.$Message.info("Upload success");
                 }
             };
 
-            this.readFile(fr);
+            var msg = {
+                type: 'upfile',
+                sid: this.sid,
+                name: this.file.name,
+                size: this.file.size
+            };
+            this.ws.send(JSON.stringify(msg));
+
+            window.setTimeout(() => {
+                this.readFile(fr);
+            }, 100);
         },
         showMenu(show) {
             if (!this.termOn)

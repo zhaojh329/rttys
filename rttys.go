@@ -179,8 +179,14 @@ func (wsConn *wsConnection)procLoop() {
             } else {
                 if f.Type == "data" || f.Type == "upfile" {
                     if devCon, ok := dev2wsConnection[wsConn.did]; ok {
-                        devCon.wsWrite(websocket.TextMessage, msg.data)
+                        devCon.wsWrite(msg.msgType, msg.data)
                     }   
+                }
+            }
+        } else if msg.msgType == websocket.BinaryMessage {
+            if wsConn.from == FromBrowser {
+                if devCon, ok := dev2wsConnection[wsConn.did]; ok {
+                    devCon.wsWrite(msg.msgType, msg.data)
                 }
             }
         }
