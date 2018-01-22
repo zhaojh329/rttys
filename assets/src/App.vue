@@ -159,7 +159,8 @@ export default {
         login() {
             Terminal.applyAddon(fit);
             var term = new Terminal({
-                cursorBlink: true
+                cursorBlink: true,
+                lineHeight: 1.1
             });
             term.open(this.$refs['terminal']);
             term.fit();
