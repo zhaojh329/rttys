@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@xunlei/vue-context-menu": "^1.0.2",
+    "axios": "^0.17.1",
     "iview": "^2.8.0",
     "simple-websocket": "^5.1.0",
     "vue": "^2.5.2",
