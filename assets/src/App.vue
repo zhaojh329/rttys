@@ -27,7 +27,7 @@
                 <Button type="ghost" icon="Upload">Select the file to upload</Button>
             </Upload>
             <Progress v-if="file !== null" :percent="Math.round(filePos / file.size * 100)"></Progress>
-            <div v-if="file !== null">Upload file: {{ file.name }}</div>
+            <div v-if="file !== null">The file "{{ file.name }}" will be saved in the "/tmp/" directory of your device.</div>
             <div slot="footer">
                 <Button type="primary" size="large" long :loading="modal_loading" @click="doUpload">{{ modal_loading ? 'Uploading' : 'Click to upload' }}</Button>
             </div>
@@ -133,6 +133,7 @@ export default {
             this.contextMenuVisible = false;
             this.upmodal = true;
             this.modal_loading = false;
+            this.file = null;
         },
         downFile () {
             alert('downFile');
