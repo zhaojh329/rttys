@@ -23,9 +23,10 @@
             <p slot="header">
                 <span>Upload file to device</span>
             </p>
-            <Upload :before-upload="beforeUpload" action="//jsonplaceholder.typicode.com/posts/">
+            <Upload :before-upload="beforeUpload" action="">
                 <Button type="ghost" icon="Upload">Select the file to upload</Button>
             </Upload>
+            <Progress v-if="file !== null" :percent="Math.round(filePos / file.size * 100)"></Progress>
             <div v-if="file !== null">Upload file: {{ file.name }}</div>
             <div slot="footer">
                 <Button type="primary" size="large" long :loading="modal_loading" @click="doUpload">{{ modal_loading ? 'Uploading' : 'Click to upload' }}</Button>
@@ -104,6 +105,7 @@ export default {
                         this.readFile(fr);
                     }
                 } else {
+                    this.file = null;
                     this.modal_loading = false;
                     this.upmodal = false;
                     this.$Message.info("Upload success");
