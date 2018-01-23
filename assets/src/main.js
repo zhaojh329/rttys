@@ -4,10 +4,12 @@ import Vue from 'vue'
 import App from './App'
 import iView from 'iview'
 import 'iview/dist/styles/iview.css'
+import locale from 'iview/dist/locale/en-US';
 import VueContextMenu from '@xunlei/vue-context-menu'
 
 Vue.config.productionTip = false
 
+Vue.use(iView, { locale });
 Vue.use(iView);
 Vue.use(VueContextMenu)
 
