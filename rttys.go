@@ -20,10 +20,11 @@ import (
     "github.com/rakyll/statik/fs"
 )
 
+var cross *bool
 var slog *log.Logger
 var upgrader = websocket.Upgrader{
     CheckOrigin: func(r *http.Request) bool {
-        return true
+        return *cross
     },
 }
 var dev2wsConnection = make(map[string] *wsConnection)
@@ -265,6 +266,11 @@ func handlerList(w http.ResponseWriter, r *http.Request) {
     }
 
     js, _ := json.Marshal(devs)
+    if *cross {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
+        w.Header().Set("content-type", "application/json")
+    }
     fmt.Fprintf(w, "%s", js)
 }
 
@@ -284,6 +290,7 @@ func main() {
     port := flag.Int("port", 5912, "http service port")
     cert := flag.String("cert", "", "certFile Path")
     key := flag.String("key", "", "keyFile Path")
+    cross = flag.Bool("cross", false, "Allow Cross domain")
 
     flag.Parse()
 

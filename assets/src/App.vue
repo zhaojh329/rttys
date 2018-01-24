@@ -1,7 +1,7 @@
 <template>
     <div id="app">
-        <Table :columns="columns" :data="devlist" :style="{display: termOn ? 'none' : 'block'}" class="devlist"></Table>
-        <div ref="terminal" :style="{display: termOn ? 'block' : 'none', height: '100%'}"></div>
+        <Table :loading="table_loading" :height="devlist_height" :columns="columns" :data="devlist" :style="{display: termOn ? 'none' : 'block', width: '100%'}"></Table>
+        <div ref="terminal" class="terminal" :style="{display: termOn ? 'block' : 'none'}"></div>
         <Spin size="large" fix v-if="terminal_loading"></Spin>
         <context-menu class="right-menu" :target="contextMenuTarget" :show="contextMenuVisible" @update:show="showMenu">
             <a href="javascript:;" @click="openUpModal">Upload file to device</a>
@@ -31,11 +31,15 @@ import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit';
 import axios from 'axios'
 
+Terminal.applyAddon(fit);
+
 export default {
     data() {
         return {
             contextMenuTarget: document.body,
             contextMenuVisible: false,
+            devlist_height: document.body.offsetHeight,
+            table_loading: true,
             termOn: false,
             terminal_loading: false,
             modal_loading: false,
@@ -44,6 +48,7 @@ export default {
             filePos: 0,
             fileStep: 1024,
             ws: null,
+            term: null,
             sid: '',
             recvCnt: 0,
             username: '',
@@ -171,7 +176,6 @@ export default {
                 term.destroy();
         },
         login() {
-            Terminal.applyAddon(fit);
             var term = new Terminal({
                 cursorBlink: true,
                 lineHeight: 1.1
@@ -179,10 +183,7 @@ export default {
             term.open(this.$refs['terminal']);
             term.fit();
             term.focus();
-
-            window.addEventListener("resize", function(event) {
-                term.fit();
-            });
+            this.term = term;
 
             var protocol = 'ws://';
             if (location.protocol == 'https://')
@@ -254,9 +255,17 @@ export default {
 
         window.setInterval(() => {
             axios.get('/list').then((res => {
+                this.table_loading = false;
                 this.devlist = res.data;
             }));
         }, 3000);
+
+        window.addEventListener("resize", () => {
+            this.devlist_height = document.body.offsetHeight;
+            if (this.termOn) {
+                this.term.fit();
+            }
+        });
     }
 }
 </script>
@@ -264,7 +273,7 @@ export default {
 <style>
     html, body {
 		width: 100%;
-	    height: 100%;
+	    height: 99%;
         background-color: #555;
     }
 
@@ -274,8 +283,10 @@ export default {
         background-color: #555;
     }
 
-    .devlist {
-        height: 100%
+    .terminal {
+        height: 100%;
+        margin-left: 5px;
+        margin-top: 10px;
     }
 
     .right-menu {
