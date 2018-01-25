@@ -24,7 +24,7 @@ var cross *bool
 var slog *log.Logger
 var upgrader = websocket.Upgrader{
     CheckOrigin: func(r *http.Request) bool {
-        return *cross
+        return true
     },
 }
 var dev2wsConnection = make(map[string] *wsConnection)
