@@ -7,7 +7,7 @@
             <a href="javascript:;" @click="openUpModal">Upload file to device</a>
             <a href="javascript:;" @click="downFile">Download file from device</a>
         </context-menu>
-        <Modal v-model="upmodal" width="360">
+        <Modal v-model="upmodal" width="360" :closable="false" :mask-closable="false">
             <p slot="header">
                 <span>Upload file to device</span>
             </p>
