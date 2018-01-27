@@ -204,7 +204,7 @@ export default {
         login() {
             var term = new Terminal({
                 cursorBlink: true,
-                lineHeight: 1.1
+                fontSize: 18
             });
             term.open(this.$refs['terminal']);
             term.fit();
