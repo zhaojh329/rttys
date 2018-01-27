@@ -109,6 +109,11 @@ export default {
             fr.readAsArrayBuffer(blob);
         },
         doUpload () {
+            if (!this.file) {
+                this.$Message.error('Please select file to upload.');
+                return;
+            }
+
             this.modal_loading = true;
             this.filePos = 0;
             var fr = new FileReader();
