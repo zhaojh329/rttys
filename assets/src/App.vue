@@ -7,14 +7,14 @@
             <a href="javascript:;" @click="openUpModal">Upload file to device</a>
             <a href="javascript:;" @click="downFile">Download file from device</a>
         </context-menu>
-        <Modal v-model="upmodal" width="360" :closable="false" :mask-closable="false">
+        <Modal v-model="upmodal" width="360" :mask-closable="false" @on-cancel="cancelUpfile">
             <p slot="header">
                 <span>Upload file to device</span>
             </p>
             <Upload :before-upload="beforeUpload" action="">
                 <Button type="ghost" icon="Upload">Select the file to upload</Button>
             </Upload>
-            <Progress v-if="file !== null" :percent="Math.round(filePos / file.size * 100)"></Progress>
+            <Progress v-if="file !== null" :percent="file ? Math.round(filePos / file.size * 100) : 0"></Progress>
             <div v-if="file !== null">The file "{{ file.name }}" will be saved in the "/tmp/" directory of your device.</div>
             <div slot="footer">
                 <Button type="primary" size="large" long :loading="modal_loading" @click="doUpload">{{ modal_loading ? 'Uploading' : 'Click to upload' }}</Button>
@@ -47,6 +47,7 @@ export default {
             file: null,
             filePos: 0,
             fileStep: 1024,
+            cancel_upfile: false,
             ws: null,
             term: null,
             sid: '',
@@ -102,6 +103,7 @@ export default {
         },
         beforeUpload (file) {
             this.file = file;
+            this.filePos = 0;
             return false;
         },
         readFile(fr) {
@@ -114,10 +116,17 @@ export default {
                 return;
             }
 
+            this.cancel_upfile = false;
             this.modal_loading = true;
-            this.filePos = 0;
             var fr = new FileReader();
             fr.onload = (e) => {
+                if (this.cancel_upfile) {
+                    this.file = null;
+                    this.modal_loading = false;
+                    this.upmodal = false;
+                    return;
+                }
+
                 this.ws.send(fr.result);
                 this.filePos += e.loaded;
 
@@ -149,6 +158,18 @@ export default {
             window.setTimeout(() => {
                 this.readFile(fr);
             }, 100);
+        },
+        cancelUpfile() {
+            if (!this.modal_loading)
+                return;
+            this.cancel_upfile = true;
+            this.$Message.info("Upload canceled");
+            var msg = {
+                type: 'upfile',
+                sid: this.sid,
+                err: 'canceled'
+            };
+            this.ws.send(JSON.stringify(msg));
         },
         showMenu(show) {
             if (!this.termOn)
