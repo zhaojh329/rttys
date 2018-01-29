@@ -21,6 +21,7 @@ import (
 )
 
 var cross *bool
+var verbose *bool
 var slog *log.Logger
 var upgrader = websocket.Upgrader{
     CheckOrigin: func(r *http.Request) bool {
@@ -231,6 +232,9 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
         wsConn.active = 3
         dev2wsConnection[did] = wsConn
         slog.Println("New Device:", did)
+        if *verbose {
+            fmt.Println("New Device:", did)
+        }
     } else {
         wsConn.from = FromBrowser
 
@@ -291,6 +295,7 @@ func main() {
     cert := flag.String("cert", "", "certFile Path")
     key := flag.String("key", "", "keyFile Path")
     cross = flag.Bool("cross", false, "Allow Cross domain")
+    verbose = flag.Bool("v", false, "Verbose")
 
     flag.Parse()
 
@@ -319,9 +324,15 @@ func main() {
 
     if *cert != "" && *key != "" {
         slog.Println("Listen on: ", *port, "SSL on")
+        if *verbose {
+            fmt.Println("Listen on: ", *port, "SSL on")
+        }
         slog.Fatal(http.ListenAndServeTLS(":" + strconv.Itoa(*port), *cert, *key, nil))
     } else {
         slog.Println("Listen on: ", *port, "SSL off")
+        if *verbose {
+            fmt.Println("Listen on: ", *port, "SSL off")
+        }
         slog.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
     }
 }
