@@ -20,6 +20,14 @@
                 <Button type="primary" size="large" long :loading="modal_loading" @click="doUpload">{{ modal_loading ? 'Uploading' : 'Click to upload' }}</Button>
             </div>
         </Modal>
+        <Modal v-model="filelist_modal" width="600" :mask-closable="false">
+            <p slot="header">
+                <span>Please select file to download</span>
+            </p>
+            <Tag>{{'/' + dl_path.join('/')}}</Tag>
+            <Table :columns="filelist_title" height="300" :data="filelist" @on-row-dblclick="filelistDblclick"></Table>
+            <div slot="footer"></div>
+        </Modal>
     </div>
 </template>
 
@@ -44,6 +52,8 @@ export default {
             terminal_loading: false,
             modal_loading: false,
             upmodal: false,
+            filelist_modal: false,
+            dl_path: [],
             file: null,
             filePos: 0,
             fileStep: 2048,
@@ -88,7 +98,50 @@ export default {
                     }
                 }
             ],
-            devlist: [ ]
+            devlist: [ ],
+            filelist_title: [
+                {
+                    title: 'Name',
+                    key: 'name',
+                    render: (h, params) => {
+                        if (params.row.type == 'dir')
+                        return h('div', [
+                            h('Icon', {props: {type: 'folder', color: '#FFE793', size: 20}}),
+                            h('strong', ' ' + params.row.name)
+                        ]);
+                        else
+                            return params.row.name;
+                    }
+                }, {
+                    title: 'Size',
+                    key: 'size',
+                    sortable: true,
+                    render: (h, params) => {
+                        let size = params.row.size;
+                        let unit = 'B';
+
+                        if (!size)
+                            return;
+
+                        if (size > 1024 * 1024 * 1024) {
+                            size /= 1024.0 * 1024 * 1024;
+                            unit = 'GB';
+                        } else if (size > 1024 * 1024) {
+                            size /= 1024.0 * 1024;
+                            unit = 'MB';
+                        } else if (size > 1024) {
+                            size /= 1024.0;
+                            unit = 'KB';
+                        }
+                        return size.toFixed(2) + ' ' + unit;
+                    }
+                }, {
+                    title: 'modification',
+                    key: 'mtim',
+                    sortable: true
+                }
+            ],
+            filelist: []
         }
     },
 
@@ -182,9 +235,42 @@ export default {
             this.modal_loading = false;
             this.file = null;
         },
+        filelistDblclick(row, index) {
+            if (row.type == 'dir') {
+                if (row.name == '..')
+                    this.dl_path.pop();
+                else
+                    this.dl_path.push(row.name);
+                var msg = {
+                    type: 'filelist',
+                    sid: this.sid,
+                    name: '/' + this.dl_path.join('/')
+                };
+                this.ws.send(JSON.stringify(msg));
+            } else {
+                var msg = {
+                    type: 'downfile',
+                    sid: this.sid
+                };
+
+                if (this.dl_path.length > 0)
+                    msg.name = '/' + this.dl_path.join('/') + '/' + row.name;
+                else
+                    msg.name = '/' + row.name;
+                this.ws.send(JSON.stringify(msg));
+                this.filelist_modal = false;
+                this.$Message.info("TODO");
+            }
+        },
         downFile () {
-            alert('downFile');
-            this.contextMenuVisible = false
+            this.contextMenuVisible = false;
+            this.filelist_modal = true;
+            this.dl_path = [];
+            var msg = {
+                type: 'filelist',
+                sid: this.sid
+            };
+            this.ws.send(JSON.stringify(msg));
         },
         getQueryString(name) {
             var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
@@ -253,6 +339,8 @@ export default {
                             }
                         }
                         term.write(data);
+                    } else if (type == 'filelist') {
+                        this.filelist = resp.list;
                     }
                 });
 

@@ -168,7 +168,7 @@ func (wsConn *wsConnection)procLoop() {
             json.Unmarshal(msg.data, f)
 
             if wsConn.from == FromDevice {
-                if f.Type == "data" {
+                if f.Type == "data" || f.Type == "filelist" {
                     if bwCon, ok := sid2wsConnection[f.SID]; ok {
                         bwCon.wsWrite(websocket.TextMessage, msg.data)
                     }
@@ -178,7 +178,7 @@ func (wsConn *wsConnection)procLoop() {
                     }
                 }
             } else {
-                if f.Type == "data" || f.Type == "upfile" {
+                if f.Type == "data" || f.Type == "upfile" || f.Type == "filelist" || f.Type == "downfile" {
                     if devCon, ok := dev2wsConnection[wsConn.did]; ok {
                         devCon.wsWrite(msg.msgType, msg.data)
                     }   
