@@ -86,6 +86,10 @@ func (wsConn *wsConnection)wsClose() {
             devCon.wsWrite(websocket.TextMessage, js)
         }
     } else {
+        if *verbose {
+            fmt.Println("Device ", wsConn.did, "offline")
+        }
+        slog.Println("Device ", wsConn.did, "offline")
         delete(dev2wsConnection, wsConn.did)
     }
 
@@ -164,12 +168,7 @@ func (wsConn *wsConnection)procLoop() {
             json.Unmarshal(msg.data, f)
 
             if wsConn.from == FromDevice {
-                if f.Type == "ping" {
-                    wsConn.active = 3
-                    f := &RttyFrame{Type: "pong"}
-                    js, _ := json.Marshal(f)
-                    wsConn.wsWrite(websocket.TextMessage, js)
-                } else if f.Type == "data" {
+                if f.Type == "data" {
                     if bwCon, ok := sid2wsConnection[f.SID]; ok {
                         bwCon.wsWrite(websocket.TextMessage, msg.data)
                     }
@@ -278,18 +277,6 @@ func handlerList(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "%s", js)
 }
 
-func flushDevice() {
-    for {
-        for _, con := range dev2wsConnection {
-            con.active--
-            if con.active == 0 {
-                con.wsClose()
-            }
-        }
-        time.Sleep(5 * time.Second)
-    }
-}
-
 func main() {
     port := flag.Int("port", 5912, "http service port")
     cert := flag.String("cert", "", "certFile Path")
@@ -314,8 +301,6 @@ func main() {
         slog.Fatal(err)
         return
     }
-
-    go flushDevice()
 
     http.HandleFunc("/ws/device", serveWs)
     http.HandleFunc("/ws/browser", serveWs)
