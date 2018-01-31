@@ -46,7 +46,7 @@ export default {
             upmodal: false,
             file: null,
             filePos: 0,
-            fileStep: 1024,
+            fileStep: 2048,
             cancel_upfile: false,
             ws: null,
             term: null,
