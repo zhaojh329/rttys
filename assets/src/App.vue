@@ -20,14 +20,6 @@
                 <Button type="primary" size="large" long :loading="modal_loading" @click="doUpload">{{ modal_loading ? 'Uploading' : 'Click to upload' }}</Button>
             </div>
         </Modal>
-        <Modal v-model="filelist_modal" width="600" :mask-closable="false">
-            <p slot="header">
-                <span>Please select file to download</span>
-            </p>
-            <Tag>{{'/' + dl_path.join('/')}}</Tag>
-            <Table :columns="filelist_title" height="300" :data="filelist" @on-row-dblclick="filelistDblclick"></Table>
-            <div slot="footer"></div>
-        </Modal>
     </div>
 </template>
 
@@ -38,6 +30,7 @@ import { Terminal } from 'xterm'
 import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit';
 import axios from 'axios'
+import * as rtty from './rtty'
 
 Terminal.applyAddon(fit);
 
@@ -52,8 +45,6 @@ export default {
             terminal_loading: false,
             modal_loading: false,
             upmodal: false,
-            filelist_modal: false,
-            dl_path: [],
             file: null,
             filePos: 0,
             fileStep: 2048,
@@ -64,7 +55,7 @@ export default {
             recvCnt: 0,
             username: '',
             password: '',
-            did: '',
+            devId: '',
             columns: [
                 {
                     title: 'ID',
@@ -90,7 +81,7 @@ export default {
                                 click: () => {
                                     this.terminal_loading = true;
                                     this.termOn = true;
-                                    this.did = params.row.id;
+                                    this.devId = params.row.id;
                                     window.setTimeout(this.login, 200);
                                 }
                             }
@@ -98,62 +89,11 @@ export default {
                     }
                 }
             ],
-            devlist: [ ],
-            filelist_title: [
-                {
-                    title: 'Name',
-                    key: 'name',
-                    render: (h, params) => {
-                        if (params.row.type == 'dir')
-                        return h('div', [
-                            h('Icon', {props: {type: 'folder', color: '#FFE793', size: 20}}),
-                            h('strong', ' ' + params.row.name)
-                        ]);
-                        else
-                            return params.row.name;
-                    }
-                }, {
-                    title: 'Size',
-                    key: 'size',
-                    sortable: true,
-                    render: (h, params) => {
-                        let size = params.row.size;
-                        let unit = 'B';
-
-                        if (!size)
-                            return;
-
-                        if (size > 1024 * 1024 * 1024) {
-                            size /= 1024.0 * 1024 * 1024;
-                            unit = 'GB';
-                        } else if (size > 1024 * 1024) {
-                            size /= 1024.0 * 1024;
-                            unit = 'MB';
-                        } else if (size > 1024) {
-                            size /= 1024.0;
-                            unit = 'KB';
-                        }
-                        return size.toFixed(2) + ' ' + unit;
-                    }
-                }, {
-                    title: 'modification',
-                    key: 'mtim',
-                    sortable: true
-                }
-            ],
-            filelist: []
+            devlist: [ ]
         }
     },
 
     methods: {
-        /* ucs-2 string to base64 encoded ascii */
-        utoa(str) {
-            return window.btoa(unescape(encodeURIComponent(str)));
-        },
-        /* base64 encoded ascii to ucs-2 string */
-        atou(str) {
-            return decodeURIComponent(escape(window.atob(str)));
-        },
         beforeUpload (file) {
             this.file = file;
             this.filePos = 0;
@@ -171,6 +111,7 @@ export default {
 
             this.cancel_upfile = false;
             this.modal_loading = true;
+            
             var fr = new FileReader();
             fr.onload = (e) => {
                 if (this.cancel_upfile) {
@@ -180,7 +121,9 @@ export default {
                     return;
                 }
 
-                this.ws.send(fr.result);
+                let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, code: 1, data: fr.result});
+                this.ws.send(pkt);
+
                 this.filePos += e.loaded;
 
                 if (this.filePos < this.file.size) {
@@ -200,29 +143,18 @@ export default {
                 }
             };
 
-            var msg = {
-                type: 'upfile',
-                sid: this.sid,
-                name: this.file.name,
-                size: this.file.size
-            };
-            this.ws.send(JSON.stringify(msg));
-
-            window.setTimeout(() => {
-                this.readFile(fr);
-            }, 100);
+            let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, name: this.file.name, size: this.file.size, code: 0});
+            this.ws.send(pkt);
+            this.readFile(fr);
         },
         cancelUpfile() {
             if (!this.modal_loading)
                 return;
             this.cancel_upfile = true;
             this.$Message.info("Upload canceled");
-            var msg = {
-                type: 'upfile',
-                sid: this.sid,
-                err: 'canceled'
-            };
-            this.ws.send(JSON.stringify(msg));
+
+            let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, code: 2});
+            this.ws.send(pkt);
         },
         showMenu(show) {
             if (!this.termOn)
@@ -235,42 +167,9 @@ export default {
             this.modal_loading = false;
             this.file = null;
         },
-        filelistDblclick(row, index) {
-            if (row.type == 'dir') {
-                if (row.name == '..')
-                    this.dl_path.pop();
-                else
-                    this.dl_path.push(row.name);
-                var msg = {
-                    type: 'filelist',
-                    sid: this.sid,
-                    name: '/' + this.dl_path.join('/')
-                };
-                this.ws.send(JSON.stringify(msg));
-            } else {
-                var msg = {
-                    type: 'downfile',
-                    sid: this.sid
-                };
-
-                if (this.dl_path.length > 0)
-                    msg.name = '/' + this.dl_path.join('/') + '/' + row.name;
-                else
-                    msg.name = '/' + row.name;
-                this.ws.send(JSON.stringify(msg));
-                this.filelist_modal = false;
-                this.$Message.info("TODO");
-            }
-        },
         downFile () {
             this.contextMenuVisible = false;
-            this.filelist_modal = true;
-            this.dl_path = [];
-            var msg = {
-                type: 'filelist',
-                sid: this.sid
-            };
-            this.ws.send(JSON.stringify(msg));
+            this.$Message.info("TODO");
         },
         getQueryString(name) {
             var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
@@ -301,46 +200,43 @@ export default {
             if (location.protocol == 'https://')
                 protocol = 'wss://';
 
-            var ws = new Socket(protocol + location.host + '/ws/browser?did=' + this.did);
-            ws.on('connect', ()=> {
-                ws.on('data', (data)=>{
-                    var resp = JSON.parse(data);
-                    var type = resp.type;
+            var ws = new Socket(protocol + location.host + '/ws?devid=' + this.devId);
+            ws.on('connect', () => {
+                ws.on('data', (data) => {
+                    let pkt = rtty.parsePacket(data);
 
-                    if (type == 'login') {
+                    if (pkt.typ == rtty.RTTY_PACKET_LOGINACK) {
                         this.terminal_loading = false;
 
-                        if (resp.err) {
-                             this.$Message.error(resp.err);
+                        if (pkt.code != 0) {
+                             this.$Message.error('Device offline');
                             this.logout(null, term);
                             return;
                         }
                         this.ws = ws;
-                        this.sid = resp.sid;
-                        term.on('data', (data)=> {
-                            data = JSON.stringify({type: 'data', sid: this.sid, data: this.utoa(data)});
-                            ws.send(data);
+                        this.sid = pkt.sid;
+                        term.on('data', (data) => {
+                            let pkt = rtty.newPacket(rtty.RTTY_PACKET_TTY, {sid: this.sid, data: Buffer.from(data)});
+                            ws.send(pkt);
                         });
-                    } else if (type == 'data') {
+                    } else if (pkt.typ == rtty.RTTY_PACKET_TTY) {
                         this.recvCnt++;
-                        var data = this.atou(resp.data);
+                        var data = pkt.data.toString();
 
                         if (this.recvCnt < 4) {
                             if (data.match('login:') && this.username != '') {
-                                data = JSON.stringify({type: 'data', sid: this.sid, data: this.utoa(this.username + '\n')});
-                                ws.send(data);
+                                let pkt = rtty.newPacket(rtty.RTTY_PACKET_TTY, {sid: this.sid, data: this.username + '\n'});
+                                ws.send(pkt);
                                 return;
                             }
 
                             if (data.match('Password:') && this.password != '') {
-                                data = JSON.stringify({type: 'data', sid: this.sid, data: this.utoa(this.password + '\n')});
-                                ws.send(data);
+                                let pkt = rtty.newPacket(rtty.RTTY_PACKET_TTY, {sid: this.sid, data: this.password + '\n'});
+                                ws.send(pkt);
                                 return;
                             }
                         }
                         term.write(data);
-                    } else if (type == 'filelist') {
-                        this.filelist = resp.list;
                     }
                 });
 
@@ -351,7 +247,7 @@ export default {
         }
     },
     mounted() {
-        var id = this.getQueryString('id');
+        var devId = this.getQueryString('id');
         var username = this.getQueryString('username');
         var password = this.getQueryString('password');
 
@@ -360,15 +256,15 @@ export default {
         if (password)
             this.password = password;
 
-        if (id) {
+        if (devId) {
             this.terminal_loading = true;
             this.termOn = true;
-            this.did = id;
+            this.devId = devId;
             window.setTimeout(this.login, 200);
         }
 
         window.setInterval(() => {
-            axios.get('/list').then((res => {
+            axios.get('/devs').then((res => {
                 this.table_loading = false;
                 this.devlist = res.data;
             }));
