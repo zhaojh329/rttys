@@ -32,7 +32,7 @@ const (
     writeWait = 5 * time.Second
 
     // Time allowed to read the next pong message from the peer.
-    pongWait = 1 * time.Second
+    pongWait = 2 * time.Second
 
     // pings to peer with this period.
     pingPeriod = 5 * time.Second

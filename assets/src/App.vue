@@ -20,6 +20,19 @@
                 <Button type="primary" size="large" long :loading="modal_loading" @click="doUpload">{{ modal_loading ? 'Uploading' : 'Click to upload' }}</Button>
             </div>
         </Modal>
+        <Modal v-model="filelist_modal" width="700" :mask-closable="false">
+            <p slot="header"><span>Please select file to download</span></p>
+            <Tag>{{'/' + ((downfile_path.length > 0) ? (downfile_path.join('/') + '/') : '')}}</Tag>
+            <Table :columns="filelist_title" height="400" :data="filelist" @on-row-dblclick="filelistDblclick"></Table>
+            <div slot="footer"></div>
+        </Modal>
+        <Modal v-model="downfile_modal" width="360" :mask-closable="false" @on-cancel="cancelDownfile">
+            <p slot="header"><span>Download file from device</span></p>
+            <Progress :percent="Math.round(downfile_info.received / downfile_info.size * 100)"></Progress>
+            <div slot="footer">
+                <Button type="primary" size="large" long</Button>
+            </div>
+        </Modal>
     </div>
 </template>
 
@@ -45,6 +58,10 @@ export default {
             terminal_loading: false,
             modal_loading: false,
             upmodal: false,
+            filelist_modal: false,
+            downfile_modal: false,
+            downfile_path: [],
+            downfile_info: {},
             file: null,
             filePos: 0,
             fileStep: 2048,
@@ -89,7 +106,54 @@ export default {
                     }
                 }
             ],
-            devlist: [ ]
+            devlist: [ ],
+            filelist_title: [
+                {
+                    title: 'Name',
+                    key: 'name',
+                    render: (h, params) => {
+                        if (params.row.dir)
+                            return h('div', [
+                                h('Icon', {props: {type: 'folder', color: '#FFE793', size: 20}}),
+                                h('strong', ' ' + params.row.name)
+                            ]);
+                        else
+                            return params.row.name;
+                    }
+                }, {
+                    title: 'Size',
+                    key: 'size',
+                    sortable: true,
+                    render: (h, params) => {
+                        let size = params.row.size;
+                        let unit = 'B';
+
+                        if (!size)
+                            return;
+
+                        if (size > 1024 * 1024 * 1024) {
+                            size /= 1024.0 * 1024 * 1024;
+                            unit = 'GB';
+                        } else if (size > 1024 * 1024) {
+                            size /= 1024.0 * 1024;
+                            unit = 'MB';
+                        } else if (size > 1024) {
+                            size /= 1024.0;
+                            unit = 'KB';
+                        }
+                        return size.toFixed(2) + ' ' + unit;
+                    }
+                }, {
+                    title: 'modification',
+                    key: 'mtim',
+                    sortable: true,
+                    render: (h, params) => {
+                        if (params.row.mtim)
+                            return new Date(params.row.mtim * 1000).toLocaleString();
+                    }
+                }
+            ],
+            filelist: []
         }
     },
 
@@ -167,9 +231,42 @@ export default {
             this.modal_loading = false;
             this.file = null;
         },
+        filelistDblclick(row, index) {
+            let attr = {sid: this.sid};
+
+            if (row.dir) {
+                if (row.name == '..')
+                    this.downfile_path.pop();
+                else
+                    this.downfile_path.push(row.name);
+
+                attr.name = '/' + ((this.downfile_path.length > 0) ? (this.downfile_path.join('/') + '/') : '');
+            } else {
+                if (this.downfile_path.length > 0)
+                    attr.name = '/' + this.downfile_path.join('/') + '/' + row.name;
+                else
+                    attr.name = '/' + row.name;
+
+                this.downfile_info = {name: row.name, size: row.size, received: 0};
+                this.filelist_modal = false;
+                this.downfile_modal = true;
+            }
+
+            let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, attr);
+            this.ws.send(pkt);
+        },
         downFile () {
             this.contextMenuVisible = false;
-            this.$Message.info("TODO");
+            this.filelist_modal = true;
+            this.downfile_path = [];
+
+            let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid});
+            this.ws.send(pkt);
+        },
+        cancelDownfile() {
+            let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid, code: 1});
+            this.ws.send(pkt);
+            this.$Message.info("Download canceled");
         },
         getQueryString(name) {
             var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
@@ -237,6 +334,25 @@ export default {
                             }
                         }
                         term.write(data);
+                    } else if (pkt.typ == rtty.RTTY_PACKET_DOWNFILE) {
+                        let code = pkt.code;
+                        if (code == 0)
+                            this.filelist = JSON.parse(pkt.data.toString());
+                        else if (code == 1) {
+                            if (!this.downfile_info.data)
+                                this.downfile_info.data = new Blob([pkt.data]);
+                            else
+                                this.downfile_info.data = new Blob([this.downfile_info.data, pkt.data]);
+                            this.downfile_info.received += pkt.data.byteLength;
+                        } else if (code == 2) {
+                            let url = URL.createObjectURL(this.downfile_info.data);
+                            let a = document.createElement('a');
+                            a.download = this.downfile_info.name;
+                            a.href = url;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            this.downfile_modal = false;
+                        }
                     }
                 });
 
@@ -264,6 +380,8 @@ export default {
         }
 
         window.setInterval(() => {
+            if (this.termOn)
+                return;
             axios.get('/devs').then((res => {
                 this.table_loading = false;
                 this.devlist = res.data;

@@ -6,6 +6,7 @@ export const RTTY_PACKET_LOGOUT     = 3
 export const RTTY_PACKET_TTY        = 4
 export const RTTY_PACKET_ANNOUNCE   = 5
 export const RTTY_PACKET_UPFILE     = 6
+export const RTTY_PACKET_DOWNFILE   = 7
 
 export const RTTY_ATTR_SID          = 1
 export const RTTY_ATTR_CODE         = 2
@@ -14,7 +15,7 @@ export const RTTY_ATTR_NAME         = 4
 export const RTTY_ATTR_SIZE         = 5
 
 export let parsePacket = function(buf) {
-    let pkt = { };
+    let pkt = {code: 0};
 
     pkt.version = buf.readUInt8(0);
     pkt.typ = buf.readUInt8(1);
