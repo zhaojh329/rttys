@@ -20,7 +20,6 @@ package main
 import (
     "flag"
     "log"
-    "fmt"
     "time"
     "strconv"
     "math/rand"
@@ -63,7 +62,16 @@ func main() {
         return
     }
 
-    http.Handle("/", http.FileServer(statikFS))
+    staticfs := http.FileServer(statikFS)
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        if r.URL.Path == "/" {
+            if t := r.URL.Query().Get("t"); t == "" {
+                http.Redirect(w, r, "/?t=" + strconv.FormatInt(time.Now().Unix(), 10), http.StatusFound)
+                return
+            }
+        }
+        staticfs.ServeHTTP(w, r)
+    })
 
     http.HandleFunc("/devs", func(w http.ResponseWriter, r *http.Request) {
         devs := make([]DeviceInfo, 0)
@@ -75,7 +83,7 @@ func main() {
         }
 
         js, _ := json.Marshal(devs)
-        fmt.Fprintf(w, "%s", js)
+        w.Write(js)
     })
 
     http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
