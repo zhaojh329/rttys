@@ -356,6 +356,10 @@ export default {
                     }
                 });
 
+                ws.on('error', ()=> {
+                    this.logout(null, term);
+                });
+
                 ws.on('close', ()=> {
                     this.logout(null, term);
                 });
