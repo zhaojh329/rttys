@@ -1,37 +1,29 @@
 <template>
     <div id="app">
-        <Table :loading="table_loading" :height="devlist_height" :columns="columns" :data="devlist" :style="{display: termOn ? 'none' : 'block', width: '100%'}"></Table>
-        <div ref="terminal" class="terminal" :style="{display: termOn ? 'block' : 'none'}"></div>
-        <Spin size="large" fix v-if="terminal_loading"></Spin>
-        <context-menu class="right-menu" :target="contextMenuTarget" :show="contextMenuVisible" @update:show="showMenu">
-            <a href="javascript:;" @click="openUpModal">Upload file to device</a>
-            <a href="javascript:;" @click="downFile">Download file from device</a>
+        <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.list" style="width: 100%"></Table>
+        <div ref="terminal" class="terminal" v-if="terminal.show"></div>
+        <Spin size="large" fix v-if="terminal.loading"></Spin>
+        <context-menu class="right-menu" :target="$refs['terminal']" :show="contextMenuVisible" @update:show="showMenu">
+            <a href="javascript:;" @click="showUpfileModal">Upload file to device</a>
+            <a href="javascript:;" @click="showDownfileModal">Download file from device</a>
         </context-menu>
-        <Modal v-model="upmodal" width="360" :mask-closable="false" @on-cancel="cancelUpfile">
-            <p slot="header">
-                <span>Upload file to device</span>
-            </p>
+        <Modal v-model="upfile.modal" width="360" :mask-closable="false" @on-cancel="cancelUpfile">
+            <p slot="header"><span>Upload file to device</span></p>
             <Upload :before-upload="beforeUpload" action="">
                 <Button type="ghost" icon="Upload">Select the file to upload</Button>
             </Upload>
-            <Progress v-if="file !== null" :percent="file ? Math.round(filePos / file.size * 100) : 0"></Progress>
-            <div v-if="file !== null">The file "{{ file.name }}" will be saved in the "/tmp/" directory of your device.</div>
+            <Progress v-if="upfile.file !== null" :percent="upfile.percent"></Progress>
+            <div v-if="upfile.file !== null">The file "{{upfile.file.name}}" will be saved in the "/tmp/" directory of your device.</div>
             <div slot="footer">
-                <Button type="primary" size="large" long :loading="modal_loading" @click="doUpload">{{ modal_loading ? 'Uploading' : 'Click to upload' }}</Button>
+                <Button type="primary" size="large" long :loading="upfile.loading" @click="doUpload">{{upfile.loading ? 'Uploading' : 'Click to upload'}}</Button>
             </div>
         </Modal>
-        <Modal v-model="filelist_modal" width="700" :mask-closable="false">
-            <p slot="header"><span>Please select file to download</span></p>
-            <Tag>{{'/' + ((downfile_path.length > 0) ? (downfile_path.join('/') + '/') : '')}}</Tag>
-            <Table :columns="filelist_title" height="400" :data="filelist" @on-row-dblclick="filelistDblclick"></Table>
-            <div slot="footer"></div>
-        </Modal>
-        <Modal v-model="downfile_modal" width="360" :mask-closable="false" @on-cancel="cancelDownfile">
+        <Modal v-model="downfile.modal" width="700" :mask-closable="false">
             <p slot="header"><span>Download file from device</span></p>
-            <Progress :percent="Math.round(downfile_info.received / downfile_info.size * 100)"></Progress>
-            <div slot="footer">
-                <Button type="primary" size="large" long</Button>
-            </div>
+            <Tag>{{downfile.pathname}}</Tag>
+            <Table :loading="downfile.loading" v-if="!downfile.downing" :columns="filelistTitle" height="400" :data="downfile.filelist" @on-row-dblclick="filelistDblclick"></Table>
+            <Progress v-if="downfile.downing" :percent="downfile.percent"></Progress>
+            <div slot="footer"></div>
         </Modal>
     </div>
 </template>
@@ -50,54 +42,30 @@ Terminal.applyAddon(fit);
 export default {
     data() {
         return {
-            contextMenuTarget: document.body,
             contextMenuVisible: false,
-            devlist_height: document.body.offsetHeight,
-            table_loading: true,
-            termOn: false,
-            terminal_loading: false,
-            modal_loading: false,
-            upmodal: false,
-            filelist_modal: false,
-            downfile_modal: false,
-            downfile_path: [],
-            downfile_info: {},
-            file: null,
-            filePos: 0,
-            fileStep: 2048,
-            cancel_upfile: false,
+            terminal: {loading: false, show: false, term: null, recvCnt: 0},
+            devices: {loading: true, height: document.body.offsetHeight, list: []},
+            upfile: {modal: false, file: null, step: 2048, pos: 0, canceled: false, percent: 0},
+            downfile: {modal: false, loading: true, path: ['/'], pathname: '/', filelist: [], downing: false, percent: 0},
             ws: null,
-            term: null,
             sid: '',
-            recvCnt: 0,
             username: '',
             password: '',
             devId: '',
-            columns: [
+            devlistTitle: [
+                { title: 'ID', key: 'id', sortType: 'asc', sortable: true },
+                { title: 'Uptime', key: 'uptime', sortable: true },
+                { title: 'Description', key: 'description' },
                 {
-                    title: 'ID',
-                    key: 'id',
-                    sortType: 'asc',
-                    sortable: true
-                }, {
-                    title: 'Uptime',
-                    key: 'uptime',
-                    sortable: true
-                }, {
-                    title: 'Description',
-                    key: 'description'
-                }, {
                     width: 150,
                     align: 'center',
                     render: (h, params) => {
                         return h('Button', {
-                            props: {
-                                type: 'primary'
-                            },
+                            props: { type: 'primary' },
                             on: {
                                 click: () => {
-                                    this.terminal_loading = true;
-                                    this.termOn = true;
+                                    this.terminal.loading = true;
+                                    this.terminal.show = true;
                                     this.devId = params.row.id;
                                     window.setTimeout(this.login, 200);
                                 }
@@ -106,8 +74,7 @@ export default {
                     }
                 }
             ],
-            devlist: [ ],
-            filelist_title: [
+            filelistTitle: [
                 {
                     title: 'Name',
                     key: 'name',
@@ -152,47 +119,48 @@ export default {
                             return new Date(params.row.mtim * 1000).toLocaleString();
                     }
                 }
-            ],
-            filelist: []
+            ]
         }
     },
-
     methods: {
+        showMenu(show) {
+            if (!this.terminal.show)
+                show = false;
+            this.contextMenuVisible = show;
+        },
+        showUpfileModal () {
+            this.contextMenuVisible = false;
+            this.upfile = {modal: true, loading: false, file: null, step: 2048, pos: 0, canceled: false, percent: 0};
+        },
         beforeUpload (file) {
-            this.file = file;
-            this.filePos = 0;
+            this.upfile.file = file;
             return false;
         },
         readFile(fr) {
-            var blob = this.file.slice(this.filePos, this.filePos + this.fileStep);
+            var blob = this.upfile.file.slice(this.upfile.pos, this.upfile.pos + this.upfile.step);
             fr.readAsArrayBuffer(blob);
         },
         doUpload () {
-            if (!this.file) {
+            if (!this.upfile.file) {
                 this.$Message.error('Please select file to upload.');
                 return;
             }
 
-            this.cancel_upfile = false;
-            this.modal_loading = true;
+            this.upfile.loading = true;
             
             var fr = new FileReader();
             fr.onload = (e) => {
-                if (this.cancel_upfile) {
-                    this.file = null;
-                    this.modal_loading = false;
-                    this.upmodal = false;
+                if (this.upfile.canceled)
                     return;
-                }
 
                 let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, code: 1, data: fr.result});
                 this.ws.send(pkt);
+                this.upfile.pos += e.loaded;
+                this.upfile.percent = Math.round(this.upfile.pos / this.upfile.file.size * 100)
 
-                this.filePos += e.loaded;
-
-                if (this.filePos < this.file.size) {
+                if (this.upfile.pos < this.upfile.file.size) {
                     /* Control the client read speed based on the current buffer */
-                    if (this.ws.bufferedAmount > this.fileStep * 10) {
+                    if (this.ws.bufferedAmount > this.upfile.pos * 10) {
                         setTimeout(() => {
                             this.readFile(fr);
                         }, 100);
@@ -200,69 +168,58 @@ export default {
                         this.readFile(fr);
                     }
                 } else {
-                    this.file = null;
-                    this.modal_loading = false;
-                    this.upmodal = false;
+                    this.upfile.modal = false;
                     this.$Message.info("Upload success");
                 }
             };
 
-            let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, name: this.file.name, size: this.file.size, code: 0});
+            let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, name: this.upfile.file.name, size: this.upfile.file.size, code: 0});
             this.ws.send(pkt);
             this.readFile(fr);
         },
         cancelUpfile() {
-            if (!this.modal_loading)
+            if (!this.upfile.loading)
                 return;
-            this.cancel_upfile = true;
+            this.upfile.canceled = true;
             this.$Message.info("Upload canceled");
-
             let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, code: 2});
             this.ws.send(pkt);
         },
-        showMenu(show) {
-            if (!this.termOn)
-                show = false;
-            this.contextMenuVisible = show;
-        },
-        openUpModal () {
+        showDownfileModal () {
             this.contextMenuVisible = false;
-            this.upmodal = true;
-            this.modal_loading = false;
-            this.file = null;
-        },
-        filelistDblclick(row, index) {
-            let attr = {sid: this.sid};
-
-            if (row.dir) {
-                if (row.name == '..')
-                    this.downfile_path.pop();
-                else
-                    this.downfile_path.push(row.name);
-
-                attr.name = '/' + ((this.downfile_path.length > 0) ? (this.downfile_path.join('/') + '/') : '');
-            } else {
-                if (this.downfile_path.length > 0)
-                    attr.name = '/' + this.downfile_path.join('/') + '/' + row.name;
-                else
-                    attr.name = '/' + row.name;
-
-                this.downfile_info = {name: row.name, size: row.size, received: 0};
-                this.filelist_modal = false;
-                this.downfile_modal = true;
-            }
-
-            let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, attr);
-            this.ws.send(pkt);
-        },
-        downFile () {
-            this.contextMenuVisible = false;
-            this.filelist_modal = true;
-            this.downfile_path = [];
+            this.downfile = {modal: true, loading: true, path: [], pathname: '/', filelist: [], downing: false, percent: 0};
 
             let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid});
             this.ws.send(pkt);
         },
+        filelistDblclick(row, index) {
+            let attr = {sid: this.sid};
+
+            if (row.name == '..') {
+                if (this.downfile.path.length < 1)
+                    return;
+                this.downfile.path.pop();
+            } else {
+                this.downfile.path.push(row.name);
+            }
+
+            this.downfile.pathname = '/' + this.downfile.path.join('/');
+
+            if (row.dir) {
+                this.downfile.loading = true;
+                if (!this.downfile.pathname.endsWith('/'))
+                    this.downfile.pathname = this.downfile.pathname + '/';
+            } else {
+                this.downfile.received = 0;
+                this.downfile.size = row.size;
+                this.downfile.downing = true;
+            }
+
+            attr.name = this.downfile.pathname;
+            let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, attr);
+            this.ws.send(pkt);
+        },
+
         cancelDownfile() {
             let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid, code: 1});
             this.ws.send(pkt);
@@ -276,7 +233,7 @@ export default {
             return null;
         },
         logout(ws, term) {
-            this.termOn = false;
+            this.terminal.show = false;
 
             if (ws)
                 ws.destroy();
@@ -291,7 +248,7 @@ export default {
             term.open(this.$refs['terminal']);
             term.fit();
             term.focus();
-            this.term = term;
+            this.terminal.term = term;
 
             var protocol = 'ws://';
             if (location.protocol == 'https://')
@@ -303,10 +260,10 @@ export default {
                     let pkt = rtty.parsePacket(data);
 
                     if (pkt.typ == rtty.RTTY_PACKET_LOGINACK) {
-                        this.terminal_loading = false;
+                        this.terminal.loading = false;
 
                         if (pkt.code != 0) {
-                             this.$Message.error('Device offline');
+                            this.$Message.error('Device offline');
                             this.logout(null, term);
                             return;
                         }
@@ -317,10 +274,10 @@ export default {
                             ws.send(pkt);
                         });
                     } else if (pkt.typ == rtty.RTTY_PACKET_TTY) {
-                        this.recvCnt++;
+                        this.terminal.recvCnt++;
                         var data = pkt.data.toString();
 
-                        if (this.recvCnt < 4) {
+                        if (this.terminal.recvCnt < 4) {
                             if (data.match('login:') && this.username != '') {
                                 let pkt = rtty.newPacket(rtty.RTTY_PACKET_TTY, {sid: this.sid, data: this.username + '\n'});
                                 ws.send(pkt);
@@ -336,22 +293,26 @@ export default {
                         term.write(data);
                     } else if (pkt.typ == rtty.RTTY_PACKET_DOWNFILE) {
                         let code = pkt.code;
-                        if (code == 0)
-                            this.filelist = JSON.parse(pkt.data.toString());
+                        if (code == 0) {
+                            this.downfile.loading = false;
+                            this.downfile.filelist = JSON.parse(pkt.data.toString());
+                        }
                         else if (code == 1) {
-                            if (!this.downfile_info.data)
-                                this.downfile_info.data = new Blob([pkt.data]);
+                            if (!this.downfile.data)
+                                this.downfile.data = new Blob([pkt.data]);
                             else
-                                this.downfile_info.data = new Blob([this.downfile_info.data, pkt.data]);
-                            this.downfile_info.received += pkt.data.byteLength;
+                                this.downfile.data = new Blob([this.downfile.data, pkt.data]);
+                            this.downfile.received += pkt.data.byteLength;
+                            this.downfile.percent = Math.round(this.downfile.received / this.downfile.size * 100);
                         } else if (code == 2) {
-                            let url = URL.createObjectURL(this.downfile_info.data);
+                            let url = URL.createObjectURL(this.downfile.data);
                             let a = document.createElement('a');
-                            a.download = this.downfile_info.name;
+                            a.download = this.downfile.pathname;
                             a.href = url;
                             a.click();
                             URL.revokeObjectURL(url);
-                            this.downfile_modal = false;
+                            this.downfile.modal = false;
+                            this.$Message.info("Download Finish");
                         }
                     }
                 });
@@ -377,25 +338,25 @@ export default {
             this.password = password;
 
         if (devId) {
-            this.terminal_loading = true;
-            this.termOn = true;
+            this.terminal.loading = true;
+            this.terminal.show = true;
             this.devId = devId;
             window.setTimeout(this.login, 200);
         }
 
         window.setInterval(() => {
-            if (this.termOn)
+            if (this.terminal.show)
                 return;
             axios.get('/devs').then((res => {
-                this.table_loading = false;
-                this.devlist = res.data;
+                this.devices.loading = false;
+                this.devices.list = res.data;
             }));
-        }, 3000);
+        }, 2000);
 
         window.addEventListener("resize", () => {
-            this.devlist_height = document.body.offsetHeight;
-            if (this.termOn) {
-                this.term.fit();
+            this.devices.height = document.body.offsetHeight;
+            if (this.terminal.show) {
+                this.terminal.term.fit();
             }
         });
     }
