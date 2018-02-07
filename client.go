@@ -23,7 +23,6 @@ import (
     "sync"
     "errors"
     "net/http"
-    "encoding/base64"
     "github.com/gorilla/websocket"
 )
 
@@ -176,9 +175,7 @@ func serveWs(br *Bridge, w http.ResponseWriter, r *http.Request) {
     isDev := r.URL.Query().Get("device")
     if isDev == "1" {
         client.isDev = true
-        
-        description, _ := base64.StdEncoding.DecodeString(r.URL.Query().Get("description"))
-        client.description = string(description)
+        client.description = r.URL.Query().Get("description")
     }
 
     client.br.register <- client
