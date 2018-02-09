@@ -1,6 +1,7 @@
 <template>
     <div id="app">
-        <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.list" style="width: 100%"></Table>
+        <Input v-if="!terminal.show" v-model="searchString" icon="search" size="large" @on-change="handleSearch" placeholder="Please enter the filter key..." style="width: 400px" />
+        <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.filtered" style="width: 100%"></Table>
         <div ref="terminal" class="terminal" v-if="terminal.show"></div>
         <Spin size="large" fix v-if="terminal.loading"></Spin>
         <context-menu class="right-menu" :target="$refs['terminal']" :show="contextMenuVisible" @update:show="showMenu">
@@ -42,9 +43,10 @@ Terminal.applyAddon(fit);
 export default {
     data() {
         return {
+            searchString: '',
             contextMenuVisible: false,
             terminal: {loading: false, show: false, term: null, recvCnt: 0},
-            devices: {loading: true, height: document.body.offsetHeight, list: []},
+            devices: {loading: true, height: document.body.offsetHeight - 20, list: [], filtered: []},
             upfile: {modal: false, file: null, step: 2048, pos: 0, canceled: false, percent: 0},
             downfile: {modal: false, loading: true, path: ['/'], pathname: '/', filelist: [], downing: false, percent: 0},
             ws: null,
@@ -123,6 +125,11 @@ export default {
         }
     },
     methods: {
+        handleSearch() {
+            this.devices.filtered = this.devices.list.filter(d => {
+                return d.id.indexOf(this.searchString) > -1 || d.description.indexOf(this.searchString) > -1;
+            });
+        },
         showMenu(show) {
             if (!this.terminal.show)
                 show = false;
@@ -350,11 +357,12 @@ export default {
             axios.get('/devs').then((res => {
                 this.devices.loading = false;
                 this.devices.list = res.data;
+                this.handleSearch();
             }));
         }, 2000);
 
         window.addEventListener("resize", () => {
-            this.devices.height = document.body.offsetHeight;
+            this.devices.height = document.body.offsetHeight - 20;
             if (this.terminal.show) {
                 this.terminal.term.fit();
             }
