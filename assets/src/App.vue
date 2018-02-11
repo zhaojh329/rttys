@@ -55,10 +55,22 @@ export default {
             password: '',
             devId: '',
             devlistTitle: [
-                { title: 'ID', key: 'id', sortType: 'asc', sortable: true },
-                { title: 'Uptime', key: 'uptime', sortable: true },
-                { title: 'Description', key: 'description' },
                 {
+                    title: 'ID',
+                    key: 'id',
+                    sortType: 'asc',
+                    sortable: true
+                }, {
+                    title: 'Uptime',
+                    key: 'uptime',
+                    sortable: true,
+                    render: (h, params) => {
+                        return '%t'.format(params.row.uptime);
+                    }
+                }, {
+                    title: 'Description',
+                    key: 'description'
+                }, {
                     width: 150,
                     align: 'center',
                     render: (h, params) => {
