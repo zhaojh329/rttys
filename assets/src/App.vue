@@ -64,9 +64,7 @@ export default {
                     title: 'Uptime',
                     key: 'uptime',
                     sortable: true,
-                    render: (h, params) => {
-                        return '%t'.format(params.row.uptime);
-                    }
+                    render: (h, params) => '%t'.format(params.row.uptime)
                 }, {
                     title: 'Description',
                     key: 'description'
@@ -105,25 +103,7 @@ export default {
                     title: 'Size',
                     key: 'size',
                     sortable: true,
-                    render: (h, params) => {
-                        let size = params.row.size;
-                        let unit = 'B';
-
-                        if (!size)
-                            return;
-
-                        if (size > 1024 * 1024 * 1024) {
-                            size /= 1024.0 * 1024 * 1024;
-                            unit = 'GB';
-                        } else if (size > 1024 * 1024) {
-                            size /= 1024.0 * 1024;
-                            unit = 'MB';
-                        } else if (size > 1024) {
-                            size /= 1024.0;
-                            unit = 'KB';
-                        }
-                        return size.toFixed(2) + ' ' + unit;
-                    }
+                    render: (h, params) => params.row.size && '%1024mB'.format(params.row.size)
                 }, {
                     title: 'modification',
                     key: 'mtim',
