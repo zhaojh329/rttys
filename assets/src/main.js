@@ -6,7 +6,7 @@ import iView from 'iview'
 import 'iview/dist/styles/iview.css'
 import locale from 'iview/dist/locale/en-US';
 import VueContextMenu from '@xunlei/vue-context-menu'
-import './string.js'
+import '@zhaojh329/string.format.js'
 
 Vue.config.productionTip = false
 
