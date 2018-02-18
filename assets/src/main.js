@@ -11,7 +11,6 @@ import '@zhaojh329/string.format.js'
 Vue.config.productionTip = false
 
 Vue.use(iView, { locale });
-Vue.use(iView);
 Vue.use(VueContextMenu)
 
 /* eslint-disable no-new */
