@@ -346,11 +346,11 @@ export default {
         window.setInterval(() => {
             if (this.terminal.show)
                 return;
-            axios.get('/devs').then((res => {
+            axios.get('/devs').then(res => {
                 this.devices.loading = false;
                 this.devices.list = res.data;
                 this.handleSearch();
-            }));
+            });
         }, 2000);
 
         window.addEventListener("resize", () => {
