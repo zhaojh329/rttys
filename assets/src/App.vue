@@ -4,10 +4,13 @@
         <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.filtered" style="width: 100%"></Table>
         <div ref="terminal" class="terminal" v-if="terminal.show"></div>
         <Spin size="large" fix v-if="terminal.loading"></Spin>
-        <context-menu class="right-menu" :target="$refs['terminal']" :show="contextMenuVisible" @update:show="showMenu">
-            <a href="javascript:;" @click="showUpfileModal">Upload file to device</a>
-            <a href="javascript:;" @click="showDownfileModal">Download file from device</a>
-        </context-menu>
+        <Modal v-model="contextMenuVisible" width="15">
+             <Menu theme="light" @on-select="handleContextMenu">
+                <MenuItem name="upfile">Upload file to device</MenuItem>
+                <MenuItem name="downfile">Download file from device</MenuItem>
+             </Menu>
+             <div slot="footer"></div>
+        </Modal>
         <Modal v-model="upfile.modal" width="360" :mask-closable="false" @on-cancel="cancelUpfile">
             <p slot="header"><span>Upload file to device</span></p>
             <Upload :before-upload="beforeUpload" action="">
@@ -122,14 +125,16 @@ export default {
                 return d.id.indexOf(this.searchString) > -1 || d.description.indexOf(this.searchString) > -1;
             });
         },
-        showMenu(show) {
-            if (!this.terminal.show)
-                show = false;
-            this.contextMenuVisible = show;
-        },
-        showUpfileModal () {
+        handleContextMenu(name) {
             this.contextMenuVisible = false;
-            this.upfile = {modal: true, loading: false, file: null, step: 2048, pos: 0, canceled: false, percent: 0};
+            if (name == 'upfile') {
+                this.upfile = {modal: true, loading: false, file: null, step: 2048, pos: 0, canceled: false, percent: 0};
+            } else if (name == 'downfile') {
+                this.downfile = {modal: true, loading: true, path: [], pathname: '/', filelist: [], downing: false, percent: 0};
+
+                let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid});
+                this.ws.send(pkt);
+            }
         },
         beforeUpload (file) {
             this.upfile.file = file;
@@ -182,13 +187,6 @@ export default {
             this.upfile.canceled = true;
             this.$Message.info("Upload canceled");
             let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, code: 2});
-            this.ws.send(pkt);
-        },
-        showDownfileModal () {
-            this.contextMenuVisible = false;
-            this.downfile = {modal: true, loading: true, path: [], pathname: '/', filelist: [], downing: false, percent: 0};
-
-            let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid});
             this.ws.send(pkt);
         },
         filelistDblclick(row, index) {
@@ -272,10 +270,19 @@ export default {
                             let pkt = rtty.newPacket(rtty.RTTY_PACKET_TTY, {sid: this.sid, data: Buffer.from(data)});
                             ws.send(pkt);
                         });
+
+                        term.attachCustomKeyEventHandler((e) => {
+                            if (e.type == 'keydown') {
+                                if (e.ctrlKey && e.shiftKey) {
+                                    if (e.key == 'F') {
+                                        this.contextMenuVisible = true;
+                                    }
+                                }
+                            }
+                        });
                     } else if (pkt.typ == rtty.RTTY_PACKET_TTY) {
                         this.terminal.recvCnt++;
                         var data = pkt.data.toString();
-
                         if (this.terminal.recvCnt < 4) {
                             if (data.match('login:') && this.username != '') {
                                 let pkt = rtty.newPacket(rtty.RTTY_PACKET_TTY, {sid: this.sid, data: this.username + '\n'});
@@ -380,28 +387,5 @@ export default {
         height: 100%;
         margin-left: 5px;
         margin-top: 10px;
-    }
-
-    .right-menu {
-        position: fixed;
-        background: #fff;
-        border-radius: 3px;
-        z-index: 999;
-        display: none;
-    }
-
-    .right-menu a {
-        width: 150px;
-        height: 28px;
-        line-height: 28px;
-        text-align: left;
-        display: block;
-        color: #1a1a1a;
-        border: solid 1px rgba(0, 0, 0, .2);
-    }
-
-    .right-menu a:hover {
-        background: #42b983;
-        color: #fff;
     }
 </style>
