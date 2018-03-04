@@ -4,7 +4,7 @@
         <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.filtered" style="width: 100%"></Table>
         <div ref="terminal" class="terminal" v-if="terminal.show"></div>
         <Spin size="large" fix v-if="terminal.loading"></Spin>
-        <Modal v-model="contextMenuVisible" width="15">
+        <Modal v-model="contextMenuVisible" width="20">
              <Menu theme="light" @on-select="handleContextMenu">
                 <MenuItem name="upfile">Upload file to device</MenuItem>
                 <MenuItem name="downfile">Download file from device</MenuItem>
