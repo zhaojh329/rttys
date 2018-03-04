@@ -4,10 +4,12 @@
         <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.filtered" style="width: 100%"></Table>
         <div ref="terminal" class="terminal" v-if="terminal.show"></div>
         <Spin size="large" fix v-if="terminal.loading"></Spin>
-        <Modal v-model="contextMenuVisible" width="20">
+        <Modal v-model="contextMenuVisible" width="21">
              <Menu theme="light" @on-select="handleContextMenu">
                 <MenuItem name="upfile">Upload file to device</MenuItem>
                 <MenuItem name="downfile">Download file from device</MenuItem>
+                <MenuItem name="increasefontsize">Increase font size</MenuItem>
+                <MenuItem name="decreasefontsize">Decrease font size</MenuItem>
              </Menu>
              <div slot="footer"></div>
         </Modal>
@@ -127,6 +129,7 @@ export default {
         },
         handleContextMenu(name) {
             this.contextMenuVisible = false;
+            let changeFontSize = 0;
             if (name == 'upfile') {
                 this.upfile = {modal: true, loading: false, file: null, step: 2048, pos: 0, canceled: false, percent: 0};
             } else if (name == 'downfile') {
@@ -134,7 +137,18 @@ export default {
 
                 let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid});
                 this.ws.send(pkt);
+            } else if (name == 'increasefontsize') {
+                changeFontSize = 1;
+            } else if (name == 'decreasefontsize') {
+                changeFontSize = -1;
             }
+
+            window.setTimeout(() => {
+                let size = this.terminal.term.getOption('fontSize');
+                this.terminal.term.setOption('fontSize', size + changeFontSize);
+                this.terminal.term.fit();
+                this.terminal.term.focus();
+            }, 1);
         },
         beforeUpload (file) {
             this.upfile.file = file;
@@ -239,8 +253,7 @@ export default {
         },
         login() {
             var term = new Terminal({
-                cursorBlink: true,
-                fontSize: 18
+                cursorBlink: true
             });
             term.open(this.$refs['terminal']);
             term.fit();
