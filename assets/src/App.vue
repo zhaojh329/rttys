@@ -262,7 +262,7 @@ export default {
             this.terminal.term = term;
 
             var protocol = 'ws://';
-            if (location.protocol == 'https://')
+            if (location.protocol == 'https:')
                 protocol = 'wss://';
 
             var ws = new Socket(protocol + location.host + '/ws?devid=' + this.devId);
