@@ -17,7 +17,7 @@ RTTYSPID=/var/run/rttys.pid
 PORT=5912
 
 do_start () {
-	start-stop-daemon --start --make-pidfile --pidfile $RTTYSPID --background --exec /usr/local/sbin/rttys -- -port $PORT
+	start-stop-daemon --start --make-pidfile --pidfile $RTTYSPID --background --exec /usr/local/sbin/rttys -- -port $PORT -cert /etc/rttys/rtty.crt -key /etc/rttys/rtty.key
 }
 
 do_stop () {
