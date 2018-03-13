@@ -102,6 +102,7 @@ func serveCmd(br *Bridge, w http.ResponseWriter, r *http.Request) {
             return
         case <- ticker.C:
             err = COMMAND_ERR_TIMEOUT
+            msg = "timeout"
             goto Err
         }
     }
