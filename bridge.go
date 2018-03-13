@@ -22,6 +22,7 @@ package main
 import (
     "log"
     "time"
+    "encoding/json"
     "github.com/gorilla/websocket"
 )
 
@@ -143,17 +144,23 @@ func (br *Bridge) run() {
                 delSession(br.sessions, client.sid)
             }
         case msg := <- br.inbound:
-            pkt := rttyPacketParse(msg.data)
-            if session, ok := br.sessions[pkt.sid]; ok {
-                if (msg.isDev) {
-                    if pkt.typ == RTTY_PACKET_LOGOUT {
-                        session.dev = nil
-                        delSession(br.sessions, pkt.sid)
+            if msg.msgType == websocket.TextMessage {
+                res := CommandResult{}
+                json.Unmarshal(msg.data, &res)
+                msg.c.cmd[res.ID] <- msg
+            } else {
+                pkt := rttyPacketParse(msg.data)
+                if session, ok := br.sessions[pkt.sid]; ok {
+                    if (msg.c.isDev) {
+                        if pkt.typ == RTTY_PACKET_LOGOUT {
+                            session.dev = nil
+                            delSession(br.sessions, pkt.sid)
+                        } else {
+                            session.user.wsWrite(websocket.BinaryMessage, msg.data)
+                        }
                     } else {
-                        session.user.wsWrite(websocket.BinaryMessage, msg.data)
+                        session.dev.wsWrite(websocket.BinaryMessage, msg.data)
                     }
-                } else {
-                    session.dev.wsWrite(websocket.BinaryMessage, msg.data)
                 }
             }
         }

@@ -46,9 +46,9 @@ var upgrader = websocket.Upgrader{
 }
 
 type wsMessage struct {
-    isDev bool
     msgType int
     data []byte
+    c *Client
 }
 
 // Representing a device or user browser
@@ -64,6 +64,9 @@ type Client struct {
     conn *websocket.Conn
     // Buffered channel of outbound messages.
     outbound chan *wsMessage
+
+    cmdid uint32
+    cmd map[uint32]chan *wsMessage
 
     // Avoid repeated closes
     mutex sync.Mutex
@@ -87,7 +90,7 @@ func (c *Client) unregister() {
 
 func (c *Client) wsWrite(messageType int, data []byte) error {
     select {
-    case c.outbound <- &wsMessage{c.isDev, messageType, data}:
+    case c.outbound <- &wsMessage{messageType, data, c}:
     case <- c.closeChan:
         return errors.New("websocket closed")
     }
@@ -113,14 +116,12 @@ func (c *Client) readPump() {
             break
         }
 
-        if msgType == websocket.BinaryMessage {
-            msg := &wsMessage{c.isDev, msgType, data}
+        msg := &wsMessage{msgType, data, c}
 
-            select {
-            case c.br.inbound <- msg:
-            case <- c.closeChan:
-                return
-            }
+        select {
+        case c.br.inbound <- msg:
+        case <- c.closeChan:
+            return
         }
     }
 }
@@ -178,6 +179,7 @@ func serveWs(br *Bridge, w http.ResponseWriter, r *http.Request) {
     if isDev == "1" {
         client.isDev = true
         client.description = r.URL.Query().Get("description")
+        client.cmd = make(map[uint32]chan *wsMessage)
     }
 
     client.br.register <- client

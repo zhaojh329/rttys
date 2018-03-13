@@ -88,6 +88,10 @@ func main() {
         w.Write(js)
     })
 
+    http.HandleFunc("/cmd", func(w http.ResponseWriter, r *http.Request) {
+        serveCmd(br, w, r)
+    })
+
     http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
         serveWs(br, w, r)
     })
