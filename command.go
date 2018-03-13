@@ -20,6 +20,7 @@
 package main
 
 import (
+    "time"
     "net/http"
     "io/ioutil"
     "encoding/json"
@@ -57,6 +58,11 @@ type CommandResult struct {
 }
 
 func serveCmd(br *Bridge, w http.ResponseWriter, r *http.Request) {
+    ticker := time.NewTicker(time.Second * 5)
+    defer func() {
+        ticker.Stop()
+    }()
+
     err := COMMAND_OK
     msg := "OK"
 
@@ -82,20 +88,25 @@ func serveCmd(br *Bridge, w http.ResponseWriter, r *http.Request) {
         js, _ := json.Marshal(req)
         dev.wsWrite(websocket.TextMessage, js)
 
-        wsMsg := <- dev.cmd[req.ID]
+        select {
+        case wsMsg := <- dev.cmd[req.ID]:
+            res := CommandResult{}
+            json.Unmarshal(wsMsg.data, &res)
 
-        res := CommandResult{}
-        json.Unmarshal(wsMsg.data, &res)
+            delete(dev.cmd, res.ID)
+            res.ID = 0
 
-        delete(dev.cmd, res.ID)
-        res.ID = 0
+            js, _ = json.Marshal(res)
 
-        js, _ = json.Marshal(res)
-
-        w.Write(js)
-        return
+            w.Write(js)
+            return
+        case <- ticker.C:
+            err = COMMAND_ERR_TIMEOUT
+            goto Err
+        }
     }
 
+Err:
     res := CommandResult{Err: err, Msg: msg}
     js, _ := json.Marshal(res)
     w.Write(js)
