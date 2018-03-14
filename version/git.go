@@ -3,6 +3,6 @@
 package version
 
 func init() {
-	Gitref = "0079594-dirty"
+	Gitref = "65c089c"
 	BuildDate = "2018-03-14"
 }
