@@ -1,11 +1,15 @@
 #!/bin/sh
 
+which rttys > /dev/null && rm `which rttys`
+
 ARCH=$(uname -m)
 filename=rttys.tar.gz
 
 [ "$ARCH" = "x86_64" ] && filename=rttys-x64.tar.gz
 
-URL=https://github.com/zhaojh329/rttys/blob/$filename
+echo $filename
+
+URL=https://raw.githubusercontent.com/zhaojh329/rttys/master/$filename
 
 curl -o rttys.tar.gz -L -f $URL
 
