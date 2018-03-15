@@ -28,14 +28,14 @@ import (
 )
 
 const (
-    COMMAND_OK = iota
+    COMMAND_ERR_NONE = iota
     COMMAND_ERR_TIMEOUT
     COMMAND_ERR_NOTFOUND
     COMMAND_ERR_READ
     COMMAND_ERR_LOGIN
     COMMAND_ERR_SYS
-    COMMAND_PARAMETER_ERR
-    COMMAND_DEV_OFFLINE
+    COMMAND_ERR_PARAMETER
+    COMMAND_ERR_DEVOFFLINE
 )
 
 type CommandReq struct {
@@ -57,14 +57,24 @@ type CommandResult struct {
     Stderr string `json:"stderr"`
 }
 
+var errStr = map[int]string {
+    COMMAND_ERR_NONE: "",
+    COMMAND_ERR_TIMEOUT: "timeout",
+    COMMAND_ERR_NOTFOUND: "not found",
+    COMMAND_ERR_READ: "read error",
+    COMMAND_ERR_LOGIN: "login failed",
+    COMMAND_ERR_SYS: "system error",
+    COMMAND_ERR_PARAMETER: "devid and cmd required",
+    COMMAND_ERR_DEVOFFLINE: "device offline",
+}
+
 func serveCmd(br *Bridge, w http.ResponseWriter, r *http.Request) {
     ticker := time.NewTicker(time.Second * 5)
     defer func() {
         ticker.Stop()
     }()
 
-    err := COMMAND_OK
-    msg := "OK"
+    err := COMMAND_ERR_NONE
 
     body, _ := ioutil.ReadAll(r.Body)
     r.Body.Close()
@@ -73,11 +83,9 @@ func serveCmd(br *Bridge, w http.ResponseWriter, r *http.Request) {
     json.Unmarshal(body, &req)
 
     if req.Devid == "" || req.Cmd == "" {
-        err = COMMAND_PARAMETER_ERR
-        msg = "devid and cmd required"
+        err = COMMAND_ERR_PARAMETER
     } else if dev, ok := br.devices[req.Devid]; !ok {
-        err = COMMAND_DEV_OFFLINE
-        msg = "Device is offline"
+        err = COMMAND_ERR_DEVOFFLINE
     } else {
         req.ID = dev.cmdid
         dev.cmd[req.ID] = make(chan *wsMessage)
@@ -95,20 +103,19 @@ func serveCmd(br *Bridge, w http.ResponseWriter, r *http.Request) {
 
             delete(dev.cmd, res.ID)
             res.ID = 0
-
+            res.Msg = errStr[res.Err]
             js, _ = json.Marshal(res)
 
             w.Write(js)
             return
         case <- ticker.C:
             err = COMMAND_ERR_TIMEOUT
-            msg = "timeout"
             goto Err
         }
     }
 
 Err:
-    res := CommandResult{Err: err, Msg: msg}
+    res := CommandResult{Err: err, Msg: errStr[err]}
     js, _ := json.Marshal(res)
     w.Write(js)
 }
