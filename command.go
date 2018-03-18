@@ -87,21 +87,28 @@ func serveCmd(br *Bridge, w http.ResponseWriter, r *http.Request) {
     } else if dev, ok := br.devices[req.Devid]; !ok {
         err = COMMAND_ERR_DEVOFFLINE
     } else {
+        dev.mutex.Lock()
         req.ID = dev.cmdid
         dev.cmd[req.ID] = make(chan *wsMessage)
         dev.cmdid = dev.cmdid + 1
         if dev.cmdid == 1024 {
             dev.cmdid = 0
         }
+        cmd := dev.cmd[req.ID]
+        dev.mutex.Unlock()
+
         js, _ := json.Marshal(req)
         dev.wsWrite(websocket.TextMessage, js)
 
         select {
-        case wsMsg := <- dev.cmd[req.ID]:
+        case wsMsg := <- cmd:
             res := CommandResult{}
             json.Unmarshal(wsMsg.data, &res)
 
+            dev.mutex.Lock()
             delete(dev.cmd, res.ID)
+            dev.mutex.Unlock()
+
             res.ID = 0
             res.Msg = errStr[res.Err]
             js, _ = json.Marshal(res)

@@ -147,7 +147,12 @@ func (br *Bridge) run() {
             if msg.msgType == websocket.TextMessage {
                 res := CommandResult{}
                 json.Unmarshal(msg.data, &res)
-                msg.c.cmd[res.ID] <- msg
+
+                msg.c.mutex.Lock()
+                cmd := msg.c.cmd[res.ID]
+                msg.c.mutex.Unlock()
+
+                cmd <- msg
             } else {
                 pkt := rttyPacketParse(msg.data)
                 if session, ok := br.sessions[pkt.sid]; ok {

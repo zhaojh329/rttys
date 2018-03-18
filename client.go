@@ -68,7 +68,7 @@ type Client struct {
     cmdid uint32
     cmd map[uint32]chan *wsMessage
 
-    // Avoid repeated closes
+    // Avoid repeated closes and concurrent map writes
     mutex sync.Mutex
     isClosed bool
     closeChan chan byte
