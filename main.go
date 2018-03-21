@@ -88,11 +88,19 @@ func main() {
             }
         }
 
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
+        w.Header().Set("content-type", "application/json")
+
         js, _ := json.Marshal(devs)
         w.Write(js)
     })
 
     http.HandleFunc("/cmd", func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
+        w.Header().Set("content-type", "application/json")
+
         serveCmd(br, w, r)
     })
 
