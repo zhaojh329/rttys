@@ -15,6 +15,35 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
 
 `Keep Watching for More Actions on This Space`
 
+# How to install
+## Download the compiled file according to your own platform
+
+https://github.com/zhaojh329/rttys/releases
+
+## Decompress the file to your root path
+
+	sudo tar -zxvf rttys-x64.tar.gz -C /
+
+## Manual run
+
+    rttys -cert /etc/rttys/rttys.crt -key /etc/rttys/rttys.key
+
+## See Supported Command Line Parameters
+
+	$ rttys -h
+	Usage of rttys:
+	  -cert string
+	        certFile Path
+	  -key string
+	        keyFile Path
+	  -port int
+	        http service port (default 5912)
+
+## Run in background (Ubuntu)
+
+	update-rc.d rttys defaults
+    sudo /etc/init.d/rttys start
+
 # Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
 see the [CONTRIBUTING.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING.md) file.
