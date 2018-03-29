@@ -177,8 +177,10 @@ export default {
                 this.upfile.percent = Math.round(this.upfile.pos / this.upfile.file.size * 100)
 
                 if (this.upfile.pos < this.upfile.file.size) {
-                    /* Control the client read speed based on the current buffer */
-                    if (this.ws.bufferedAmount > this.upfile.pos * 10) {
+                    /* Control the client read speed based on the current buffer and server */
+                    if (this.ws.bufferedAmount > this.upfile.pos * 10 || this.ratelimit) {
+                        this.ratelimit = false;
+
                         setTimeout(() => {
                             this.readFile(fr);
                         }, 100);
@@ -333,6 +335,11 @@ export default {
                             URL.revokeObjectURL(url);
                             this.downfile.modal = false;
                             this.$Message.info("Download Finish");
+                        }
+                    } else if (pkt.typ == rtty.RTTY_PACKET_UPFILE) {
+                        if (pkt.code == 5) {
+                            /* Need reduce the sending rate */
+                            this.ratelimit = true;
                         }
                     }
                 });

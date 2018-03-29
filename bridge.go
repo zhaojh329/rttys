@@ -165,6 +165,12 @@ func (br *Bridge) run() {
                         }
                     } else {
                         session.dev.wsWrite(websocket.BinaryMessage, msg.data)
+
+                        if pkt.typ == RTTY_PACKET_UPFILE && len(session.dev.outbound) > 10 {
+                            pkt := rttyPacketNew(RTTY_PACKET_UPFILE)
+                            pkt.PutU8(RTTY_ATTR_CODE, 5)
+                            session.user.wsWrite(websocket.BinaryMessage, pkt.Bytes())
+                        }
                     }
                 }
             }
