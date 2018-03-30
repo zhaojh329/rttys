@@ -6,10 +6,13 @@
 [4]: https://github.com/zhaojh329/rttys/pulls
 [5]: https://img.shields.io/badge/Issues-welcome-brightgreen.svg?style=plastic
 [6]: https://github.com/zhaojh329/rttys/issues/new
+[7]: https://img.shields.io/badge/release-1.0.0-blue.svg?style=plastic
+[8]: https://github.com/zhaojh329/rttys/releases
 
 [![license][1]][2]
 [![PRs Welcome][3]][4]
 [![Issue Welcome][5]][6]
+[![Release Version][7]][8]
 
 [rtty](https://github.com/zhaojh329/rtty)的服务端。
 

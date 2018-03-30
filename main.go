@@ -31,7 +31,6 @@ import (
     "encoding/json"
      _ "github.com/zhaojh329/rttys/statik"
     "github.com/rakyll/statik/fs"
-    "github.com/zhaojh329/rttys/version"
 )
 
 type DeviceInfo struct {
@@ -56,8 +55,7 @@ func main() {
 
     rand.Seed(time.Now().Unix())
 
-    log.Println("BuildDate:", version.BuildDate)
-    log.Println("Gitref:", version.Gitref)
+    log.Println("rttys version:", rttys_version())
 
     br := newBridge()
     go br.run()
