@@ -69,7 +69,9 @@ export default {
                     title: 'Uptime',
                     key: 'uptime',
                     sortable: true,
-                    render: (h, params) => '%t'.format(params.row.uptime)
+                    render: (h, params) => {
+                        return h('div', '%t'.format(params.row.uptime));
+                    }
                 }, {
                     title: 'Description',
                     key: 'description'
