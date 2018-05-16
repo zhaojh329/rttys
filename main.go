@@ -69,7 +69,10 @@ func main() {
     staticfs := http.FileServer(statikFS)
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
         if r.URL.Path == "/" {
-            if t := r.URL.Query().Get("t"); t == "" {
+            t := r.URL.Query().Get("t")
+            id := r.URL.Query().Get("id")
+
+            if t == "" && id == "" {
                 http.Redirect(w, r, "/?t=" + strconv.FormatInt(time.Now().Unix(), 10), http.StatusFound)
                 return
             }
