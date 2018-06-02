@@ -78,7 +78,7 @@ export default {
                     key: 'uptime',
                     sortable: true,
                     render: (h, params) => {
-                        return h('div', '%t'.format(params.row.uptime));
+                        return h('span', '%t'.format(params.row.uptime));
                     }
                 }, {
                     title: 'Description',

@@ -10,10 +10,10 @@
     "build": "node build/build.js"
   },
   "dependencies": {
-    "@zhaojh329/string.format.js": "^1.1.0",
     "axios": "^0.18.0",
     "iview": "^2.9.2",
     "simple-websocket": "^7.0.2",
+    "string-format-easy": "^1.0.1",
     "vue": "^2.5.13",
     "xterm": "^3.1.0"
   },
