@@ -112,20 +112,22 @@ export default {
                                 h('strong', ' ' + params.row.name)
                             ]);
                         else
-                            return params.row.name;
+                            return h('span', params.row.name);
                     }
                 }, {
                     title: 'Size',
                     key: 'size',
                     sortable: true,
-                    render: (h, params) => params.row.size && '%1024mB'.format(params.row.size)
+                    render: (h, params) => {
+                        return h('span', params.row.size && '%1024mB'.format(params.row.size));
+                    }
                 }, {
                     title: 'modification',
                     key: 'mtim',
                     sortable: true,
                     render: (h, params) => {
                         if (params.row.mtim)
-                            return new Date(params.row.mtim * 1000).toLocaleString();
+                            return h('span', new Date(params.row.mtim * 1000).toLocaleString());
                     }
                 }
             ]
