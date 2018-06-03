@@ -1,24 +1,24 @@
 <template>
     <div id="app">
-        <Input v-if="!terminal.show" v-model="searchString" icon="search" size="large" @on-change="handleSearch" placeholder="Please enter the filter key..." style="width: 400px" />
-        <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.filtered" style="width: 100%"></Table>
+        <Input v-if="!terminal.show" v-model="searchString" icon="search" size="large" @on-change="handleSearch" :placeholder="$t('Please enter the filter key...')" style="width: 400px" />
+        <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.filtered" style="width: 100%" :no-data-text="$t('No clients connected')"></Table>
         <div ref="terminal" class="terminal" v-if="terminal.show" @contextmenu="$vuecontextmenu()"></div>
         <Spin size="large" fix v-if="terminal.loading"></Spin>
         <VueContextMenu :menulists="menulists" @contentmenu-click="contentmenuClick"></VueContextMenu>
-        <Modal v-model="upfile.modal" width="360" :mask-closable="false" @on-cancel="cancelUpfile">
-            <p slot="header"><span>Upload file to device</span></p>
+        <Modal v-model="upfile.modal" width="380" :mask-closable="false" @on-cancel="cancelUpfile">
+            <p slot="header"><span>{{ $t('Upload file to device') }}</span></p>
             <Upload :before-upload="beforeUpload" action="">
-                <Button type="ghost" icon="Upload">Select the file to upload</Button>
+                <Button type="ghost" icon="Upload">{{ $t('Select the file to upload') }}</Button>
             </Upload>
             <Progress v-if="upfile.file !== null" :percent="upfile.percent"></Progress>
-            <div v-if="upfile.file !== null">The file "{{upfile.file.name}}" will be saved in the "/tmp/" directory of your device.</div>
+            <div v-if="upfile.file !== null">{{ $t('upfile-info', {name: upfile.file.name}) }}</div>
             <div slot="footer">
-                <Button type="primary" size="large" long :loading="upfile.loading" @click="doUpload">{{upfile.loading ? 'Uploading' : 'Click to upload'}}</Button>
+                <Button type="primary" size="large" long :loading="upfile.loading" @click="doUpload">{{ upfile.loading ? $t('Uploading') : $t('Click to upload') }}</Button>
             </div>
         </Modal>
         <Modal v-model="downfile.modal" width="700" :mask-closable="false">
-            <p slot="header"><span>Download file from device</span></p>
-            <Tag>{{downfile.pathname}}</Tag>
+            <p slot="header"><span>{{ $t('Download file from device') }}</span></p>
+            <Tag>{{ downfile.pathname }}</Tag>
             <Table :loading="downfile.loading" v-if="!downfile.downing" :columns="filelistTitle" height="400" :data="downfile.filelist" @on-row-dblclick="filelistDblclick"></Table>
             <Progress v-if="downfile.downing" :percent="downfile.percent"></Progress>
             <div slot="footer"></div>
@@ -43,16 +43,16 @@ export default {
             menulists: [
                 {
                     name: 'upfile',
-                    caption: 'Upload file to device'
+                    caption: this.$t('Upload file to device')
                 },{
                     name: 'downfile',
-                    caption: 'Download file from device'
+                    caption: this.$t('Download file from device')
                 },{
                     name: 'increasefontsize',
-                    caption: 'Increase font size'
+                    caption: this.$t('Increase font size')
                 },{
                     name: 'decreasefontsize',
-                    caption: 'Decrease font size'
+                    caption: this.$t('Decrease font size')
                 }
             ],
             searchString: '',
@@ -72,14 +72,14 @@ export default {
                     sortType: 'asc',
                     sortable: true
                 }, {
-                    title: 'Uptime',
+                    title: this.$t('Uptime'),
                     key: 'uptime',
                     sortable: true,
                     render: (h, params) => {
                         return h('span', '%t'.format(params.row.uptime));
                     }
                 }, {
-                    title: 'Description',
+                    title: this.$t('Description'),
                     key: 'description'
                 }, {
                     width: 150,
@@ -95,13 +95,13 @@ export default {
                                     window.setTimeout(this.login, 200);
                                 }
                             }
-                        }, 'Connect');
+                        }, this.$t('Connect'));
                     }
                 }
             ],
             filelistTitle: [
                 {
-                    title: 'Name',
+                    title: this.$t('Name'),
                     key: 'name',
                     render: (h, params) => {
                         if (params.row.dir)
@@ -113,14 +113,14 @@ export default {
                             return h('span', params.row.name);
                     }
                 }, {
-                    title: 'Size',
+                    title: this.$t('Size'),
                     key: 'size',
                     sortable: true,
                     render: (h, params) => {
                         return h('span', params.row.size && '%1024mB'.format(params.row.size));
                     }
                 }, {
-                    title: 'modification',
+                    title: this.$t('modification'),
                     key: 'mtim',
                     sortable: true,
                     render: (h, params) => {
@@ -169,7 +169,7 @@ export default {
         },
         doUpload () {
             if (!this.upfile.file) {
-                this.$Message.error('Please select file to upload.');
+                this.$Message.error(this.$t('Select the file to upload'));
                 return;
             }
 
@@ -198,7 +198,7 @@ export default {
                     }
                 } else {
                     this.upfile.modal = false;
-                    this.$Message.info("Upload success");
+                    this.$Message.info(this.$t('Upload success'));
                 }
             };
 
@@ -210,7 +210,7 @@ export default {
             if (!this.upfile.loading)
                 return;
             this.upfile.canceled = true;
-            this.$Message.info("Upload canceled");
+            this.$Message.info(this.$t('Upload canceled'));
             let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, code: 2});
             this.ws.send(pkt);
         },
@@ -245,7 +245,7 @@ export default {
         cancelDownfile() {
             let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid, code: 1});
             this.ws.send(pkt);
-            this.$Message.info("Download canceled");
+            this.$Message.info(this.$t('Download canceled'));
         },
         getQueryString(name) {
             var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
@@ -285,7 +285,7 @@ export default {
                         this.terminal.loading = false;
 
                         if (pkt.code != 0) {
-                            this.$Message.error('Device offline');
+                            this.$Message.error(this.$t('Device offline'));
                             this.logout(null, term);
                             return;
                         }
@@ -333,7 +333,7 @@ export default {
                             a.click();
                             URL.revokeObjectURL(url);
                             this.downfile.modal = false;
-                            this.$Message.info("Download Finish");
+                            this.$Message.info(this.$t('Download Finish'));
                         }
                     } else if (pkt.typ == rtty.RTTY_PACKET_UPFILE) {
                         if (pkt.code == 5) {
