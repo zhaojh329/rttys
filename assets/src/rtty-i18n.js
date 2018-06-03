@@ -21,7 +21,9 @@ const RttyI18n = {
 		'Download canceled': '下载终止',
 		'Device offline': '设备离线',
 		'modification': '修改时间',
-		'upfile-info': '文件"{name}"将会保存到你的设备的"/tmp"目录'
+		'upfile-info': '文件"{name}"将会保存到你的设备的"/tmp"目录',
+		'Name': '名称',
+		'Size': '大小'
 	}
 }
 
