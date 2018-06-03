@@ -157,7 +157,7 @@ export default {
                 this.terminal.term.setOption('fontSize', size + changeFontSize);
                 this.terminal.term.fit();
                 this.terminal.term.focus();
-            }, 1);
+            }, 50);
         },
         beforeUpload (file) {
             this.upfile.file = file;
