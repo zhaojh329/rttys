@@ -18,8 +18,10 @@
         </Modal>
         <Modal v-model="downfile.modal" width="700" :mask-closable="false" @on-cancel="cancelDownfile">
             <p slot="header"><span>{{ $t('Download file from device') }}</span></p>
-            <Tag>{{ downfile.pathname }}</Tag>
-            <Table :loading="downfile.loading" v-if="!downfile.downing" :columns="filelistTitle" height="400" :data="downfile.filelist" @on-row-dblclick="filelistDblclick"></Table>
+            <Input v-model="filterDownFile" icon="search" @on-change="handleFilterDownFile" :placeholder="$t('Please enter the filter key...')">
+                <span slot="prepend">{{ downfile.pathname }}</span>
+            </Input>
+            <Table :loading="downfile.loading" v-if="!downfile.downing" :columns="filelistTitle" height="400" :data="downfile.filelistFiltered" @on-row-dblclick="filelistDblclick"></Table>
             <Progress v-if="downfile.downing" :percent="downfile.percent"></Progress>
             <div slot="footer"></div>
         </Modal>
@@ -56,10 +58,11 @@ export default {
                 }
             ],
             searchString: '',
+            filterDownFile: '',
             terminal: {loading: false, show: false, term: null, recvCnt: 0},
             devices: {loading: true, height: document.body.offsetHeight - 20, list: [], filtered: []},
             upfile: {modal: false, file: null, step: 2048, pos: 0, canceled: false, percent: 0},
-            downfile: {modal: false, loading: true, path: ['/'], pathname: '/', filelist: [], downing: false, percent: 0},
+            downfile: {modal: false, loading: true, path: ['/'], pathname: '/', filelist: [], filelistFiltered: [], downing: false, percent: 0},
             ws: null,
             sid: '',
             username: '',
@@ -142,6 +145,7 @@ export default {
             if (name == 'upfile') {
                 this.upfile = {modal: true, loading: false, file: null, step: 2048, pos: 0, canceled: false, percent: 0};
             } else if (name == 'downfile') {
+                this.filterDownFile = '';
                 this.downfile = {modal: true, loading: true, path: [], pathname: '/', filelist: [], downing: false, percent: 0};
 
                 let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid});
@@ -214,8 +218,15 @@ export default {
             let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, code: 2});
             this.ws.send(pkt);
         },
+        handleFilterDownFile() {
+            this.downfile.filelistFiltered = this.downfile.filelist.filter(d => {
+                return d.name.indexOf(this.filterDownFile) > -1;
+            });
+        },
         filelistDblclick(row, index) {
             let attr = {sid: this.sid};
+
+            this.filterDownFile = '';
 
             if (row.name == '..') {
                 if (this.downfile.path.length < 1)
@@ -319,6 +330,7 @@ export default {
                         if (code == 0) {
                             this.downfile.loading = false;
                             this.downfile.filelist = JSON.parse(pkt.data.toString());
+                            this.handleFilterDownFile();
                         }
                         else if (code == 1) {
                             if (!this.downfile.data)
