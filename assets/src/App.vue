@@ -2,9 +2,9 @@
     <div id="app">
         <Input v-if="!terminal.show" v-model="searchString" icon="search" size="large" @on-change="handleSearch" placeholder="Please enter the filter key..." style="width: 400px" />
         <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.filtered" style="width: 100%"></Table>
-        <div ref="terminal" class="terminal" v-if="terminal.show" @contextmenu="$vuecontextmenu($event, $root)"></div>
+        <div ref="terminal" class="terminal" v-if="terminal.show" @contextmenu="$vuecontextmenu()"></div>
         <Spin size="large" fix v-if="terminal.loading"></Spin>
-        <vue-context-menu :contextMenuData="contextMenuData" @handleContextMenu="handleContextMenu"></vue-context-menu>
+        <VueContextMenu :menulists="menulists" @contentmenu-click="contentmenuClick"></VueContextMenu>
         <Modal v-model="upfile.modal" width="360" :mask-closable="false" @on-cancel="cancelUpfile">
             <p slot="header"><span>Upload file to device</span></p>
             <Upload :before-upload="beforeUpload" action="">
@@ -40,23 +40,21 @@ Terminal.applyAddon(fit);
 export default {
     data() {
         return {
-            contextMenuData: {
-                menulists: [
-                    {
-                        name: 'upfile',
-                        caption: 'Upload file to device'
-                    },{
-                        name: 'downfile',
-                        caption: 'Download file from device'
-                    },{
-                        name: 'increasefontsize',
-                        caption: 'Increase font size'
-                    },{
-                        name: 'decreasefontsize',
-                        caption: 'Decrease font size'
-                    }
-                ]
-            },
+            menulists: [
+                {
+                    name: 'upfile',
+                    caption: 'Upload file to device'
+                },{
+                    name: 'downfile',
+                    caption: 'Download file from device'
+                },{
+                    name: 'increasefontsize',
+                    caption: 'Increase font size'
+                },{
+                    name: 'decreasefontsize',
+                    caption: 'Decrease font size'
+                }
+            ],
             searchString: '',
             terminal: {loading: false, show: false, term: null, recvCnt: 0},
             devices: {loading: true, height: document.body.offsetHeight - 20, list: [], filtered: []},
@@ -139,7 +137,7 @@ export default {
                 return d.id.indexOf(this.searchString) > -1 || d.description.indexOf(this.searchString) > -1;
             });
         },
-        handleContextMenu(name) {
+        contentmenuClick(name) {
             let changeFontSize = 0;
             if (name == 'upfile') {
                 this.upfile = {modal: true, loading: false, file: null, step: 2048, pos: 0, canceled: false, percent: 0};
