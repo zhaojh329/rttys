@@ -11,11 +11,12 @@
   },
   "dependencies": {
     "axios": "^0.18.0",
-    "iview": "^2.9.2",
+    "iview": "^2.14.1",
     "simple-websocket": "^7.0.2",
     "string-format-easy": "^1.0.1",
     "vue": "^2.5.13",
     "vue-contextmenu-easy": "^1.0.0",
+    "vue-i18n": "^7.8.0",
     "xterm": "^3.1.0"
   },
   "devDependencies": {
