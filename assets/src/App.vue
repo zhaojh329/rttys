@@ -243,9 +243,11 @@ export default {
         },
 
         cancelDownfile() {
-            let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid, code: 1});
-            this.ws.send(pkt);
-            this.$Message.info(this.$t('Download canceled'));
+            if (this.downfile.downing == true) {
+                let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid, code: 1});
+                this.ws.send(pkt);
+                this.$Message.info(this.$t('Download canceled'));
+            }
         },
         getQueryString(name) {
             var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
@@ -333,6 +335,7 @@ export default {
                             a.click();
                             URL.revokeObjectURL(url);
                             this.downfile.modal = false;
+                            this.downfile.downing = false;
                             this.$Message.info(this.$t('Download Finish'));
                         }
                     } else if (pkt.typ == rtty.RTTY_PACKET_UPFILE) {
