@@ -1,7 +1,7 @@
 <template>
     <div id="app">
         <Input v-if="!terminal.show" v-model="searchString" icon="search" size="large" @on-change="handleSearch" :placeholder="$t('Please enter the filter key...')" style="width: 400px" />
-        <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.filtered" style="width: 100%" :no-data-text="$t('No clients connected')"></Table>
+        <Table v-if="!terminal.show" :loading="devices.loading" :height="devices.height" :columns="devlistTitle" :data="devices.filtered" style="width: 100%" :no-data-text="$t('No devices connected')"></Table>
         <div ref="terminal" class="terminal" v-if="terminal.show" @contextmenu="$vuecontextmenu()"></div>
         <Spin size="large" fix v-if="terminal.loading"></Spin>
         <VueContextMenu :menulists="menulists" @contentmenu-click="contentmenuClick"></VueContextMenu>
