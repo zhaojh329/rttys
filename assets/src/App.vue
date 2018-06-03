@@ -16,7 +16,7 @@
                 <Button type="primary" size="large" long :loading="upfile.loading" @click="doUpload">{{ upfile.loading ? $t('Uploading') : $t('Click to upload') }}</Button>
             </div>
         </Modal>
-        <Modal v-model="downfile.modal" width="700" :mask-closable="false">
+        <Modal v-model="downfile.modal" width="700" :mask-closable="false" @on-cancel="cancelDownfile">
             <p slot="header"><span>{{ $t('Download file from device') }}</span></p>
             <Tag>{{ downfile.pathname }}</Tag>
             <Table :loading="downfile.loading" v-if="!downfile.downing" :columns="filelistTitle" height="400" :data="downfile.filelist" @on-row-dblclick="filelistDblclick"></Table>
