@@ -36,6 +36,7 @@ import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit';
 import axios from 'axios'
 import * as rtty from './rtty'
+import * as protobuf from 'protobufjs/light'
 
 Terminal.applyAddon(fit);
 
@@ -401,6 +402,31 @@ export default {
                 this.terminal.term.fit();
             }
         });
+
+        let root = protobuf.Root.fromJSON(require("./rtty.pb.json"));
+        let rttyMessage = root.lookupType("rtty.rtty_message");
+
+        // Exemplary payload
+        let payload = { version: 1, type: 12, sid: 'rwetr5345464'};
+
+        // Create a new message
+        let message = rttyMessage.create(payload); // or use .fromObject if conversion is necessary
+
+        // Encode a message to an Uint8Array (browser) or Buffer (node)
+        let buffer = rttyMessage.encode(message).finish();
+
+        // Decode an Uint8Array (browser) or Buffer (node) to a message
+        message = rttyMessage.decode(buffer);
+
+        // Maybe convert the message back to a plain object
+        var object = rttyMessage.toObject(message, {
+            longs: String,
+            enums: String,
+            bytes: String,
+            // see ConversionOptions
+        });
+
+        console.log(object)
     }
 }
 </script>
