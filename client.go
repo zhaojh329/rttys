@@ -45,12 +45,11 @@ var upgrader = websocket.Upgrader{
 type wsMessage struct {
     msgType int
     data []byte
-    c *Client
 }
 
 // Representing a device or user browser
 type Client struct {
-    br *Bridge
+    br *Broker
     isDev bool
     // device description
     description string
@@ -60,10 +59,12 @@ type Client struct {
     sid string
     conn *websocket.Conn
     // Buffered channel of outbound messages.
-    outbound chan *wsMessage
+    outMessage chan *wsMessage
 
     cmdid uint32
     cmd map[uint32]chan *wsMessage
+
+    isJoined bool
 
     // Avoid repeated closes and concurrent map writes
     mutex sync.Mutex
@@ -81,13 +82,15 @@ func (c *Client) wsClose() {
         close(c.closeChan)
     }
 }
-func (c *Client) unregister() {
-    c.br.unregister <- c
+func (c *Client) leave() {
+    if c.isJoined {
+        c.br.leave <- c
+    }
 }
 
 func (c *Client) wsWrite(messageType int, data []byte) error {
     select {
-    case c.outbound <- &wsMessage{messageType, data, c}:
+    case c.outMessage <- &wsMessage{messageType, data}:
     case <- c.closeChan:
         return errors.New("websocket closed")
     }
@@ -96,7 +99,7 @@ func (c *Client) wsWrite(messageType int, data []byte) error {
 
 func (c *Client) readPump() {
     defer func() {
-        c.unregister()
+        c.leave()
     }()
 
     c.conn.SetPongHandler(func(string) error {
@@ -114,10 +117,15 @@ func (c *Client) readPump() {
             break
         }
 
-        msg := &wsMessage{msgType, data, c}
+        msg := &wsMessage{msgType, data}
+
+        inMessage := c.br.inUsrMessage
+        if c.isDev {
+            inMessage = c.br.inDevMessage
+        }        
 
         select {
-        case c.br.inbound <- msg:
+        case inMessage <- msg:
         case <- c.closeChan:
             return
         }
@@ -128,12 +136,12 @@ func (c *Client) writePump() {
     ticker := time.NewTicker(pingPeriod)
     defer func() {
         ticker.Stop()
-        c.unregister()
+        c.leave()
     }()
 
     for {
         select {
-        case msg := <- c.outbound:
+        case msg := <- c.outMessage:
             if err := c.conn.WriteMessage(msg.msgType, msg.data); err != nil {
                 return
             }
@@ -149,7 +157,7 @@ func (c *Client) writePump() {
 }
 
 /* serveWs handles websocket requests from the peer. */
-func serveWs(br *Bridge, w http.ResponseWriter, r *http.Request) {
+func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
     devid := r.URL.Query().Get("devid")
     if devid == "" {
         log.Println("devid required")
@@ -167,7 +175,7 @@ func serveWs(br *Bridge, w http.ResponseWriter, r *http.Request) {
         devid: devid,
         conn: conn,
         timestamp: time.Now().Unix(),
-        outbound: make(chan *wsMessage, 100),
+        outMessage: make(chan *wsMessage, 100),
         closeChan: make(chan byte),
         isClosed: false,
     }
@@ -179,7 +187,7 @@ func serveWs(br *Bridge, w http.ResponseWriter, r *http.Request) {
         client.cmd = make(map[uint32]chan *wsMessage)
     }
 
-    client.br.register <- client
+    client.br.join <- client
 
     go client.readPump()
     go client.writePump()

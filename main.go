@@ -26,10 +26,8 @@ import (
     "strconv"
     "math/rand"
     "net/http"
-    "crypto/md5"
-    "encoding/hex"
     "encoding/json"
-     _ "github.com/zhaojh329/rttys/statik"
+    _ "github.com/zhaojh329/rttys/statik"
     "github.com/rakyll/statik/fs"
 )
 
@@ -37,13 +35,6 @@ type DeviceInfo struct {
     ID string `json:"id"`
     Uptime int64 `json:"uptime"`
     Description string `json:"description"`
-}
-
-func generateSID(devid string) string {
-    md5Ctx := md5.New()
-    md5Ctx.Write([]byte(devid + strconv.FormatFloat(rand.Float64(), 'e', 6, 32)))
-    cipherStr := md5Ctx.Sum(nil)
-    return hex.EncodeToString(cipherStr)
 }
 
 func main() {
@@ -57,7 +48,7 @@ func main() {
 
     log.Println("rttys version:", rttys_version())
 
-    br := newBridge()
+    br := newBroker()
     go br.run()
 
     statikFS, err := fs.New()

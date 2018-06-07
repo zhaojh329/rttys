@@ -12,7 +12,7 @@
   "dependencies": {
     "axios": "^0.18.0",
     "iview": "^2.14.1",
-    "protobufjs": "^6.8.6",
+    "pbf": "^3.1.0",
     "simple-websocket": "^7.0.2",
     "string-format-easy": "^1.0.1",
     "vue": "^2.5.13",
@@ -40,6 +40,7 @@
     "node-notifier": "^5.1.2",
     "optimize-css-assets-webpack-plugin": "^3.2.0",
     "ora": "^1.2.0",
+    "pbf-loader": "^1.1.0",
     "portfinder": "^1.0.13",
     "postcss-import": "^11.1.0",
     "postcss-loader": "^2.1.1",

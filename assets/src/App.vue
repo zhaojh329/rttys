@@ -35,10 +35,62 @@ import { Terminal } from 'xterm'
 import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit';
 import axios from 'axios'
-import * as rtty from './rtty'
-import * as protobuf from 'protobufjs/light'
 
 Terminal.applyAddon(fit);
+
+const Pbf = require('pbf');
+const rttyMsg = require('./rtty.proto').rtty_message;
+
+function rttyMsgInit(type, msg) {
+    let pbf = new Pbf();
+
+    msg.version = 2;
+    msg.type = rttyMsg.Type[type].value;
+    rttyMsg.write(msg, pbf);
+
+    return pbf.finish();
+}
+
+/* utf.js - UTF-8 <=> UTF-16 convertion
+ *
+ * Copyright (C) 1999 Masanao Izumo <iz@onicos.co.jp>
+ * Version: 1.0
+ * LastModified: Dec 25 1999
+ * This library is free.  You can redistribute it and/or modify it.
+ */
+
+function Utf8ArrayToStr(array) {
+    var out, i, len, c;
+    var char2, char3;
+
+    out = "";
+    len = array.length;
+    i = 0;
+    while(i < len) {
+        c = array[i++];
+        switch(c >> 4) {
+        case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7:
+            // 0xxxxxxx
+            out += String.fromCharCode(c);
+            break;
+        case 12: case 13:
+            // 110x xxxx   10xx xxxx
+            char2 = array[i++];
+            out += String.fromCharCode(((c & 0x1F) << 6) | (char2 & 0x3F));
+            break;
+        case 14:
+            // 1110 xxxx  10xx xxxx  10xx xxxx
+            char2 = array[i++];
+            char3 = array[i++];
+            out += String.fromCharCode(((c & 0x0F) << 12) |
+                           ((char2 & 0x3F) << 6) |
+                           ((char3 & 0x3F) << 0));
+            break;
+        }
+    }
+
+    return out;
+}
 
 export default {
     data() {
@@ -149,8 +201,8 @@ export default {
                 this.filterDownFile = '';
                 this.downfile = {modal: true, loading: true, path: [], pathname: '/', filelist: [], downing: false, percent: 0};
 
-                let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid});
-                this.ws.send(pkt);
+                let msg = rttyMsgInit('DOWNFILE', {sid: this.sid});
+                this.ws.send(msg);
             } else if (name == 'increasefontsize') {
                 changeFontSize = 1;
             } else if (name == 'decreasefontsize') {
@@ -185,10 +237,11 @@ export default {
                 if (this.upfile.canceled)
                     return;
 
-                let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, code: 1, data: fr.result});
-                this.ws.send(pkt);
+                let msg = rttyMsgInit('UPFILE', {sid: this.sid, code: rttyMsg.FileCode.FILEDATA.value, data: Buffer.from(fr.result)});
+                this.ws.send(msg);
+
                 this.upfile.pos += e.loaded;
-                this.upfile.percent = Math.round(this.upfile.pos / this.upfile.file.size * 100)
+                this.upfile.percent = Math.round(this.upfile.pos / this.upfile.file.size * 100);
 
                 if (this.upfile.pos < this.upfile.file.size) {
                     /* Control the client read speed based on the current buffer and server */
@@ -207,8 +260,9 @@ export default {
                 }
             };
 
-            let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, name: this.upfile.file.name, size: this.upfile.file.size, code: 0});
-            this.ws.send(pkt);
+            let msg = rttyMsgInit('UPFILE', {sid: this.sid, name: this.upfile.file.name, size: this.upfile.file.size, code: rttyMsg.FileCode.START.value});
+            this.ws.send(msg);
+
             this.readFile(fr);
         },
         cancelUpfile() {
@@ -216,8 +270,9 @@ export default {
                 return;
             this.upfile.canceled = true;
             this.$Message.info(this.$t('Upload canceled'));
-            let pkt = rtty.newPacket(rtty.RTTY_PACKET_UPFILE, {sid: this.sid, code: 2});
-            this.ws.send(pkt);
+
+            let msg = rttyMsgInit('UPFILE', {sid: this.sid, code: rttyMsg.FileCode.CANCELED.value});
+            this.ws.send(msg);
         },
         handleFilterDownFile() {
             this.downfile.filelistFiltered = this.downfile.filelist.filter(d => {
@@ -250,14 +305,16 @@ export default {
             }
 
             attr.name = this.downfile.pathname;
-            let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, attr);
-            this.ws.send(pkt);
+
+            let msg = rttyMsgInit('DOWNFILE', attr);
+            this.ws.send(msg);
         },
 
         cancelDownfile() {
             if (this.downfile.downing == true) {
-                let pkt = rtty.newPacket(rtty.RTTY_PACKET_DOWNFILE, {sid: this.sid, code: 1});
-                this.ws.send(pkt);
+                let msg = rttyMsgInit('DOWNFILE', {sid: this.sid, code: rttyMsg.FileCode.CANCELED.value});
+                this.ws.send(msg);
+
                 this.$Message.info(this.$t('Download canceled'));
             }
         },
@@ -277,7 +334,7 @@ export default {
                 term.destroy();
         },
         login() {
-            var term = new Terminal({
+            let term = new Terminal({
                 cursorBlink: true,
                 fontSize: 16
             });
@@ -286,61 +343,62 @@ export default {
             term.focus();
             this.terminal.term = term;
 
-            var protocol = 'ws://';
+            let protocol = 'ws://';
             if (location.protocol == 'https:')
                 protocol = 'wss://';
 
-            var ws = new Socket(protocol + location.host + '/ws?devid=' + this.devId);
+            let ws = new Socket(protocol + location.host + '/ws?devid=' + this.devId);
             ws.on('connect', () => {
                 ws.on('data', (data) => {
-                    let pkt = rtty.parsePacket(data);
+                    let pbf = new Pbf(data);
+                    let msg = rttyMsg.read(pbf);
 
-                    if (pkt.typ == rtty.RTTY_PACKET_LOGINACK) {
+                    if (msg.type == rttyMsg.Type.LOGINACK.value) {
                         this.terminal.loading = false;
 
-                        if (pkt.code != 0) {
+                        if (msg.code == rttyMsg.LoginCode.OFFLINE.value) {
                             this.$Message.error(this.$t('Device offline'));
                             this.logout(null, term);
                             return;
                         }
                         this.ws = ws;
-                        this.sid = pkt.sid;
+                        this.sid = msg.sid;
                         term.on('data', (data) => {
-                            let pkt = rtty.newPacket(rtty.RTTY_PACKET_TTY, {sid: this.sid, data: Buffer.from(data)});
-                            ws.send(pkt);
+                            let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(data)});
+                            ws.send(msg);
                         });
-                    } else if (pkt.typ == rtty.RTTY_PACKET_TTY) {
+                    } else if (msg.type == rttyMsg.Type.TTY.value) {
                         this.terminal.recvCnt++;
-                        var data = pkt.data.toString();
+                        let data = Utf8ArrayToStr(msg.data);
                         if (this.terminal.recvCnt < 4) {
                             if (data.match('login:') && this.username != '') {
-                                let pkt = rtty.newPacket(rtty.RTTY_PACKET_TTY, {sid: this.sid, data: this.username + '\n'});
-                                ws.send(pkt);
+                                let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(this.username + '\n')});
+                                ws.send(msg);
                                 return;
                             }
 
                             if (data.match('Password:') && this.password != '') {
-                                let pkt = rtty.newPacket(rtty.RTTY_PACKET_TTY, {sid: this.sid, data: this.password + '\n'});
-                                ws.send(pkt);
+                                let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(this.password + '\n')});
+                                ws.send(msg);
                                 return;
                             }
                         }
                         term.write(data);
-                    } else if (pkt.typ == rtty.RTTY_PACKET_DOWNFILE) {
-                        let code = pkt.code;
-                        if (code == 0) {
+                    } else if (msg.type == rttyMsg.Type.DOWNFILE.value) {
+                        let code = msg.code;
+                        if (code == rttyMsg.FileCode.START.value) {
                             this.downfile.loading = false;
-                            this.downfile.filelist = JSON.parse(pkt.data.toString());
+                            this.downfile.filelist = JSON.parse(Utf8ArrayToStr(msg.data));
                             this.handleFilterDownFile();
                         }
-                        else if (code == 1) {
+                        else if (code == rttyMsg.FileCode.FILEDATA.value) {
                             if (!this.downfile.data)
-                                this.downfile.data = new Blob([pkt.data]);
+                                this.downfile.data = new Blob([msg.data]);
                             else
-                                this.downfile.data = new Blob([this.downfile.data, pkt.data]);
-                            this.downfile.received += pkt.data.byteLength;
+                                this.downfile.data = new Blob([this.downfile.data, msg.data]);
+                            this.downfile.received += msg.data.byteLength;
                             this.downfile.percent = Math.round(this.downfile.received / this.downfile.size * 100);
-                        } else if (code == 2) {
+                        } else if (code == rttyMsg.FileCode.END.value) {
                             let url = URL.createObjectURL(this.downfile.data);
                             let a = document.createElement('a');
                             a.download = this.downfile.pathname;
@@ -351,8 +409,8 @@ export default {
                             this.downfile.downing = false;
                             this.$Message.info(this.$t('Download Finish'));
                         }
-                    } else if (pkt.typ == rtty.RTTY_PACKET_UPFILE) {
-                        if (pkt.code == 5) {
+                    } else if (msg.type == rttyMsg.Type.UPFILE.value) {
+                        if (msg.code == rttyMsg.FileCode.RATELIMIT.value) {
                             /* Need reduce the sending rate */
                             this.ratelimit = true;
                         }
@@ -402,31 +460,6 @@ export default {
                 this.terminal.term.fit();
             }
         });
-
-        let root = protobuf.Root.fromJSON(require("./rtty.pb.json"));
-        let rttyMessage = root.lookupType("rtty.rtty_message");
-
-        // Exemplary payload
-        let payload = { version: 1, type: 12, sid: 'rwetr5345464'};
-
-        // Create a new message
-        let message = rttyMessage.create(payload); // or use .fromObject if conversion is necessary
-
-        // Encode a message to an Uint8Array (browser) or Buffer (node)
-        let buffer = rttyMessage.encode(message).finish();
-
-        // Decode an Uint8Array (browser) or Buffer (node) to a message
-        message = rttyMessage.decode(buffer);
-
-        // Maybe convert the message back to a plain object
-        var object = rttyMessage.toObject(message, {
-            longs: String,
-            enums: String,
-            bytes: String,
-            // see ConversionOptions
-        });
-
-        console.log(object)
     }
 }
 </script>
