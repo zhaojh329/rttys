@@ -37,6 +37,12 @@ type DeviceInfo struct {
     Description string `json:"description"`
 }
 
+func allowOrigin(w http.ResponseWriter) {
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
+    w.Header().Set("content-type", "application/json")
+}
+
 func main() {
     port := flag.Int("port", 5912, "http service port")
     cert := flag.String("cert", "", "certFile Path")
@@ -58,6 +64,7 @@ func main() {
     }
 
     staticfs := http.FileServer(statikFS)
+
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
         if r.URL.Path == "/" {
             t := r.URL.Query().Get("t")
@@ -68,36 +75,35 @@ func main() {
                 return
             }
         }
-        staticfs.ServeHTTP(w, r)
-    })
 
-    http.HandleFunc("/devs", func(w http.ResponseWriter, r *http.Request) {
-        devs := make([]DeviceInfo, 0)
-        for _, c := range br.devices {
-            if c.isDev {
-                d := DeviceInfo{c.devid, time.Now().Unix() - c.timestamp, c.description}
-                devs = append(devs, d)
+        if r.URL.Path == "/devs" {
+            devs := make([]DeviceInfo, 0)
+            for _, c := range br.devices {
+                if c.isDev {
+                    d := DeviceInfo{c.devid, time.Now().Unix() - c.timestamp, c.description}
+                    devs = append(devs, d)
+                }
             }
+
+            allowOrigin(w)
+
+            rsp, _ := json.Marshal(devs)
+            w.Write(rsp)
+            return
         }
 
-        w.Header().Set("Access-Control-Allow-Origin", "*")
-        w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-        w.Header().Set("content-type", "application/json")
+        if r.URL.Path == "/cmd" {
+            allowOrigin(w)
+            serveCmd(br, w, r)
+            return
+        }
 
-        js, _ := json.Marshal(devs)
-        w.Write(js)
-    })
+        if r.URL.Path == "/ws" {
+            serveWs(br, w, r)
+            return
+        }
 
-    http.HandleFunc("/cmd", func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Access-Control-Allow-Origin", "*")
-        w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-        w.Header().Set("content-type", "application/json")
-
-        serveCmd(br, w, r)
-    })
-
-    http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-        serveWs(br, w, r)
+        staticfs.ServeHTTP(w, r)
     })
 
     if *cert != "" && *key != "" {
