@@ -20,21 +20,33 @@
 package main
 
 import (
-    "flag"
+    "os"
+    "fmt"
     "log"
+    "sync"
+    "flag"
     "time"
     "strconv"
+    "syscall"
+    "crypto/md5"
     "math/rand"
     "net/http"
+    "encoding/hex"
     "encoding/json"
     _ "github.com/zhaojh329/rttys/statik"
     "github.com/rakyll/statik/fs"
 )
 
+const MAX_SESSION_TIME = 30 * time.Minute
+
 type DeviceInfo struct {
     ID string `json:"id"`
     Uptime int64 `json:"uptime"`
     Description string `json:"description"`
+}
+
+type HttpSession struct {
+    active time.Duration
 }
 
 func allowOrigin(w http.ResponseWriter) {
@@ -43,10 +55,60 @@ func allowOrigin(w http.ResponseWriter) {
     w.Header().Set("content-type", "application/json")
 }
 
+var hsMutex sync.Mutex
+var httpSessions = make(map[string]*HttpSession)
+
+func cleanHttpSession() {
+    defer hsMutex.Unlock()
+
+    hsMutex.Lock()
+    for sid, s := range httpSessions {
+        s.active = s.active - time.Second
+        if s.active == 0 {
+            delete(httpSessions, sid)
+        }
+    }
+    time.AfterFunc(1 * time.Second, cleanHttpSession)
+}
+
+func generateHttpSID(username, password string) string {
+    md5Ctx := md5.New()
+    md5Ctx.Write([]byte(username + strconv.FormatFloat(rand.Float64(), 'e', 6, 32) + password))
+    cipherStr := md5Ctx.Sum(nil)
+    return hex.EncodeToString(cipherStr)
+}
+
+func httpAuth(w http.ResponseWriter, r *http.Request) bool {
+    c, err := r.Cookie("sid")
+    if err != nil {
+        http.Error(w, "Forbidden", http.StatusForbidden)
+        return false
+    }
+
+    defer hsMutex.Unlock()
+
+    hsMutex.Lock()
+
+    s, ok := httpSessions[c.Value]
+    if !ok {
+        http.Error(w, "Forbidden", http.StatusForbidden)
+        return false
+    }
+
+    s.active = MAX_SESSION_TIME
+
+    return true
+}
+
 func main() {
     port := flag.Int("port", 5912, "http service port")
     cert := flag.String("cert", "", "certFile Path")
     key := flag.String("key", "", "keyFile Path")
+
+    if syscall.Getuid() != 0 {
+        log.Println("Operation not permitted")
+        os.Exit(1)
+    }
 
     flag.Parse()
 
@@ -65,6 +127,60 @@ func main() {
 
     staticfs := http.FileServer(statikFS)
 
+    http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+        serveWs(br, w, r)
+    })
+
+    http.HandleFunc("/cmd", func(w http.ResponseWriter, r *http.Request) {
+        allowOrigin(w)
+        serveCmd(br, w, r)
+    })
+
+    http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+        username := r.PostFormValue("username")
+        password := r.PostFormValue("password")
+
+        if login(username, password) {
+            sid := generateHttpSID(username, password)
+            cookie := http.Cookie{
+                Name: "sid",
+                Value: sid,
+                HttpOnly: true,
+            }
+
+            hsMutex.Lock()
+            httpSessions[sid] = &HttpSession{
+                active: MAX_SESSION_TIME,
+            }
+            hsMutex.Unlock()
+
+            w.Header().Set("Set-Cookie", cookie.String())
+            fmt.Fprint(w, sid)
+            return
+        }
+
+        http.Error(w, "Forbidden", http.StatusForbidden)
+    })
+
+    http.HandleFunc("/devs", func(w http.ResponseWriter, r *http.Request) {
+        if !httpAuth(w, r) {
+            return
+        }
+
+        devs := make([]DeviceInfo, 0)
+        for _, c := range br.devices {
+            if c.isDev {
+                d := DeviceInfo{c.devid, time.Now().Unix() - c.timestamp, c.description}
+                devs = append(devs, d)
+            }
+        }
+
+        allowOrigin(w)
+
+        rsp, _ := json.Marshal(devs)
+        w.Write(rsp)
+    })    
+
     http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
         if r.URL.Path == "/" {
             t := r.URL.Query().Get("t")
@@ -74,33 +190,6 @@ func main() {
                 http.Redirect(w, r, "/?t=" + strconv.FormatInt(time.Now().Unix(), 10), http.StatusFound)
                 return
             }
-        }
-
-        if r.URL.Path == "/devs" {
-            devs := make([]DeviceInfo, 0)
-            for _, c := range br.devices {
-                if c.isDev {
-                    d := DeviceInfo{c.devid, time.Now().Unix() - c.timestamp, c.description}
-                    devs = append(devs, d)
-                }
-            }
-
-            allowOrigin(w)
-
-            rsp, _ := json.Marshal(devs)
-            w.Write(rsp)
-            return
-        }
-
-        if r.URL.Path == "/cmd" {
-            allowOrigin(w)
-            serveCmd(br, w, r)
-            return
-        }
-
-        if r.URL.Path == "/ws" {
-            serveWs(br, w, r)
-            return
         }
 
         staticfs.ServeHTTP(w, r)
