@@ -18,7 +18,7 @@
         </Modal>
         <Modal v-model="downfile.modal" width="700" :mask-closable="false" @on-cancel="cancelDownfile">
             <p slot="header"><span>{{ $t('Download file from device') }}</span></p>
-            <Input v-model="filterDownFile" icon="search" @on-change="handleFilterDownFile" :placeholder="$t('Please enter the filter key...')">
+            <Input v-if="!downfile.downing" v-model="filterDownFile" icon="search" @on-change="handleFilterDownFile" :placeholder="$t('Please enter the filter key...')">
                 <span slot="prepend">{{ downfile.pathname }}</span>
             </Input>
             <Table :loading="downfile.loading" v-if="!downfile.downing" :columns="filelistTitle" height="400" :data="downfile.filelistFiltered" @on-row-dblclick="filelistDblclick"></Table>
