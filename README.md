@@ -44,7 +44,7 @@ https://github.com/zhaojh329/rttys/releases
 
 ## Run in background (Ubuntu)
 
-	update-rc.d rttys defaults
+	sudo update-rc.d rttys defaults
     sudo /etc/init.d/rttys start
 
 # Contributing

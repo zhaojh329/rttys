@@ -44,7 +44,7 @@ https://github.com/zhaojh329/rttys/releases
 
 ## 后台运行 (Ubuntu)
 
-	update-rc.d rttys defaults
+	sudo update-rc.d rttys defaults
     sudo /etc/init.d/rttys start
 
 # 贡献代码
