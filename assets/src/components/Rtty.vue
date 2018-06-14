@@ -91,7 +91,7 @@ export default {
                     }
                 }, {
                     title: this.$t('modification'),
-                    key: 'mtim',
+                    key: 'mtime',
                     sortable: true,
                     render: (h, params) => {
                         if (params.row.mtim)
@@ -320,7 +320,7 @@ export default {
                     let code = msg.code;
                     if (code == rttyMsg.FileCode.START.value) {
                         this.downfile.loading = false;
-                        this.downfile.filelist = JSON.parse(Utf8ArrayToStr(msg.data));
+                        this.downfile.filelist = msg.filelist;
                         this.handleFilterDownFile();
                     }
                     else if (code == rttyMsg.FileCode.FILEDATA.value) {
