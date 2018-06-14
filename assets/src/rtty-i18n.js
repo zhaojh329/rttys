@@ -30,7 +30,8 @@ const RttyI18n = {
 		'Login': '登录',
 		'username is required': '用户名为必填',
 		'Login Fail! username or password wrong.': '登录失败，用户名或密码错误',
-		'Connect failed': '连接失败'
+		'Connect failed': '连接失败',
+		'Online Device: {count}': '在线设备数：{count}',
 	}
 }
 
