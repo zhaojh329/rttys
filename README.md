@@ -29,7 +29,7 @@ https://github.com/zhaojh329/rttys/releases
 
 ## Manual run
 
-    rttys -cert /etc/rttys/rttys.crt -key /etc/rttys/rttys.key
+    sudo rttys -cert /etc/rttys/rttys.crt -key /etc/rttys/rttys.key
 
 ## See Supported Command Line Parameters
 

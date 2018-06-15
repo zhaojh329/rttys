@@ -29,7 +29,7 @@ https://github.com/zhaojh329/rttys/releases
 
 ## 手动运行
 
-    rttys -cert /etc/rttys/rttys.crt -key /etc/rttys/rttys.key
+    sudo rttys -cert /etc/rttys/rttys.crt -key /etc/rttys/rttys.key
 
 ## 查看支持哪些命令参数
 
