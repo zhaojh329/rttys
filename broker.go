@@ -20,7 +20,6 @@
 package main
 
 import (
-    "log"
     "time"
     "strconv"
     "math/rand"
@@ -104,7 +103,7 @@ func (br *Broker) newSession(user *Client) bool {
         })
         dev.wsWrite(websocket.BinaryMessage, msg)
         
-        log.Println("New session:", sid)
+        rlog.Println("New session:", sid)
         return true
     } else {
         // Write to user
@@ -116,7 +115,7 @@ func (br *Broker) newSession(user *Client) bool {
         })
         user.wsWrite(websocket.BinaryMessage, msg)
 
-        log.Println("Device", devid, "offline")
+        rlog.Println("Device", devid, "offline")
         return false
     }
 }
@@ -125,7 +124,7 @@ func delSession(sessions map[string]*Session, sid string) {
     if session, ok := sessions[sid]; ok {
         delete(sessions, sid)
         session.user.wsClose()
-        log.Println("Delete session: ", sid)
+        rlog.Println("Delete session: ", sid)
 
         if session.dev != nil {
             msg := RttyMessageInit(&rtty.RttyMessage{
@@ -181,12 +180,12 @@ func (br *Broker) run() {
         case client := <- br.join:
             if client.isDev {
                 if _, ok := br.devices[client.devid]; ok {
-                    log.Println("ID conflicting:", client.devid)
+                    rlog.Println("ID conflicting:", client.devid)
                     client.wsClose();
                 } else {
                     client.isJoined = true
                     br.devices[client.devid] = client
-                    log.Printf("New device:id('%s'), description('%s')", client.devid, client.description)
+                    rlog.Printf("New device:id('%s'), description('%s')", client.devid, client.description)
                 }
             } else {
                 // From user browse
@@ -199,7 +198,7 @@ func (br *Broker) run() {
                 client.wsClose()
 
                 if dev, ok := br.devices[client.devid]; ok {
-                    log.Printf("Dead device:id('%s'), description('%s')", dev.devid, dev.description)
+                    rlog.Printf("Dead device:id('%s'), description('%s')", dev.devid, dev.description)
                     delete(br.devices, dev.devid)
                 }
 

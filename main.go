@@ -22,7 +22,6 @@ package main
 import (
     "os"
     "fmt"
-    "log"
     "sync"
     "flag"
     "time"
@@ -106,7 +105,7 @@ func main() {
     key := flag.String("key", "", "keyFile Path")
 
     if syscall.Getuid() != 0 {
-        log.Println("Operation not permitted")
+        rlog.Println("Operation not permitted")
         os.Exit(1)
     }
 
@@ -114,14 +113,14 @@ func main() {
 
     rand.Seed(time.Now().Unix())
 
-    log.Println("rttys version:", rttys_version())
+    rlog.Println("rttys version:", rttys_version())
 
     br := newBroker()
     go br.run()
 
     statikFS, err := fs.New()
     if err != nil {
-        log.Fatal(err)
+        rlog.Fatal(err)
         return
     }
 
@@ -196,10 +195,10 @@ func main() {
     })
 
     if *cert != "" && *key != "" {
-        log.Println("Listen on: ", *port, "SSL on")
-        log.Fatal(http.ListenAndServeTLS(":" + strconv.Itoa(*port), *cert, *key, nil))
+        rlog.Println("Listen on: ", *port, "SSL on")
+        rlog.Fatal(http.ListenAndServeTLS(":" + strconv.Itoa(*port), *cert, *key, nil))
     } else {
-        log.Println("Listen on: ", *port, "SSL off")
-        log.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
+        rlog.Println("Listen on: ", *port, "SSL off")
+        rlog.Fatal(http.ListenAndServe(":" + strconv.Itoa(*port), nil))
     }
 }

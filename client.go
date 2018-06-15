@@ -20,7 +20,6 @@
 package main
 
 import (
-    "log"
     "time"
     "sync"
     "errors"
@@ -112,7 +111,7 @@ func (c *Client) readPump() {
         msgType, data, err := c.conn.ReadMessage()
         if err != nil {
             if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-                log.Printf("error: %v", err)
+                rlog.Printf("error: %v", err)
             }
             break
         }
@@ -160,13 +159,13 @@ func (c *Client) writePump() {
 func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
     devid := r.URL.Query().Get("devid")
     if devid == "" {
-        log.Println("devid required")
+        rlog.Println("devid required")
         return
     }
 
     conn, err := upgrader.Upgrade(w, r, nil)
     if err != nil {
-        log.Println(err)
+        rlog.Println(err)
         return
     }
 
