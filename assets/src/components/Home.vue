@@ -4,7 +4,7 @@
             <Col span="6">
                 <Input v-model="filterString" icon="search" size="large" @on-change="handleSearch" :placeholder="$t('Please enter the filter key...')" style="width: 400px" />
             </Col>
-            <Col span="3" offset="15" class="counter">{{ $t('Online Device: {count}', {count: devlists.length}) }}</Col>
+            <Col span="3" offset="15" class="counter">{{ $t('device-count', {count: devlists.length}) }}</Col>
          </Row>
         <Table :loading="loading" :columns="devlistTitle" :data="filtered" style="margin-top: 10px; width: 100%" :no-data-text="$t('No devices connected')"></Table>
 	</div>

@@ -1,6 +1,7 @@
 const RttyI18n = {
 	'en-US': {
-		'upfile-info': 'The file "{name}" will be saved in the "/tmp/" directory of your device.'
+		'upfile-info': 'The file "{name}" will be saved in the "/tmp/" directory of your device.',
+		'device-count': 'Online Device: {count}'
 	},
 	'zh-CN': {
 		'Description': '描述',
@@ -31,7 +32,7 @@ const RttyI18n = {
 		'username is required': '用户名为必填',
 		'Login Fail! username or password wrong.': '登录失败，用户名或密码错误',
 		'Connect failed': '连接失败',
-		'Online Device: {count}': '在线设备数：{count}',
+		'device-count': '在线设备数：{count}',
 	}
 }
 
