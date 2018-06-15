@@ -19,7 +19,7 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
 `Keep Watching for More Actions on This Space`
 
 # How to install
-## Download the compiled file according to your own platform
+## Download the compiled file(x64)
 
 https://github.com/zhaojh329/rttys/releases
 
@@ -46,6 +46,10 @@ https://github.com/zhaojh329/rttys/releases
 
 	sudo update-rc.d rttys defaults
     sudo /etc/init.d/rttys start
+
+View log
+
+	cat /var/log/rtty.log
 
 # Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,

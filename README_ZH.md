@@ -19,7 +19,7 @@
 `请保持关注以获取最新的项目动态`
 
 # How to install
-## 根据自己的平台下载编译好的文件
+## 下载编译好的文件(x64)
 
 https://github.com/zhaojh329/rttys/releases
 
@@ -46,6 +46,10 @@ https://github.com/zhaojh329/rttys/releases
 
 	sudo update-rc.d rttys defaults
     sudo /etc/init.d/rttys start
+
+查看日志
+
+	cat /var/log/rtty.log
 
 # 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
