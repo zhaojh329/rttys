@@ -249,13 +249,10 @@ export default {
     },
     mounted() {
         let devid = this.$route.query.devid;
-        let protocol = 'ws://';
+        let protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://';
 
         this.username = this.$route.query.username;
         this.password = this.$route.query.password;
-
-        if (location.protocol == 'https:')
-            protocol = 'wss://';
 
         let ws = new Socket(protocol + location.host + '/ws?devid=' + devid);
         this.ws = ws;
