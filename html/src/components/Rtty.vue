@@ -279,6 +279,8 @@ export default {
 
             term.on('resize', (size) => {
                 setTimeout(() => {
+                    let msg = rttyMsgInit('WINSIZE', {sid: this.sid, cols: size.cols, rows: size.rows});
+                    ws.send(msg);
                     term.showOverlay(size.cols + 'x' + size.rows);
                 }, 500);
             });
@@ -297,6 +299,9 @@ export default {
                     }
 
                     this.sid = msg.sid;
+
+                    msg = rttyMsgInit('WINSIZE', {sid: this.sid, cols: term.cols, rows: term.rows});
+                    ws.send(msg);
 
                     term.on('data', (data) => {
                         let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(data)});
