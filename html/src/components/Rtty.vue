@@ -257,6 +257,11 @@ export default {
         let ws = new Socket(protocol + location.host + '/ws?devid=' + devid);
         this.ws = ws;
 
+        window.addEventListener('resize', () => {
+            if  (this.term)
+                this.term.fit();
+        });
+
         ws.on('connect', () => {
             let term = new Terminal({
                 cursorBlink: true,
