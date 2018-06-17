@@ -33,9 +33,11 @@ import * as Socket from 'simple-websocket';
 import { Terminal } from 'xterm'
 import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit';
+import * as overlay from '@/overlay';
 import Utf8ArrayToStr from '@/utf8array_str'
 
 Terminal.applyAddon(fit);
+Terminal.applyAddon(overlay);
 
 const Pbf = require('pbf');
 const rttyMsg = require('@/rtty.proto').rtty_message;
@@ -257,11 +259,6 @@ export default {
         let ws = new Socket(protocol + location.host + '/ws?devid=' + devid);
         this.ws = ws;
 
-        window.addEventListener('resize', () => {
-            if  (this.term)
-                this.term.fit();
-        });
-
         ws.on('connect', () => {
             let term = new Terminal({
                 cursorBlink: true,
@@ -271,6 +268,20 @@ export default {
             term.open(this.$refs['terminal']);
             term.fit();
             term.focus();
+            term.showOverlay(term.cols + 'x' + term.rows);
+
+            window.addEventListener('resize', () => {
+                clearTimeout(window.resizedFinished);
+                window.resizedFinished = setTimeout(() => {
+                    term.fit();
+                }, 250);
+            });
+
+            term.on('resize', (size) => {
+                setTimeout(() => {
+                    term.showOverlay(size.cols + 'x' + size.rows);
+                }, 500);
+            });
 
             this.term = term;
 
