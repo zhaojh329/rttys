@@ -101,7 +101,7 @@ export default {
                     }
                 }
             ],
-            upfile: {modal: false, file: null, step: 2048, pos: 0, percent: 0, loading: false},
+            upfile: {modal: false, file: null, step: 8192, pos: 0, percent: 0, loading: false},
             downfile: {modal: false, loading: true, pathname: '/', filelist: [], filelistFiltered: [], downing: false, percent: 0, filter: ''},
         }
     },
@@ -126,7 +126,7 @@ export default {
                 return;
 
             if (name == 'upfile') {
-                this.upfile = {modal: true, file: null, step: 2048, pos: 0, percent: 0, loading: false};
+                this.upfile = {modal: true, file: null, step: 8192, pos: 0, percent: 0, loading: false};
             } else if (name == 'downfile') {
                 this.downfile = {modal: true, loading: true, path: [], pathname: '/', filelist: [], downing: false, percent: 0, filter: ''};
                 let msg = rttyMsgInit('DOWNFILE', {sid: this.sid});
