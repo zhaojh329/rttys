@@ -18,20 +18,21 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
 
 `Keep Watching for More Actions on This Space`
 
-# How to install
+# How to install and run
 ## Download the compiled file(x64)
 
 https://github.com/zhaojh329/rttys/releases
 
-## Decompress the file to your root path
+## Linux
+### Decompress the file you downloaded to your root path
 
 	sudo tar -zxvf rttys-x64.tar.gz -C /
 
-## Manual run
+### Manual run
 
     sudo rttys -cert /etc/rttys/rttys.crt -key /etc/rttys/rttys.key
 
-## See Supported Command Line Parameters
+### See Supported Command Line Parameters
 
 	$ rttys -h
 	Usage of rttys:
@@ -42,14 +43,20 @@ https://github.com/zhaojh329/rttys/releases
 	  -port int
 	        http service port (default 5912)
 
-## Run in background (Ubuntu)
+### Run in background (Ubuntu)
 
 	sudo update-rc.d rttys defaults
     sudo /etc/init.d/rttys start
 
-View log
+### View log
 
 	cat /var/log/rtty.log
+
+## Windows
+### First unzip the file you downloaded
+### Open Command Prompt and enter the directory where rttys.exe is located
+
+	rttys -cert rttys.crt -key rttys.key
 
 # Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
