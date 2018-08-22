@@ -27,7 +27,6 @@ import (
     "time"
     "runtime"
     "strconv"
-    "syscall"
     "crypto/md5"
     "math/rand"
     "net/http"
@@ -105,7 +104,7 @@ func main() {
     cert := flag.String("cert", "", "certFile Path")
     key := flag.String("key", "", "keyFile Path")
 
-    if syscall.Getuid() != 0 {
+    if !checkUser() {
         rlog.Println("Operation not permitted")
         os.Exit(1)
     }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"unsafe"
+	"syscall"
 )
 
 /*
@@ -39,6 +40,10 @@ static bool login(const char *username, const char *password)
 }
 */
 import "C"
+
+func checkUser() bool {
+    return syscall.Getuid() == 0
+}
 
 func login(username, password string) bool {
 	c_username := C.CString(username)
