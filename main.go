@@ -25,6 +25,7 @@ import (
     "sync"
     "flag"
     "time"
+    "runtime"
     "strconv"
     "syscall"
     "crypto/md5"
@@ -113,6 +114,7 @@ func main() {
 
     rand.Seed(time.Now().Unix())
 
+    rlog.Printf("go version: %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
     rlog.Println("rttys version:", rttys_version())
 
     br := newBroker()
