@@ -52,7 +52,7 @@ var cmdMutex sync.Mutex
 var command = make(map[uint32]chan *rtty.RttyMessage)
 
 func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
-    ticker := time.NewTicker(time.Second * 5)
+    ticker := time.NewTicker(time.Second * 10)
     defer func() {
         ticker.Stop()
     }()
@@ -114,6 +114,9 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 
             return
         case <- ticker.C:
+            cmdMutex.Lock()
+            delete(command, id)
+            cmdMutex.Unlock()
             err = rtty.RttyMessage_CommandErr_value["TIMEOUT"]
             goto Err
         }
