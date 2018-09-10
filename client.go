@@ -167,6 +167,7 @@ func (c *Client) keepAlive() {
             case <- ticker.C:
                 alive--
                 if alive == 0 {
+                    rlog.Printf("Inactive device in long time, now kill it(%s)\n", c.devid)
                     return
                 }
         }
@@ -208,5 +209,8 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
 
     go client.readPump()
     go client.writePump()
-    go client.keepAlive()
+
+    if client.isDev {
+        go client.keepAlive()
+    }
 }
