@@ -156,7 +156,6 @@ func (c *Client) keepAlive() {
     pingHandler := c.conn.PingHandler()
 
     c.conn.SetPingHandler(func(appData string) error {
-        rlog.Printf("Recv ping\n")
         alive = aliveTimes
         return pingHandler(appData)
     })
@@ -167,7 +166,6 @@ func (c *Client) keepAlive() {
                 return
             case <- ticker.C:
                 alive--
-                rlog.Printf("alive: %d\n", alive)
                 if alive == 0 {
                     return
                 }
