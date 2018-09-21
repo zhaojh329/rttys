@@ -31,9 +31,6 @@ import (
 const (
     RTTY_PROTO_VERSION = 1
 
-    // pings period of client.
-    pingPeriod = 5 * time.Second
-
     // Max lose ping times
     aliveTimes = 3
 )
@@ -147,8 +144,10 @@ func (c *Client) writePump() {
     }
 }
 
-func (c *Client) keepAlive() {
-    ticker := time.NewTicker(pingPeriod)
+func (c *Client) keepAlive(keepalive int64) {
+    ticker := time.NewTicker(time.Second)
+    last := time.Now().Unix()
+    keepalive = keepalive + 3
     alive := aliveTimes
 
     defer func() {
@@ -160,6 +159,7 @@ func (c *Client) keepAlive() {
 
     c.conn.SetPingHandler(func(appData string) error {
         alive = aliveTimes
+        last = time.Now().Unix()
         return pingHandler(appData)
     })
 
@@ -168,10 +168,14 @@ func (c *Client) keepAlive() {
             case <- c.closeChan:
                 return
             case <- ticker.C:
-                alive--
-                if alive == 0 {
-                    rlog.Printf("Inactive device in long time, now kill it(%s)\n", c.devid)
-                    return
+                now := time.Now().Unix()
+                if now - last > keepalive {
+                    alive--
+                    last = now
+                    if alive == 0 {
+                        rlog.Printf("Inactive device in long time, now kill it(%s)\n", c.devid)
+                        return
+                    }
                 }
         }
     }
@@ -179,9 +183,10 @@ func (c *Client) keepAlive() {
 
 /* serveWs handles websocket requests from the peer. */
 func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
+    keepalive, _ := strconv.ParseInt(r.URL.Query().Get("keepalive"), 10, 64)
+    proto,_ := strconv.Atoi(r.URL.Query().Get("proto"))
     isDev := r.URL.Query().Get("device") != ""
     devid := r.URL.Query().Get("devid")
-    proto := r.URL.Query().Get("proto")
 
     if devid == "" {
         rlog.Println("devid required")
@@ -189,8 +194,7 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
     }
 
     if isDev {
-        proto_num, err := strconv.Atoi(proto)
-        if err != nil || proto_num != RTTY_PROTO_VERSION {
+        if proto != RTTY_PROTO_VERSION {
             rlog.Printf("proto number is not matched for device '%s', you need to update your server(rttys) or client(rtty) or both them", devid)
             return
         }
@@ -223,7 +227,7 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
     go client.readPump()
     go client.writePump()
 
-    if client.isDev {
-        go client.keepAlive()
+    if client.isDev && keepalive > 0 {
+        go client.keepAlive(keepalive)
     }
 }
