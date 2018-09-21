@@ -162,15 +162,6 @@ func dispatchMsg(data []byte, isDev bool, br *Broker) {
         } else {
             session.dev.wsWrite(websocket.BinaryMessage, data)
         }
-
-        if msg.Type == rtty.RttyMessage_UPFILE && len(session.dev.outMessage) > 10 {
-            msg := RttyMessageInit(&rtty.RttyMessage{
-                Version: RTTY_MESSAGE_VERSION,
-                Type: rtty.RttyMessage_UPFILE,
-                Code: rtty.RttyMessage_FileCode_value["RATELIMIT"],
-            })
-            session.user.wsWrite(websocket.BinaryMessage, msg)
-        }
     }
 }
 

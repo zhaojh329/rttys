@@ -13,7 +13,7 @@ const RttyI18n = {
 		'Download file from device': '从设备下载文件',
 		'Increase font size': '增大字体',
 		'Decrease font size': '减小字体',
-		'Select the file to upload': '选择您要上传的文件',
+		'Please select the file to upload': '请选择您要上传的文件',
 		'Uploading': '正在上传',
 		'Click to upload': '上传',
 		'Upload success': '上传成功',
@@ -33,6 +33,7 @@ const RttyI18n = {
 		'Login Fail! username or password wrong.': '登录失败，用户名或密码错误',
 		'Connect failed': '连接失败',
 		'device-count': '在线设备数：{count}',
+		'Cannot be greater than 500MB': '不能大于500MB'
 	}
 }
 

@@ -4,25 +4,13 @@
         <VueContextMenu :menulists="menulists" @contentmenu-click="contentmenuClick"></VueContextMenu>
         <Modal v-model="upfile.modal" width="380" :mask-closable="false" @on-cancel="cancelUpfile">
             <p slot="header"><span>{{ $t('Upload file to device') }}</span></p>
-            <Upload v-if="!upfile.loading" :before-upload="beforeUpload" action="">
-                <Button type="ghost" icon="Upload">{{ $t('Select the file to upload') }}</Button>
+            <Upload :before-upload="beforeUpload" action="">
+                <Button type="ghost" icon="Upload">{{ $t('Please select the file to upload') }}</Button>
             </Upload>
-            <Progress v-if="upfile.loading" :percent="upfile.percent"></Progress>
-            <div v-if="upfile.file !== null">{{ $t('upfile-info', {name: upfile.file.name}) }}</div>
+            <div v-if="upfile.file !== null">{{ upfile.file.name }}</div>
             <div slot="footer">
-                <Button type="primary" size="large" long :loading="upfile.loading"
-                @click="doUpload">{{ upfile.loading ? $t('Uploading') : $t('Click to upload') }}</Button>
+                <Button type="primary" size="large" long @click="doUpload">{{ $t('Click to upload') }}</Button>
             </div>
-        </Modal>
-        <Modal v-model="downfile.modal" width="700" :mask-closable="false" @on-cancel="cancelDownfile">
-            <p slot="header"><span>{{ $t('Download file from device') }}</span></p>
-            <Input v-if="!downfile.downing" v-model="downfile.filter" icon="search"
-                @on-change="handleFilterDownFile" :placeholder="$t('Please enter the filter key...')">
-                <span slot="prepend">{{ downfile.pathname }}</span>
-            </Input>
-            <Table :loading="downfile.loading" v-if="!downfile.downing" :columns="filelistTitle" height="400" :data="downfile.filelistFiltered" @on-row-dblclick="filelistDblclick"></Table>
-            <Progress v-if="downfile.downing" :percent="downfile.percent"></Progress>
-            <div slot="footer"></div>
         </Modal>
     </div>
 </template>
@@ -35,6 +23,7 @@ import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit';
 import * as overlay from '@/overlay';
 import Utf8ArrayToStr from '@/utf8array_str'
+import 'zmodem.js/dist/zmodem.devel'
 
 Terminal.applyAddon(fit);
 Terminal.applyAddon(overlay);
@@ -56,14 +45,7 @@ export default {
     name: 'Rtty',
     data() {
         return {
-            menulists: [
-                {
-                    name: 'upfile',
-                    caption: this.$t('Upload file to device')
-                },{
-                    name: 'downfile',
-                    caption: this.$t('Download file from device')
-                },{
+            menulists: [{
                     name: 'increasefontsize',
                     caption: this.$t('Increase font size')
                 },{
@@ -71,38 +53,7 @@ export default {
                     caption: this.$t('Decrease font size')
                 }
             ],
-            filelistTitle: [
-                {
-                    title: this.$t('Name'),
-                    key: 'name',
-                    render: (h, params) => {
-                        if (params.row.dir)
-                            return h('div', [
-                                h('Icon', {props: {type: 'folder', color: '#FFE793', size: 20}}),
-                                h('strong', ' ' + params.row.name)
-                            ]);
-                        else
-                            return h('span', params.row.name);
-                    }
-                }, {
-                    title: this.$t('Size'),
-                    key: 'size',
-                    sortable: true,
-                    render: (h, params) => {
-                        return h('span', params.row.size && '%1024mB'.format(params.row.size));
-                    }
-                }, {
-                    title: this.$t('modification'),
-                    key: 'mtime',
-                    sortable: true,
-                    render: (h, params) => {
-                        if (params.row.mtim)
-                            return h('span', new Date(params.row.mtim * 1000).toLocaleString());
-                    }
-                }
-            ],
-            upfile: {modal: false, file: null, step: 8192, pos: 0, percent: 0, loading: false},
-            downfile: {modal: false, loading: true, pathname: '/', filelist: [], filelistFiltered: [], downing: false, percent: 0, filter: ''},
+            upfile: {modal: false, file: null},
         }
     },
     methods: {
@@ -125,13 +76,7 @@ export default {
             if (!this.term)
                 return;
 
-            if (name == 'upfile') {
-                this.upfile = {modal: true, file: null, step: 8192, pos: 0, percent: 0, loading: false};
-            } else if (name == 'downfile') {
-                this.downfile = {modal: true, loading: true, path: [], pathname: '/', filelist: [], downing: false, percent: 0, filter: ''};
-                let msg = rttyMsgInit('DOWNFILE', {sid: this.sid});
-                this.ws.send(msg);
-            } else if (name == 'increasefontsize') {
+            if (name == 'increasefontsize') {
                 changeFontSize = 1;
             } else if (name == 'decreasefontsize') {
                 changeFontSize = -1;
@@ -147,106 +92,158 @@ export default {
             }, 50);
         },
         beforeUpload (file) {
+            if (file.size > 500 * 1024 * 1024) {
+                this.$Message.warning(this.$t('Cannot be greater than 500MB'));
+                return false;
+            }
             this.upfile.file = file;
-            this.upfile.lf = true;
             return false;
         },
-        readFile(fr) {
-            var blob = this.upfile.file.slice(this.upfile.pos, this.upfile.pos + this.upfile.step);
-            fr.readAsArrayBuffer(blob);
-        },
         cancelUpfile() {
-            if (!this.upfile.loading)
-                return;
-            this.upfile.canceled = true;
-            this.$Message.info(this.$t('Upload canceled'));
-
-            let msg = rttyMsgInit('UPFILE', {sid: this.sid, code: rttyMsg.FileCode.CANCELED.value});
-            this.ws.send(msg);
+            let zsession = this.zsentry.get_confirmed_session();
+            if (zsession) {
+                zsession.abort();
+                this.term.focus();
+            }
         },
-        doUpload () {
+        formatTime(ts) {
+            let td = 0;
+            let th = 0;
+            let tm = 0;
+
+            if (ts > 60) {
+                tm = Math.floor(ts / 60);
+                ts = (ts % 60);
+            }
+
+            if (tm > 60) {
+                th = Math.floor(tm / 60);
+                tm = (tm % 60);
+            }
+
+            if (th > 24) {
+                td = Math.floor(th / 24);
+                th = (th % 24);
+            }
+
+            return (td > 0) ? '%02d:%02d:%02d:%02d'.format(td, th, tm, ts) : '%02d:%02d:%02d'.format(th, tm, ts);
+        },
+        updateProgress(offset, size, start) {
+            let now = Math.floor(new Date().getTime() / 1000);
+            let percent = 100 * offset / size;
+            let consumed = now - start;
+            offset /= 1024;
+            this.term.write('   %d%%    %d KB    %d KB/sec    %s\r'.format(percent, offset, offset / consumed, this.formatTime(consumed)));
+        },
+        doUpload() {
             if (!this.upfile.file) {
                 this.$Message.error(this.$t('Select the file to upload'));
                 return;
             }
 
-            this.upfile.loading = true;
-            
-            var fr = new FileReader();
-            fr.onload = (e) => {
-                if (this.upfile.canceled)
-                    return;
+            this.upfile.modal = false;
+            this.term.focus();
 
-                let msg = rttyMsgInit('UPFILE', {sid: this.sid, code: rttyMsg.FileCode.FILEDATA.value, data: Buffer.from(fr.result)});
+            this.handleSendSession(this.zsentry.get_confirmed_session(), this.upfile.file);
+        },
+        readFile(file, fr, offset, size) {
+            let blob = file.slice(offset, offset + size);
+            fr.readAsArrayBuffer(blob);
+        },
+        handleReceiveSession(zsession) {
+            zsession.on("offer", (xfer) => {
+                let start_time = Math.floor(new Date().getTime() / 1000);
+                let fileInfo = xfer.get_details();
+                let size = fileInfo.size;
+                let buffer = [];
+
+                this.term.write('Transferring ' + fileInfo.name + '...\n\r');
+                this.updateProgress(0, size, start_time);
+
+                xfer.on("input", (payload) => {
+                    this.updateProgress(xfer.get_offset(), size, start_time);
+                    buffer.push(new Uint8Array(payload));
+                });
+
+                xfer.accept().then(() => {
+                    Zmodem.Browser.save_to_disk(buffer, fileInfo.name);
+
+                    /* Maybe lose the 'OO' from the sz command. */
+                    setTimeout(() => {
+                        let zsession = this.zsentry.get_confirmed_session();
+                        if (zsession)
+                            zsession.abort();
+                    }, 100);
+                });
+            });
+
+            zsession.on("session_end", () => {
+                this.term.write('\n');
+                let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from('\n')});
                 this.ws.send(msg);
+            });
 
-                this.upfile.pos += e.loaded;
-                this.upfile.percent = Math.round(this.upfile.pos / this.upfile.file.size * 100);
-
-                if (this.upfile.pos < this.upfile.file.size) {
-                    /* Control the client read speed based on the current buffer and server */
-                    if (this.ws.bufferedAmount > this.upfile.pos * 10 || this.upfile.ratelimit) {
-                        this.upfile.ratelimit = false;
-
-                        setTimeout(() => {
-                            this.readFile(fr);
-                        }, 100);
-                    } else {
-                        this.readFile(fr);
-                    }
-                } else {
-                    this.upfile.modal = false;
-                    this.$Message.info(this.$t('Upload success'));
-                }
+            zsession.start();
+        },
+        handleSendSession(zsession, file) {
+            let start_time = Math.floor(new Date().getTime() / 1000);
+            let batch = {
+                obj: file,
+                name: file.name,
+                size: file.size,
+                mtime: new Date(file.lastModified),
+                files_remaining: 1,
+                bytes_remaining: file.size
             };
 
-            let msg = rttyMsgInit('UPFILE', {sid: this.sid, name: this.upfile.file.name, size: this.upfile.file.size, code: rttyMsg.FileCode.START.value});
-            this.ws.send(msg);
-
-            this.readFile(fr);
-        },
-        cancelDownfile() {
-            if (this.downfile.downing) {
-                let msg = rttyMsgInit('DOWNFILE', {sid: this.sid, code: rttyMsg.FileCode.CANCELED.value});
-                this.ws.send(msg);
-
-                this.$Message.info(this.$t('Download canceled'));
-            }
-        },
-        handleFilterDownFile() {
-            this.downfile.filelistFiltered = this.downfile.filelist.filter(d => {
-                return d.name.indexOf(this.downfile.filter) > -1;
-            });
-        },
-        filelistDblclick(row, index) {
-            let attr = {sid: this.sid};
-
-            this.downfile.filter = '';
-
-            if (row.name == '..') {
-                if (this.downfile.path.length < 1)
+            zsession.send_offer(batch).then((xfer) => {
+                this.term.write('Transferring ' + file.name + '...\n\r');
+                if (xfer) {
+                    this.updateProgress(0, batch.size, start_time);
+                } else {
+                    this.term.write(file.name + ' was skipped\n\r');
+                    zsession.close().then(() => {
+                        this.term.write('\n');
+                    });
                     return;
-                this.downfile.path.pop();
-            } else {
-                this.downfile.path.push(row.name);
-            }
+                }
 
-            this.downfile.pathname = '/' + this.downfile.path.join('/');
+                let reader = new FileReader();
 
-            if (row.dir) {
-                this.downfile.loading = true;
-                if (!this.downfile.pathname.endsWith('/'))
-                    this.downfile.pathname = this.downfile.pathname + '/';
-            } else {
-                this.downfile.received = 0;
-                this.downfile.size = row.size;
-                this.downfile.downing = true;
-            }
+                //This really shouldn’t happen … so let’s
+                //blow up if it does.
+                reader.onerror = (e) => {
+                    console.error("file read error", e);
+                    throw("File read error: " + e);
+                };
 
-            attr.name = this.downfile.pathname;
+                reader.onload = (e) => {
+                    let piece;
 
-            let msg = rttyMsgInit('DOWNFILE', attr);
-            this.ws.send(msg);
+                    if (zsession.aborted())
+                        return;
+
+                    if (e.target.result.byteLength > 0) {
+                        piece = new Uint8Array(e.target.result, xfer, piece);
+                        xfer.send(piece);
+
+                        this.updateProgress(xfer.get_offset(), batch.size, start_time);
+                    }
+
+                    if (xfer.get_offset() == batch.size) {
+                        xfer.end(piece).then(() => {
+                            zsession.close().then(() => {
+                                this.term.write('\n');
+                            });
+                        });
+                        return;
+                    }
+
+                    this.readFile(file, reader, xfer.get_offset(), 8192);
+                };
+
+                this.readFile(file, reader, 0, 8192);
+            });
         }
     },
     mounted() {
@@ -287,6 +284,32 @@ export default {
 
             this.term = term;
 
+            let zsentry = new Zmodem.Sentry({
+                to_terminal: (octets) => {
+                    this.term.write(Utf8ArrayToStr(octets));
+                },
+                sender: (octets) => {
+                    let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(octets)});
+                    this.ws.send(msg);
+                },
+                on_retract: () => {
+                    this.upfile.modal = false;
+                },
+                on_detect: (detection) => {
+                    let zsession = detection.confirm();
+                    setTimeout(() => {
+                        term.write('\n\rStarting zmodem transfer.  Press Ctrl+C to cancel.\n\r');
+
+                        if (zsession.type === "send")
+                            this.upfile = {modal: true, file: null};
+                        else
+                            this.handleReceiveSession(zsession);
+                    }, 10);
+                }
+            });
+
+            this.zsentry = zsentry;
+
             ws.on('data', (data) => {
                 let pbf = new Pbf(data);
                 let msg = rttyMsg.read(pbf);
@@ -304,17 +327,28 @@ export default {
                     ws.send(msg);
 
                     term.on('data', (data) => {
+                        let zsession = zsentry.get_confirmed_session();
+                        if (zsession) {
+                            if (zsession.aborted())
+                                return;
+
+                            /* Ctrl + C */
+                            if (data.length == 1 && data.charCodeAt(0) == 3)
+                                zsession.abort();
+                            return;
+                        }
+
                         let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(data)});
                         ws.send(msg);
                     });
                 } else if (msg.type == rttyMsg.Type.TTY.value) {
-                    let data = Utf8ArrayToStr(msg.data);
-
                     if (!this.recvTTYCnt)
                         this.recvTTYCnt = 0;
                     this.recvTTYCnt++;
 
                     if (this.recvTTYCnt < 4) {
+                        let data = Utf8ArrayToStr(msg.data);
+
                         if (data.match('login:') && this.username && this.username != '') {
                             let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(this.username + '\n')});
                             ws.send(msg);
@@ -328,37 +362,7 @@ export default {
                         }
                     }
 
-                    term.write(data);
-                } else if (msg.type == rttyMsg.Type.UPFILE.value) {
-                    if (msg.code == rttyMsg.FileCode.RATELIMIT.value) {
-                        /* Need reduce the sending rate */
-                        this.upfile.ratelimit = true;
-                    }
-                } else if (msg.type == rttyMsg.Type.DOWNFILE.value) {
-                    let code = msg.code;
-                    if (code == rttyMsg.FileCode.START.value) {
-                        this.downfile.loading = false;
-                        this.downfile.filelist = msg.filelist;
-                        this.handleFilterDownFile();
-                    }
-                    else if (code == rttyMsg.FileCode.FILEDATA.value) {
-                        if (!this.downfile.data)
-                            this.downfile.data = new Blob([msg.data]);
-                        else
-                            this.downfile.data = new Blob([this.downfile.data, msg.data]);
-                        this.downfile.received += msg.data.byteLength;
-                        this.downfile.percent = Math.round(this.downfile.received / this.downfile.size * 100);
-                    } else if (code == rttyMsg.FileCode.END.value) {
-                        let url = URL.createObjectURL(this.downfile.data);
-                        let a = document.createElement('a');
-                        a.download = this.downfile.pathname;
-                        a.href = url;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                        this.downfile.modal = false;
-                        this.downfile.downing = false;
-                        this.$Message.info(this.$t('Download Finish'));
-                    }
+                    zsentry.consume(msg.data);
                 }
             });
         });
@@ -372,13 +376,13 @@ export default {
             this.logout();
         });
     }
-}
+};
 </script>
 
 <style>
-	#rtty {
-	    width: 100%;
-	    height: 100%;
+    #rtty {
+        width: 100%;
+        height: 100%;
     }
 
     .terminal {
