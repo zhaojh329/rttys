@@ -23,11 +23,14 @@ import (
     "time"
     "sync"
     "errors"
+    "strconv"
     "net/http"
     "github.com/gorilla/websocket"
 )
 
 const (
+    RTTY_PROTO_VERSION = 1
+
     // pings period of client.
     pingPeriod = 5 * time.Second
 
@@ -176,10 +179,21 @@ func (c *Client) keepAlive() {
 
 /* serveWs handles websocket requests from the peer. */
 func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
+    isDev := r.URL.Query().Get("device") != ""
     devid := r.URL.Query().Get("devid")
+    proto := r.URL.Query().Get("proto")
+
     if devid == "" {
         rlog.Println("devid required")
         return
+    }
+
+    if isDev {
+        proto_num, err := strconv.Atoi(proto)
+        if err != nil || proto_num != RTTY_PROTO_VERSION {
+            rlog.Printf("proto number is not matched for device '%s', you need to update your server(rttys) or client(rtty) or both them", devid)
+            return
+        }
     }
 
     conn, err := upgrader.Upgrade(w, r, nil)
@@ -198,8 +212,7 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
         isClosed: false,
     }
 
-    isDev := r.URL.Query().Get("device")
-    if isDev == "1" {
+    if isDev {
         client.isDev = true
         client.description = r.URL.Query().Get("description")
         client.cmd = make(map[uint32]chan *wsMessage)
