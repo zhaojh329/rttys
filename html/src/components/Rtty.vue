@@ -17,29 +17,14 @@
 
 <script>
 
-import * as Socket from 'simple-websocket';
 import { Terminal } from 'xterm'
 import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit';
 import * as overlay from '@/overlay';
-import Utf8ArrayToStr from '@/utf8array_str'
 import 'zmodem.js/dist/zmodem.devel'
 
 Terminal.applyAddon(fit);
 Terminal.applyAddon(overlay);
-
-const Pbf = require('pbf');
-const rttyMsg = require('@/rtty.proto').rtty_message;
-
-function rttyMsgInit(type, msg) {
-    let pbf = new Pbf();
-
-    msg.version = 2;
-    msg.type = rttyMsg.Type[type].value;
-    rttyMsg.write(msg, pbf);
-
-    return pbf.finish();
-}
 
 export default {
     name: 'Rtty',
@@ -59,7 +44,7 @@ export default {
     methods: {
         logout() {
             if (this.ws) {
-                this.ws.destroy();
+                this.ws.close();
                 delete this.ws;
             }
 
@@ -179,8 +164,7 @@ export default {
 
             zsession.on("session_end", () => {
                 this.term.write('\n');
-                let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from('\n')});
-                this.ws.send(msg);
+                this.ws.send(Buffer.from('\n'));
             });
 
             zsession.start();
@@ -253,10 +237,12 @@ export default {
         this.username = this.$route.query.username;
         this.password = this.$route.query.password;
 
-        let ws = new Socket(protocol + location.host + '/ws?devid=' + devid);
-        this.ws = ws;
+        let ws = new WebSocket(protocol + location.host + '/ws?devid=' + devid);
 
-        ws.on('connect', () => {
+        ws.onopen = () => {
+            ws.binaryType = 'arraybuffer';
+            this.ws = ws;
+
             let term = new Terminal({
                 cursorBlink: true,
                 fontSize: 16
@@ -276,8 +262,8 @@ export default {
 
             term.on('resize', (size) => {
                 setTimeout(() => {
-                    let msg = rttyMsgInit('WINSIZE', {sid: this.sid, cols: size.cols, rows: size.rows});
-                    ws.send(msg);
+                    let msg = {type: "winsize", sid: this.sid, cols: size.cols, rows: size.rows};
+					ws.send(JSON.stringify(msg));
                     term.showOverlay(size.cols + 'x' + size.rows);
                 }, 500);
             });
@@ -286,11 +272,10 @@ export default {
 
             let zsentry = new Zmodem.Sentry({
                 to_terminal: (octets) => {
-                    this.term.write(Utf8ArrayToStr(octets));
+                    this.term.write(Buffer.from(octets).toString());
                 },
                 sender: (octets) => {
-                    let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(octets)});
-                    this.ws.send(msg);
+                    this.ws.send(Buffer.from(octets));
                 },
                 on_retract: () => {
                     this.upfile.modal = false;
@@ -309,22 +294,27 @@ export default {
             });
 
             this.zsentry = zsentry;
+        };
 
-            ws.on('data', (data) => {
-                let pbf = new Pbf(data);
-                let msg = rttyMsg.read(pbf);
+        ws.onmessage = (ev) => {
+            let zsentry = this.zsentry;
+            let term = this.term;
 
-                if (msg.type == rttyMsg.Type.LOGINACK.value) {
-                    if (msg.code == rttyMsg.LoginCode.OFFLINE.value) {
-                        this.$Message.error(this.$t('Device offline'));
+			if (typeof ev.data == 'string') {
+				let msg = JSON.parse(ev.data);
+				if (msg.type == "login") {
+					if (msg.err == 1) {
+						this.$Message.error(this.$t('Device offline'));
+	                    this.logout();
+						return;
+					} else if (msg.err == 2) {
+                        this.$Message.error(this.$t('Sessions is full'));
                         this.logout();
-                        return;
                     }
 
                     this.sid = msg.sid;
-
-                    msg = rttyMsgInit('WINSIZE', {sid: this.sid, cols: term.cols, rows: term.rows});
-                    ws.send(msg);
+                    msg = {type: 'winsize', sid: this.sid, cols: term.cols, rows: term.rows};
+                    ws.send(JSON.stringify(msg));
 
                     term.on('data', (data) => {
                         let zsession = zsentry.get_confirmed_session();
@@ -338,43 +328,42 @@ export default {
                             return;
                         }
 
-                        let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(data)});
-                        ws.send(msg);
+                        this.ws.send(Buffer.from(data));
                     });
-                } else if (msg.type == rttyMsg.Type.TTY.value) {
-                    if (!this.recvTTYCnt)
-                        this.recvTTYCnt = 0;
-                    this.recvTTYCnt++;
+				} else if (msg.type == 'logout') {
+                    this.logout();
+                }
+			} else {
+                if (!this.recvTTYCnt)
+                    this.recvTTYCnt = 0;
+                this.recvTTYCnt++;
 
-                    if (this.recvTTYCnt < 4) {
-                        let data = Utf8ArrayToStr(msg.data);
+                if (this.recvTTYCnt < 4) {
+                    let data = Buffer.from(ev.data).toString();
 
-                        if (data.match('login:') && this.username && this.username != '') {
-                            let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(this.username + '\n')});
-                            ws.send(msg);
-                            return;
-                        }
-
-                        if (data.match('Password:') && this.password && this.password != '') {
-                            let msg = rttyMsgInit('TTY', {sid: this.sid, data: Buffer.from(this.password + '\n')});
-                            ws.send(msg);
-                            return;
-                        }
+                    if (data.match('login:') && this.username && this.username != '') {
+                        ws.send(Buffer.from(this.username + '\n'));
+                        return;
                     }
 
-                    zsentry.consume(msg.data);
+                    if (data.match('Password:') && this.password && this.password != '') {
+                        ws.send(Buffer.from(this.password + '\n'));
+                        return;
+                    }
                 }
-            });
-        });
 
-        ws.on('error', () => {
+                zsentry.consume(ev.data);
+            }
+        };
+
+        ws.onerror = () => {
             this.$Message.error(this.$t('Connect failed'));
             this.logout();
-        });
+        };
 
-        ws.on('close', () => {
+        ws.onclose = () => {
             this.logout();
-        });
+        };
     }
 };
 </script>

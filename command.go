@@ -20,110 +20,110 @@
 package main
 
 import (
-    "time"
-    "sync"
-    "net/http"
-    "io/ioutil"
-    "encoding/json"
-    "github.com/gorilla/websocket"
-    "github.com/zhaojh329/rttys/rtty"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"sync"
+	"time"
+
+	"github.com/buger/jsonparser"
+	"github.com/gorilla/websocket"
 )
 
-type CommandReq struct {
-    Username string `json:"username"`
-    Password string `json:"password"`
-    Devid string `json:"devid"`
-    Cmd string `json:"cmd"`
-    Params []string `json:"params"`
-    Env map[string]string `json:"env"`
+const RTTY_MAX_CMD_ID = 1000000
+
+const (
+	RTTY_CMD_ERR_INVALID = 1001
+	RTTY_CMD_ERR_OFFLINE = 1002
+	RTTY_CMD_ERR_BUSY    = 1003
+	RTTY_CMD_ERR_TIMEOUT = 1004
+)
+
+var cmdErrMsg = map[int]string{
+	RTTY_CMD_ERR_INVALID: "invalid format",
+	RTTY_CMD_ERR_OFFLINE: "device offline",
+	RTTY_CMD_ERR_BUSY:    "server is busy",
+	RTTY_CMD_ERR_TIMEOUT: "timeout",
 }
 
-type CommandResult struct {
-    ID uint32 `json:"id,omitempty"`
-    Err int32 `json:err`
-    Msg string `json:"msg"`
-    Code int32 `json:"code"`
-    Stdout string `json:"stdout"`
-    Stderr string `json:"stderr"`
+var commands = struct {
+	sync.Mutex
+	m map[uint32]chan []byte
+}{m: make(map[uint32]chan []byte)}
+
+// return nil for failed
+func getFreeCmdChan() (chan []byte, uint32) {
+	defer func() {
+		commands.Unlock()
+	}()
+
+	commands.Lock()
+	for id := uint32(1); id <= RTTY_MAX_CMD_ID; id++ {
+		_, ok := commands.m[id]
+		if !ok {
+			ch := make(chan []byte)
+			commands.m[id] = ch
+			return ch, id
+		}
+	}
+
+	return nil, 0
 }
 
-var commandID uint32 = 0
-var cmdMutex sync.Mutex
-var command = make(map[uint32]chan *rtty.RttyMessage)
+func freeCmd(id uint32) {
+	commands.Lock()
+	delete(commands.m, id)
+	commands.Unlock()
+}
+
+func handleCmdResp(data []byte) {
+	id, _ := jsonparser.GetInt(data, "id")
+	if ch, ok := commands.m[uint32(id)]; ok {
+		ch <- data
+	}
+}
+
+func cmdErrReply(err int, w http.ResponseWriter) {
+	msg := fmt.Sprintf(`{"err": %d, "msg":"%s"}`, err, cmdErrMsg[err])
+	w.Write([]byte(msg))
+}
 
 func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
-    ticker := time.NewTicker(time.Second * 10)
-    defer func() {
-        ticker.Stop()
-    }()
+	timer := time.NewTimer(time.Second * 5)
+	defer func() {
+		timer.Stop()
+	}()
 
-    err := rtty.RttyMessage_CommandErr_value["NONE"]
+	body, _ := ioutil.ReadAll(r.Body)
+	r.Body.Close()
 
-    body, _ := ioutil.ReadAll(r.Body)
-    r.Body.Close()
+	devid, err := jsonparser.GetString(body, "devid")
+	if err != nil {
+		cmdErrReply(RTTY_CMD_ERR_INVALID, w)
+		return
+	}
 
-    req := CommandReq{}
-    json.Unmarshal(body, &req)
+	dev, ok := br.devices[devid]
+	if !ok {
+		cmdErrReply(RTTY_CMD_ERR_OFFLINE, w)
+		return
+	}
 
-    if req.Devid == "" {
-        err = rtty.RttyMessage_CommandErr_value["DEVID_REQUIRED"]
-    } else if req.Cmd == "" {
-        err = rtty.RttyMessage_CommandErr_value["CMD_REQUIRED"]
-    } else if dev, ok := br.devices[req.Devid]; !ok {
-        err = rtty.RttyMessage_CommandErr_value["DEV_OFFLINE"]
-    } else {
-        cmdMutex.Lock()
-        id := commandID
-        command[id] = make(chan *rtty.RttyMessage)
-        commandID = commandID + 1
-        if commandID == 1024 {
-            commandID = 0
-        }
-        cmd := command[id]
-        cmdMutex.Unlock()
+	cmdChan, id := getFreeCmdChan()
+	if cmdChan == nil {
+		cmdErrReply(RTTY_CMD_ERR_BUSY, w)
+		return
+	}
 
-        msg := RttyMessageInit(&rtty.RttyMessage{
-            Version: RTTY_MESSAGE_VERSION,
-            Type: rtty.RttyMessage_COMMAND,
-            Id: id,
-            Name: req.Cmd,
-            Username: req.Username,
-            Password: req.Password,
-            Params: req.Params,
-            Env: req.Env,
-        })
+	msg := fmt.Sprintf(`{"type":"cmd","id":%d,"attrs":%s}`, id, string(body))
+	dev.wsWrite(websocket.TextMessage, []byte(msg))
 
-        dev.wsWrite(websocket.BinaryMessage, msg)
-
-        select {
-        case msg := <- cmd:
-            res := CommandResult{
-                Err: msg.Err,
-                Msg: rtty.RttyMessage_CommandErr_name[msg.Err],
-                Code: msg.Code,
-                Stdout: msg.StdOut,
-                Stderr: msg.StdErr,
-            }
-
-            cmdMutex.Lock()
-            delete(command, msg.Id)
-            cmdMutex.Unlock()
-
-            js, _ := json.Marshal(res)
-            w.Write(js)
-
-            return
-        case <- ticker.C:
-            cmdMutex.Lock()
-            delete(command, id)
-            cmdMutex.Unlock()
-            err = rtty.RttyMessage_CommandErr_value["TIMEOUT"]
-            goto Err
-        }
-    }
-
-Err:
-    res := CommandResult{Err: err, Msg: rtty.RttyMessage_CommandErr_name[err]}
-    js, _ := json.Marshal(res)
-    w.Write(js)
+	select {
+	case data := <-cmdChan:
+		attrs, _, _, _ := jsonparser.Get(data, "attrs")
+		w.Write(attrs)
+	case <-timer.C:
+		freeCmd(id)
+		cmdErrReply(RTTY_CMD_ERR_TIMEOUT, w)
+	}
 }

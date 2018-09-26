@@ -20,192 +20,168 @@
 package main
 
 import (
-    "time"
-    "strconv"
-    "math/rand"
-    "crypto/md5"
-    "encoding/hex"
-    "github.com/gorilla/websocket"
-    "github.com/golang/protobuf/proto"
-    "github.com/zhaojh329/rttys/rtty"
+	"fmt"
+	"time"
+
+	"github.com/buger/jsonparser"
+	"github.com/gorilla/websocket"
 )
 
 const RTTY_MESSAGE_VERSION = 2
+const RTTY_MAX_SESSION_ID = 1000000
 
 type Broker struct {
-    devices map[string]*Client
-    sessions map[string]*Session
-
-    // Join requests from the clients.
-    join chan *Client
-
-    // Leave requests from clients.
-    leave chan *Client
-
-    // Buffered channel of inbound messages from device.
-    inDevMessage chan *wsMessage
-
-    // Buffered channel of inbound messages from user.
-    inUsrMessage chan *wsMessage
+	devices    map[string]*Client
+	sessions   map[uint32]*Session
+	register   chan *Client      /* Register requests from the clients. */
+	unregister chan *Client      /* Unregister requests from clients. */
+	inMessage  chan *wsInMessage /* Buffered channel of inbound messages. */
 }
 
 type Session struct {
-    dev *Client
-    user *Client
+	dev    *Client
+	web    *Client
+	devsid uint8
 }
 
 func newBroker() *Broker {
-    return &Broker{
-        join: make(chan *Client, 100),
-        leave: make(chan *Client, 100),
-        devices: make(map[string]*Client),
-        sessions: make(map[string]*Session),
-        inDevMessage: make(chan *wsMessage, 100),
-        inUsrMessage: make(chan *wsMessage, 100),
-    }
+	return &Broker{
+		register:   make(chan *Client, 100),
+		unregister: make(chan *Client, 100),
+		devices:    make(map[string]*Client),
+		sessions:   make(map[uint32]*Session),
+		inMessage:  make(chan *wsInMessage, 1000),
+	}
 }
 
-func RttyMessageInit(msg *rtty.RttyMessage) []byte {
-    data, _ := proto.Marshal(msg)
-    return data
+// return 0 for failed
+func getFreeSid(br *Broker) uint32 {
+	for sid := uint32(1); sid <= RTTY_MAX_SESSION_ID; sid++ {
+		if _, ok := br.sessions[sid]; !ok {
+			return sid
+		}
+	}
+
+	return 0
 }
 
-func generateSID(devid string) string {
-    md5Ctx := md5.New()
-    md5Ctx.Write([]byte(devid + strconv.FormatFloat(rand.Float64(), 'e', 6, 32)))
-    cipherStr := md5Ctx.Sum(nil)
-    return hex.EncodeToString(cipherStr)
-}
+func (br *Broker) newSession(web *Client) bool {
+	devid := web.devid
+	sid := getFreeSid(br)
 
-func (br *Broker) newSession(user *Client) bool {
-    devid := user.devid
-    sid := generateSID(devid)
+	if sid < 1 {
+		rlog.Println("Not found  available sid")
+		return false
+	}
 
-    if dev, ok := br.devices[devid]; ok {
-        br.sessions[sid] = &Session{dev, user}
-        user.sid = sid
+	if dev, ok := br.devices[devid]; ok {
+		devsid := dev.getFreeSid()
+		if devsid < 1 {
+			rlog.Println("Not found  available devsid")
+			return false
+		}
 
-        // Write to user
-        msg := RttyMessageInit(&rtty.RttyMessage{
-            Version: RTTY_MESSAGE_VERSION,
-            Type: rtty.RttyMessage_LOGINACK,
-            Sid: sid,
-            Code: rtty.RttyMessage_LoginCode_value["OK"],
-        })
-        user.wsWrite(websocket.BinaryMessage, msg)
+		br.sessions[sid] = &Session{dev, web, devsid}
+		dev.sessions[devsid] = sid
+		web.sid = sid
 
-        
-        // Write to device
-        msg = RttyMessageInit(&rtty.RttyMessage{
-            Version: RTTY_MESSAGE_VERSION,
-            Type: rtty.RttyMessage_LOGIN,
-            Sid: sid,
-        })
-        dev.wsWrite(websocket.BinaryMessage, msg)
-        
-        rlog.Println("New session:", sid)
-        return true
-    } else {
-        // Write to user
-        msg := RttyMessageInit(&rtty.RttyMessage{
-            Version: RTTY_MESSAGE_VERSION,
-            Type: rtty.RttyMessage_LOGINACK,
-            Sid: sid,
-            Code: rtty.RttyMessage_LoginCode_value["OFFLINE"],
-        })
-        user.wsWrite(websocket.BinaryMessage, msg)
+		msg := fmt.Sprintf(`{"type":"login","sid":%d}`, devsid)
 
-        rlog.Println("Device", devid, "offline")
-        return false
-    }
-}
+		// Notify the device to create a pty and associate it with a session id
+		dev.wsWrite(websocket.TextMessage, []byte(msg))
 
-func delSession(sessions map[string]*Session, sid string) {
-    if session, ok := sessions[sid]; ok {
-        delete(sessions, sid)
-        session.user.wsClose()
-        rlog.Println("Delete session: ", sid)
-
-        if session.dev != nil {
-            msg := RttyMessageInit(&rtty.RttyMessage{
-                Version: RTTY_MESSAGE_VERSION,
-                Type: rtty.RttyMessage_LOGOUT,
-                Sid: sid,
-            })
-            session.dev.wsWrite(websocket.BinaryMessage, msg)
-        }
-    }
-}
-
-func dispatchMsg(data []byte, isDev bool, br *Broker) {
-    msg := &rtty.RttyMessage{};
-    proto.Unmarshal(data, msg);
-
-    if msg.Type == rtty.RttyMessage_COMMAND {
-        cmdMutex.Lock()
-        if cmd, ok := command[msg.Id]; ok {
-            cmd <- msg
-        }
-        cmdMutex.Unlock()
-        return;
-    }
-
-    if session, ok := br.sessions[msg.Sid]; ok {
-        if msg.Type == rtty.RttyMessage_LOGOUT {
-            session.dev = nil
-            delSession(br.sessions, msg.Sid)
-            return
-        }
-
-        if isDev {
-            session.user.wsWrite(websocket.BinaryMessage, data)
-        } else {
-            session.dev.wsWrite(websocket.BinaryMessage, data)
-        }
-    }
+		rlog.Println("New session:", sid)
+		return true
+	} else {
+		// Notify the user that the device is offline
+		msg := `{"type":"login","err":1,"msg":"offline"}`
+		web.wsWrite(websocket.TextMessage, []byte(msg))
+		rlog.Println("Device", devid, "offline")
+		return false
+	}
 }
 
 func (br *Broker) run() {
-    for {
-        select {
-        case client := <- br.join:
-            if client.isDev {
-                if _, ok := br.devices[client.devid]; ok {
-                    rlog.Println("ID conflicting:", client.devid)
-                    client.wsClose();
-                } else {
-                    client.isJoined = true
-                    br.devices[client.devid] = client
-                    rlog.Printf("New device:id('%s'), description('%s')", client.devid, client.description)
-                }
-            } else {
-                // From user browse
-                if !br.newSession(client) {
-                    time.AfterFunc(500 * time.Millisecond, client.wsClose)
-                }
-            }
-        case client := <- br.leave:
-            if client.isDev {
-                client.wsClose()
+	for {
+		select {
+		case c := <-br.register:
+			if c.isDev {
+				if _, ok := br.devices[c.devid]; ok {
+					rlog.Println("ID conflicting:", c.devid)
+					c.wsClose()
+				} else {
+					br.devices[c.devid] = c
+					rlog.Printf("New device:id('%s'), description('%s')", c.devid, c.desc)
+				}
+			} else {
+				// From user
+				if !br.newSession(c) {
+					time.AfterFunc(500*time.Millisecond, c.wsClose)
+				}
+			}
+		case c := <-br.unregister:
+			if c.isDev {
+				c.wsClose()
 
-                if dev, ok := br.devices[client.devid]; ok {
-                    rlog.Printf("Dead device:id('%s'), description('%s')", dev.devid, dev.description)
-                    delete(br.devices, dev.devid)
-                }
+				if dev, ok := br.devices[c.devid]; ok {
+					rlog.Printf("Dead device:id('%s'), description('%s')", dev.devid, dev.desc)
+					delete(br.devices, dev.devid)
+				}
 
-                for sid, session := range br.sessions {
-                    if session.dev.devid == client.devid {
-                        session.dev = nil
-                        delSession(br.sessions, sid)
-                    }
-                }
-            } else {
-                delSession(br.sessions, client.sid)
-            }
-        case msg := <- br.inDevMessage:
-            dispatchMsg(msg.data, true, br)
-        case msg := <- br.inUsrMessage:
-            dispatchMsg(msg.data, false, br)
-        }
-    }
+				for sid, session := range br.sessions {
+					if session.dev.devid == c.devid {
+						session.web.wsClose()
+						delete(br.sessions, sid)
+						rlog.Println("Delete session: ", sid)
+					}
+				}
+			} else {
+				if session, ok := br.sessions[c.sid]; ok {
+					msg := fmt.Sprintf(`{"type":"logout","sid":%d}`, session.devsid)
+					session.dev.wsWrite(websocket.TextMessage, []byte(msg))
+					delete(br.sessions, c.sid)
+					delete(session.dev.sessions, session.devsid)
+					rlog.Println("Delete session: ", c.sid)
+				}
+			}
+		case msg := <-br.inMessage:
+			msgType := msg.msgType
+			data := msg.data
+			var sid uint32
+			c := msg.c
+
+			if c.isDev {
+				var devsid uint8
+				if msgType == websocket.BinaryMessage {
+					devsid = data[0]
+					data = data[1:]
+				} else {
+					tp, _ := jsonparser.GetString(data, "type")
+					if tp == "cmd" {
+						handleCmdResp(data)
+						continue
+					}
+					val, _ := jsonparser.GetInt(data, "sid")
+					devsid = uint8(val)
+				}
+				sid = c.sessions[devsid]
+			} else {
+				sid = c.sid
+			}
+
+			if session, ok := br.sessions[sid]; ok {
+				if c.isDev {
+					c = session.web
+				} else {
+					if msgType == websocket.BinaryMessage {
+						sb := make([]byte, 1)
+						sb[0] = session.devsid
+						data = append(sb, data...)
+					}
+					c = session.dev
+				}
+				c.wsWrite(msgType, data)
+			}
+		}
+	}
 }

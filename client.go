@@ -20,214 +20,223 @@
 package main
 
 import (
-    "time"
-    "sync"
-    "errors"
-    "strconv"
-    "net/http"
-    "github.com/gorilla/websocket"
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+	"sync"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 const (
-    RTTY_PROTO_VERSION = 1
+	/* Match the version with the device */
+	RTTY_PROTO_VERSION = 1
 
-    // Max lose ping times
-    aliveTimes = 3
+	/* Max lose ping times */
+	RTTY_MAX_LOSE_PING = 3
+
+	/* Max session id for each device */
+	RTTY_MAX_SESSION_ID_DEV = 5
 )
 
 var upgrader = websocket.Upgrader{
-    CheckOrigin: func(r *http.Request) bool {
-        return true
-    },
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
-type wsMessage struct {
-    msgType int
-    data []byte
-}
-
-// Representing a device or user browser
 type Client struct {
-    br *Broker
-    isDev bool
-    // device description
-    description string
-    devid string
-    // Registration time
-    timestamp int64
-    sid string
-    conn *websocket.Conn
-    // Buffered channel of outbound messages.
-    outMessage chan *wsMessage
+	conn       *websocket.Conn
+	br         *Broker
+	devid      string
+	desc       string /* description for device */
+	isDev      bool
+	timestamp  int64      /* Registration time */
+	mutex      sync.Mutex /* Avoid repeated closes and concurrent map writes */
+	closed     bool
+	closeChan  chan byte
+	alive      uint32
+	sessions   map[uint8]uint32
+	sid        uint32
+	outMessage chan *wsOutMessage /* Buffered channel of outbound messages */
+}
 
-    cmdid uint32
-    cmd map[uint32]chan *wsMessage
+type wsInMessage struct {
+	msgType int
+	data    []byte
+	c       *Client
+}
 
-    isJoined bool
+type wsOutMessage struct {
+	msgType int
+	data    []byte
+}
 
-    // Avoid repeated closes and concurrent map writes
-    mutex sync.Mutex
-    isClosed bool
-    closeChan chan byte
-
-    alive uint32
+func (c *Client) getFreeSid() uint8 {
+	for sid := uint8(1); sid <= RTTY_MAX_SESSION_ID_DEV; sid++ {
+		if _, ok := c.sessions[sid]; !ok {
+			return sid
+		}
+	}
+	return uint8(0)
 }
 
 func (c *Client) wsClose() {
-    defer c.mutex.Unlock()
-    c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.mutex.Lock()
 
-    if !c.isClosed {
-        c.conn.Close()
-        c.isClosed = true
-        close(c.closeChan)
-    }
-}
-func (c *Client) leave() {
-    if c.isJoined {
-        c.br.leave <- c
-    }
+	if !c.closed {
+		c.conn.Close()
+		c.closed = true
+		close(c.closeChan)
+	}
 }
 
-func (c *Client) wsWrite(messageType int, data []byte) error {
-    select {
-    case c.outMessage <- &wsMessage{messageType, data}:
-    case <- c.closeChan:
-        return errors.New("websocket closed")
-    }
-    return nil
+func (c *Client) unregister() {
+	c.br.unregister <- c
+}
+
+func (c *Client) wsWrite(msgType int, data []byte) error {
+	select {
+	case c.outMessage <- &wsOutMessage{msgType, data}:
+	case <-c.closeChan:
+		return errors.New("websocket closed")
+	}
+	return nil
 }
 
 func (c *Client) readPump() {
-    defer func() {
-        c.leave()
-    }()
+	defer func() {
+		c.unregister()
+	}()
 
-    for {
-        msgType, data, err := c.conn.ReadMessage()
-        if err != nil {
-            if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-                rlog.Printf("error: %v", err)
-            }
-            break
-        }
+	for {
+		msgType, data, err := c.conn.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				rlog.Printf("error: %v", err)
+			}
+			break
+		}
 
-        msg := &wsMessage{msgType, data}
+		msg := &wsInMessage{msgType, data, c}
 
-        inMessage := c.br.inUsrMessage
-        if c.isDev {
-            inMessage = c.br.inDevMessage
-        }        
-
-        select {
-        case inMessage <- msg:
-        case <- c.closeChan:
-            return
-        }
-    }
+		select {
+		case c.br.inMessage <- msg:
+		case <-c.closeChan:
+			return
+		}
+	}
 }
 
 func (c *Client) writePump() {
-    defer func() {
-        c.leave()
-    }()
+	defer func() {
+		c.unregister()
+	}()
 
-    for {
-        select {
-        case msg := <- c.outMessage:
-            if err := c.conn.WriteMessage(msg.msgType, msg.data); err != nil {
-                return
-            }
-        case <- c.closeChan:
-            return
-        }
-    }
+	for {
+		select {
+		case msg := <-c.outMessage:
+			if err := c.conn.WriteMessage(msg.msgType, msg.data); err != nil {
+				return
+			}
+		case <-c.closeChan:
+			return
+		}
+	}
 }
 
 func (c *Client) keepAlive(keepalive int64) {
-    ticker := time.NewTicker(time.Second)
-    last := time.Now().Unix()
-    keepalive = keepalive + 3
-    alive := aliveTimes
+	ticker := time.NewTicker(time.Second)
+	last := time.Now().Unix()
+	keepalive = keepalive + 3
+	alive := RTTY_MAX_LOSE_PING
 
-    defer func() {
-        c.leave()
-    }()
+	defer func() {
+		c.unregister()
+	}()
 
-    // Get the current ping handler
-    pingHandler := c.conn.PingHandler()
+	// Get the current ping handler
+	pingHandler := c.conn.PingHandler()
 
-    c.conn.SetPingHandler(func(appData string) error {
-        alive = aliveTimes
-        last = time.Now().Unix()
-        return pingHandler(appData)
-    })
+	c.conn.SetPingHandler(func(appData string) error {
+		alive = RTTY_MAX_LOSE_PING
+		last = time.Now().Unix()
+		return pingHandler(appData)
+	})
 
-    for {
-        select {
-            case <- c.closeChan:
-                return
-            case <- ticker.C:
-                now := time.Now().Unix()
-                if now - last > keepalive {
-                    alive--
-                    last = now
-                    if alive == 0 {
-                        rlog.Printf("Inactive device in long time, now kill it(%s)\n", c.devid)
-                        return
-                    }
-                }
-        }
-    }
+	for {
+		select {
+		case <-c.closeChan:
+			return
+		case <-ticker.C:
+			now := time.Now().Unix()
+			if now-last > keepalive {
+				alive--
+				last = now
+				if alive == 0 {
+					rlog.Printf("Inactive device in long time, now kill it(%s)\n", c.devid)
+					return
+				}
+			}
+		}
+	}
 }
 
 /* serveWs handles websocket requests from the peer. */
 func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
-    keepalive, _ := strconv.ParseInt(r.URL.Query().Get("keepalive"), 10, 64)
-    proto,_ := strconv.Atoi(r.URL.Query().Get("proto"))
-    isDev := r.URL.Query().Get("device") != ""
-    devid := r.URL.Query().Get("devid")
+	keepalive, _ := strconv.ParseInt(r.URL.Query().Get("keepalive"), 10, 64)
+	proto, _ := strconv.Atoi(r.URL.Query().Get("proto"))
+	isDev := r.URL.Query().Get("device") != ""
+	devid := r.URL.Query().Get("devid")
 
-    if devid == "" {
-        rlog.Println("devid required")
-        return
-    }
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		rlog.Println(err)
+		return
+	}
 
-    if isDev {
-        if proto != RTTY_PROTO_VERSION {
-            rlog.Printf("proto number is not matched for device '%s', you need to update your server(rttys) or client(rtty) or both them", devid)
-            return
-        }
-    }
+	if devid == "" {
+		msg := fmt.Sprintf(`{"type":"register","err":1,"msg":"devid required"}`)
+		conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		rlog.Println("devid required")
+		conn.Close()
+		return
+	}
 
-    conn, err := upgrader.Upgrade(w, r, nil)
-    if err != nil {
-        rlog.Println(err)
-        return
-    }
+	if isDev {
+		if proto != RTTY_PROTO_VERSION {
+			msg := fmt.Sprintf(`{"type":"register","err":1,"msg":"proto number is not matched"}`)
+			conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			rlog.Printf("proto number is not matched for device '%s', you need to update your server(rttys) or client(rtty) or both them", devid)
+			conn.Close()
+			return
+		}
+	}
 
-    client := &Client{
-        br: br,
-        devid: devid,
-        conn: conn,
-        timestamp: time.Now().Unix(),
-        outMessage: make(chan *wsMessage, 100),
-        closeChan: make(chan byte),
-        isClosed: false,
-    }
+	client := &Client{
+		br:         br,
+		conn:       conn,
+		devid:      devid,
+		timestamp:  time.Now().Unix(),
+		outMessage: make(chan *wsOutMessage, 1000),
+		closeChan:  make(chan byte),
+	}
 
-    if isDev {
-        client.isDev = true
-        client.description = r.URL.Query().Get("description")
-        client.cmd = make(map[uint32]chan *wsMessage)
-    }
+	if isDev {
+		client.isDev = true
+		client.sessions = make(map[uint8]uint32)
+		client.desc = r.URL.Query().Get("description")
 
-    client.br.join <- client
+		if keepalive > 0 {
+			go client.keepAlive(keepalive)
+		}
+	}
 
-    go client.readPump()
-    go client.writePump()
+	go client.readPump()
+	go client.writePump()
 
-    if client.isDev && keepalive > 0 {
-        go client.keepAlive(keepalive)
-    }
+	client.br.register <- client
 }
