@@ -162,11 +162,14 @@ func main() {
 		}
 
 		devs := "["
-
+		comma := ""
 		for _, c := range br.devices {
 			if c.isDev {
-				devs += fmt.Sprintf(`{"id":"%s","uptime":%d,"description":"%s"}`,
-					c.devid, time.Now().Unix()-c.timestamp, c.desc)
+				devs += fmt.Sprintf(`%s{"id":"%s","uptime":%d,"description":"%s"}`,
+					comma, c.devid, time.Now().Unix()-c.timestamp, c.desc)
+				if comma == "" {
+					comma = ","
+				}
 			}
 		}
 
