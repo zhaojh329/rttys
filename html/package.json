@@ -12,8 +12,6 @@
   "dependencies": {
     "axios": "^0.18.0",
     "iview": "^2.14.1",
-    "pbf": "^3.1.0",
-    "simple-websocket": "^7.0.2",
     "string-format-easy": "^1.0.1",
     "vue": "^2.5.13",
     "vue-axios": "^2.1.1",

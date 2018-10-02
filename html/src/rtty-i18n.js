@@ -33,7 +33,8 @@ const RttyI18n = {
 		'Login Fail! username or password wrong.': '登录失败，用户名或密码错误',
 		'Connect failed': '连接失败',
 		'device-count': '在线设备数：{count}',
-		'Cannot be greater than 500MB': '不能大于500MB'
+		'Cannot be greater than 500MB': '不能大于500MB',
+		'Sessions is full':'会话已满'
 	}
 }
 
