@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	/* Match the version with the device */
-	RTTY_PROTO_VERSION = 1
+	/* Minimal version required of the device: 6.2.0 */
+	RTTY_REQUIRED_VERSION = (6 << 16) | (2 << 8) | 0
 
 	/* Max lose ping times */
 	RTTY_MAX_LOSE_PING = 3
@@ -188,7 +188,7 @@ func (c *Client) keepAlive(keepalive int64) {
 /* serveWs handles websocket requests from the peer. */
 func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
 	keepalive, _ := strconv.ParseInt(r.URL.Query().Get("keepalive"), 10, 64)
-	proto, _ := strconv.Atoi(r.URL.Query().Get("proto"))
+	ver, _ := strconv.Atoi(r.URL.Query().Get("ver"))
 	isDev := r.URL.Query().Get("device") != ""
 	devid := r.URL.Query().Get("devid")
 
@@ -202,16 +202,20 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
 		msg := fmt.Sprintf(`{"type":"register","err":1,"msg":"devid required"}`)
 		conn.WriteMessage(websocket.TextMessage, []byte(msg))
 		rlog.Println("devid required")
-		conn.Close()
+		time.AfterFunc(100*time.Millisecond, func() {
+			conn.Close()
+		})
 		return
 	}
 
 	if isDev {
-		if proto != RTTY_PROTO_VERSION {
-			msg := fmt.Sprintf(`{"type":"register","err":1,"msg":"proto number is not matched"}`)
+		if ver < RTTY_REQUIRED_VERSION {
+			msg := fmt.Sprintf(`{"type":"register","err":1,"msg":"version is not matched"}`)
 			conn.WriteMessage(websocket.TextMessage, []byte(msg))
-			rlog.Printf("proto number is not matched for device '%s', you need to update your server(rttys) or client(rtty) or both them", devid)
-			conn.Close()
+			rlog.Printf("version is not matched for device '%s', you need to update your server(rttys) or client(rtty) or both them", devid)
+			time.AfterFunc(100*time.Millisecond, func() {
+				conn.Close()
+			})
 			return
 		}
 	}
