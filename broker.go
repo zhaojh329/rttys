@@ -50,7 +50,7 @@ func newBroker() *Broker {
 		unregister: make(chan *Client, 100),
 		devices:    make(map[string]*Client),
 		sessions:   make(map[uint32]*Session),
-		inMessage:  make(chan *wsInMessage, 1000),
+		inMessage:  make(chan *wsInMessage, 10000),
 	}
 }
 

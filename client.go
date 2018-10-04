@@ -220,7 +220,7 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
 		conn:       conn,
 		devid:      devid,
 		timestamp:  time.Now().Unix(),
-		outMessage: make(chan *wsOutMessage, 1000),
+		outMessage: make(chan *wsOutMessage, 10000),
 		closeChan:  make(chan byte),
 	}
 
