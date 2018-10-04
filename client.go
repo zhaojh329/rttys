@@ -34,9 +34,6 @@ const (
 	/* Minimal version required of the device: 6.2.0 */
 	RTTY_REQUIRED_VERSION = (6 << 16) | (2 << 8) | 0
 
-	/* Max lose ping times */
-	RTTY_MAX_LOSE_PING = 3
-
 	/* Max session id for each device */
 	RTTY_MAX_SESSION_ID_DEV = 5
 )
@@ -57,7 +54,6 @@ type Client struct {
 	mutex      sync.Mutex /* Avoid repeated closes and concurrent map writes */
 	closed     bool
 	closeChan  chan byte
-	alive      uint32
 	sessions   map[uint8]uint32
 	sid        uint32
 	outMessage chan *wsOutMessage /* Buffered channel of outbound messages */
@@ -148,21 +144,24 @@ func (c *Client) writePump() {
 	}
 }
 
+/*
+ * If the Server does not receive a PING Packet from the Client within one and
+ * a half times the Keep Alive time period, the server will disconnect the
+ * Connection
+ */
 func (c *Client) keepAlive(keepalive int64) {
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(time.Second * time.Duration(keepalive))
 	last := time.Now().Unix()
-	keepalive = keepalive + 3
-	alive := RTTY_MAX_LOSE_PING
+	keepalive = keepalive*3/2 + 1
 
 	defer func() {
 		c.unregister()
 	}()
 
-	// Get the current ping handler
+	/* Get the current ping handler */
 	pingHandler := c.conn.PingHandler()
 
 	c.conn.SetPingHandler(func(appData string) error {
-		alive = RTTY_MAX_LOSE_PING
 		last = time.Now().Unix()
 		return pingHandler(appData)
 	})
@@ -174,12 +173,8 @@ func (c *Client) keepAlive(keepalive int64) {
 		case <-ticker.C:
 			now := time.Now().Unix()
 			if now-last > keepalive {
-				alive--
-				last = now
-				if alive == 0 {
-					rlog.Printf("Inactive device in long time, now kill it(%s)\n", c.devid)
-					return
-				}
+				rlog.Printf("Inactive device in long time, now kill it(%s)\n", c.devid)
+				return
 			}
 		}
 	}
@@ -187,7 +182,7 @@ func (c *Client) keepAlive(keepalive int64) {
 
 /* serveWs handles websocket requests from the peer. */
 func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
-	keepalive, _ := strconv.ParseInt(r.URL.Query().Get("keepalive"), 10, 64)
+	keepalive, _ := strconv.Atoi(r.URL.Query().Get("keepalive"))
 	ver, _ := strconv.Atoi(r.URL.Query().Get("ver"))
 	isDev := r.URL.Query().Get("device") != ""
 	devid := r.URL.Query().Get("devid")
@@ -235,7 +230,7 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
 		client.desc = r.URL.Query().Get("description")
 
 		if keepalive > 0 {
-			go client.keepAlive(keepalive)
+			go client.keepAlive(int64(keepalive))
 		}
 	}
 
