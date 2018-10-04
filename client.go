@@ -32,7 +32,7 @@ import (
 
 const (
 	/* Minimal version required of the device: 6.2.0 */
-	RTTY_REQUIRED_VERSION = (6 << 16) | (2 << 8) | 0
+	RTTY_REQUIRED_VERSION = (6 << 16) | (3 << 8) | 0
 
 	/* Max session id for each device */
 	RTTY_MAX_SESSION_ID_DEV = 5
