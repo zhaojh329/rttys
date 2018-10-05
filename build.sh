@@ -1,13 +1,5 @@
 #!/bin/sh
 
-golang-statik -src html/dist/
+targets=linux/386,linux/amd64,linux/arm,linux/arm64,linux/mips,linux/mips64,linux/mipsle,linux/mips64le,windows/*,darwin/*
 
-cp -r root root_tmp
-mkdir -p root_tmp/usr/local/bin
-
-go build
-mv rttys root_tmp/usr/local/bin
-tar zcvf rttys-x64.tar.gz -C root_tmp/ etc usr
-rm root_tmp -r
-
-rm -r statik
+xgo --targets=$targets .
