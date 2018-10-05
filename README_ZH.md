@@ -6,7 +6,7 @@
 [4]: https://github.com/zhaojh329/rttys/pulls
 [5]: https://img.shields.io/badge/Issues-welcome-brightgreen.svg?style=plastic
 [6]: https://github.com/zhaojh329/rttys/issues/new
-[7]: https://img.shields.io/badge/release-2.2.0-blue.svg?style=plastic
+[7]: https://img.shields.io/badge/release-2.5.0-blue.svg?style=plastic
 [8]: https://github.com/zhaojh329/rttys/releases
 
 [![license][1]][2]
