@@ -16,25 +16,12 @@
 
 The server side of [rtty](https://github.com/zhaojh329/rtty)
 
-`Keep Watching for More Actions on This Space`
+# Usage
+## download the precompiled programs from [Release](https://github.com/zhaojh329/rttys/releases) page according to your os and arch or compile it by yourself.
 
-# How to install and run
-## Download the compiled file(x64)
+## See Supported Command Line Parameters
 
-https://github.com/zhaojh329/rttys/releases
-
-## Linux
-### Decompress the file you downloaded to your root path
-
-	sudo tar -zxvf rttys-x64.tar.gz -C /
-
-### Manual run
-
-    sudo rttys -cert /etc/rttys/rttys.crt -key /etc/rttys/rttys.key
-
-### See Supported Command Line Parameters
-
-	$ rttys -h
+	$ sudo ./rttys -h
 	Usage of rttys:
 	  -cert string
 	        certFile Path
@@ -43,20 +30,9 @@ https://github.com/zhaojh329/rttys/releases
 	  -port int
 	        http service port (default 5912)
 
-### Run in background (Ubuntu)
+## run
 
-	sudo update-rc.d rttys defaults
-    sudo /etc/init.d/rttys start
-
-### View log
-
-	cat /var/log/rtty.log
-
-## Windows
-### First unzip the file you downloaded
-### Open Command Prompt and enter the directory where rttys.exe is located
-
-	rttys -cert rttys.crt -key rttys.key
+    sudo ./rttys
 
 # Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
