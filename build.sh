@@ -22,6 +22,7 @@ do
 	then
 		t=$(echo -n $t | sed 's/.exe//')
 		mv $t.exe $t
+		mv $t/rttys $t/rttys.exe
 		cp ../conf/rttys.ini $t
 	else
 		tar zcvf $t.tar.gz $t --remove-files
