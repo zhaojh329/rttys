@@ -109,12 +109,12 @@ func main() {
 	cert := flag.String("cert", "", "certFile Path")
 	key := flag.String("key", "", "keyFile Path")
 
+	flag.Parse()
+
 	if !checkUser() {
 		rlog.Println("Operation not permitted")
 		os.Exit(1)
 	}
-
-	flag.Parse()
 
 	rand.Seed(time.Now().Unix())
 
