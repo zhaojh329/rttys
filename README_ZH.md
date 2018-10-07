@@ -16,25 +16,12 @@
 
 [rtty](https://github.com/zhaojh329/rtty)的服务端。
 
-`请保持关注以获取最新的项目动态`
+# 如何使用
+## 从[Release](https://github.com/zhaojh329/rttys/releases)页面下载编译好的程序或者自己编译
 
-# 如何安装和运行
-## Linux
-### 下载编译好的文件(x64)
+## 查看支持哪些命令行参数
 
-https://github.com/zhaojh329/rttys/releases
-
-### 解压到你的根目录
-
-	sudo tar -zxvf rttys-x64.tar.gz -C /
-
-### 手动运行
-
-    sudo rttys -cert /etc/rttys/rttys.crt -key /etc/rttys/rttys.key
-
-### 查看支持哪些命令参数
-
-	$ rttys -h
+	$ sudo ./rttys -h
 	Usage of rttys:
 	  -cert string
 	        certFile Path
@@ -43,20 +30,9 @@ https://github.com/zhaojh329/rttys/releases
 	  -port int
 	        http service port (default 5912)
 
-### 后台运行 (Ubuntu)
+## 运行
 
-	sudo update-rc.d rttys defaults
-    sudo /etc/init.d/rttys start
-
-### 查看日志
-
-	cat /var/log/rtty.log
-
-## Windows
-### 首先解压你下载的文件
-### 打开命令提示符，然后进入到 rttys.exe 所在目录
-
-	rttys -cert rttys.crt -key rttys.key
+	sudo ./rttys
 
 # 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考

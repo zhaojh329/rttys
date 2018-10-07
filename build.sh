@@ -1,13 +1,32 @@
 #!/bin/sh
 
-golang-statik -src html/dist/
+targets=linux/386,linux/amd64,linux/arm,linux/arm64,linux/mips,linux/mips64,linux/mipsle,linux/mips64le,windows/*,darwin/*
 
-cp -r root root_tmp
-mkdir -p root_tmp/usr/local/bin
+xgo --targets=$targets -dest=bin .
 
-go build
-mv rttys root_tmp/usr/local/bin
-tar zcvf rttys-x64.tar.gz -C root_tmp/ etc usr
-rm root_tmp -r
+sudo chown -R `id -un` bin
 
-rm -r statik
+cd bin
+
+targets=$(ls)
+for t in $targets
+do
+	mv $t rttys
+	mkdir $t
+	mv rttys $t
+	cp ../conf/rttys.crt $t
+	cp ../conf/rttys.key $t
+
+	echo $t | grep "windows" > /dev/null
+	if [ $? -eq 0 ];
+	then
+		t=$(echo -n $t | sed 's/.exe//')
+		mv $t.exe $t
+		mv $t/rttys $t/rttys.exe
+		cp ../conf/rttys.ini $t
+	else
+		tar zcvf $t.tar.gz $t --remove-files
+	fi
+done
+
+cd -

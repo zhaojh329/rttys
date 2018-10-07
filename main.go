@@ -93,6 +93,17 @@ func httpAuth(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
+func pathExist(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	return false
+}
+
 func main() {
 	port := flag.Int("port", 5912, "http service port")
 	cert := flag.String("cert", "", "certFile Path")
@@ -193,6 +204,18 @@ func main() {
 
 		staticfs.ServeHTTP(w, r)
 	})
+
+	if *cert == "" {
+		if pathExist("rttys.crt") {
+			*cert = "rttys.crt"
+		}
+	}
+
+	if *key == "" {
+		if pathExist("rttys.key") {
+			*key = "rttys.key"
+		}
+	}
 
 	if *cert != "" && *key != "" {
 		rlog.Println("Listen on: ", *port, "SSL on")
