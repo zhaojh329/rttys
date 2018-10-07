@@ -31,9 +31,6 @@ import (
 )
 
 const (
-	/* Minimal version required of the device: 6.2.0 */
-	RTTY_REQUIRED_VERSION = (6 << 16) | (3 << 8) | 0
-
 	/* Max session id for each device */
 	RTTY_MAX_SESSION_ID_DEV = 5
 )
@@ -183,7 +180,6 @@ func (c *Client) keepAlive(keepalive int64) {
 /* serveWs handles websocket requests from the peer. */
 func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
 	keepalive, _ := strconv.Atoi(r.URL.Query().Get("keepalive"))
-	ver, _ := strconv.Atoi(r.URL.Query().Get("ver"))
 	isDev := r.URL.Query().Get("device") != ""
 	devid := r.URL.Query().Get("devid")
 
@@ -201,18 +197,6 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
 			conn.Close()
 		})
 		return
-	}
-
-	if isDev {
-		if ver < RTTY_REQUIRED_VERSION {
-			msg := fmt.Sprintf(`{"type":"register","err":1,"msg":"version is not matched"}`)
-			conn.WriteMessage(websocket.TextMessage, []byte(msg))
-			rlog.Printf("version is not matched for device '%s', you need to update your server(rttys) or client(rtty) or both them", devid)
-			time.AfterFunc(100*time.Millisecond, func() {
-				conn.Close()
-			})
-			return
-		}
 	}
 
 	client := &Client{
