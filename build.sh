@@ -1,32 +1,32 @@
 #!/bin/sh
 
-targets=linux/386,linux/amd64,linux/arm,linux/arm64,linux/mips,linux/mips64,linux/mipsle,linux/mips64le,windows/*,darwin/*
+generate() {
+	local os="$1"
+	local arch="$2"
+	local dir="rttys-$os-$arch"
+	local bin="rttys"
 
-GOPATH=$(go env GOPATH) xgo -targets=$targets -ldflags="-s -w" -dest=bin .
+	mkdir -p output/$dir
+	cp conf/rttys.crt conf/rttys.key output/$dir
 
-sudo chown -R `id -un` bin
+	[ "$os" = "windows" ] && {
+		cp conf/rttys.ini output/$dir
+		bin="rttys.exe"
+	}
 
-cd bin
+	GOOS=$os GOARCH=$arch go build -ldflags='-s -w' -o output/$dir/$bin
 
-targets=$(ls)
-for t in $targets
-do
-	mv $t rttys
-	mkdir $t
-	mv rttys $t
-	cp ../conf/rttys.crt $t
-	cp ../conf/rttys.key $t
+	[ "$os" = "windows" ] || {
+		cd output
+		tar zcvf $dir.tar.gz $dir --remove-files
+		cd -
+	}
+}
 
-	echo $t | grep "windows" > /dev/null
-	if [ $? -eq 0 ];
-	then
-		t=$(echo -n $t | sed 's/.exe//')
-		mv $t.exe $t
-		mv $t/rttys $t/rttys.exe
-		cp ../conf/rttys.ini $t
-	else
-		tar zcvf $t.tar.gz $t --remove-files
-	fi
-done
+rm -rf output
 
-cd -
+generate linux amd64
+generate linux 386
+
+generate windows amd64
+generate windows 386
