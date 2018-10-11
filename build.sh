@@ -16,11 +16,17 @@ generate() {
 
 	GOOS=$os GOARCH=$arch go build -ldflags='-s -w' -o output/$dir/$bin
 
-	[ "$os" = "windows" ] || {
-		cd output
+	cd output
+
+	if [ "$os" = "windows" ];
+	then
+		zip -r $dir.zip $dir
+		rm -r $dir
+	else
 		tar zcvf $dir.tar.gz $dir --remove-files
-		cd -
-	}
+	fi
+
+	cd ..
 }
 
 rm -rf output
