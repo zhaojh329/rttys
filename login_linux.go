@@ -3,8 +3,8 @@ package main
 import (
 	"errors"
 	"io/ioutil"
+	"os"
 	"strings"
-	"syscall"
 
 	"github.com/GehirnInc/crypt"
 	_ "github.com/GehirnInc/crypt/apr1_crypt"
@@ -43,7 +43,7 @@ func getspnam(name string) (*spwd, error) {
 }
 
 func checkUser() bool {
-	return syscall.Getuid() == 0
+	return os.Getuid() == 0
 }
 
 func login(username, password string) bool {
