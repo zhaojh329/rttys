@@ -53,5 +53,5 @@ func login(username, password string) bool {
 	}
 
 	c := crypt.NewFromHash(sp.sp_pwdp)
-	return c.Verify(sp.sp_pwdp, []byte(password)) != nil
+	return c.Verify(sp.sp_pwdp, []byte(password)) == nil
 }
