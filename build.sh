@@ -10,7 +10,6 @@ generate() {
 	cp conf/rttys.crt conf/rttys.key output/$dir
 
 	[ "$os" = "windows" ] && {
-		cp conf/rttys.ini output/$dir
 		bin="rttys.exe"
 	}
 
