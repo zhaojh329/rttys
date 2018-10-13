@@ -24,5 +24,5 @@ func login(username, password string) bool {
 		uintptr(LOGON32_PROVIDER_DEFAULT),
 		uintptr(unsafe.Pointer(&token)))
 
-	return ret == 1 || err.(syscall.Errno) == 1327
+	return ret == 1 || err == syscall.Errno(1327)
 }
