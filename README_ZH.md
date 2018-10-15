@@ -8,11 +8,14 @@
 [6]: https://github.com/zhaojh329/rttys/issues/new
 [7]: https://img.shields.io/badge/release-2.5.2-blue.svg?style=plastic
 [8]: https://github.com/zhaojh329/rttys/releases
+[9]: https://travis-ci.org/zhaojh329/rttys.svg?branch=master
+[10]: https://travis-ci.org/zhaojh329/rttys
 
 [![license][1]][2]
 [![PRs Welcome][3]][4]
 [![Issue Welcome][5]][6]
 [![Release Version][7]][8]
+[![Build Status][9]][10]
 
 [rtty](https://github.com/zhaojh329/rtty)的服务端。
 
