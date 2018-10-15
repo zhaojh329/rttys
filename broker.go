@@ -25,6 +25,7 @@ import (
 
 	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"
+	"github.com/zhaojh329/rttys/rlog"
 )
 
 const RTTY_MESSAGE_VERSION = 2

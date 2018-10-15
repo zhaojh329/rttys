@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/rakyll/statik/fs"
+	"github.com/zhaojh329/rttys/rlog"
 	_ "github.com/zhaojh329/rttys/statik"
 )
 

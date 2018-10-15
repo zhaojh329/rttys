@@ -17,46 +17,67 @@
  * USA
  */
 
-package main
+package rlog
 
 import (
-    "os"
-    "fmt"
-    "log"
-    "github.com/mattn/go-isatty"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/mattn/go-isatty"
 )
 
 type RttyLog struct {
-    file string
+	file string
 }
 
 const LOG_FILE = "/var/log/rtty.log"
 
+var rLog *log.Logger
+
 func (l *RttyLog) Write(b []byte) (n int, err error) {
-    if isatty.IsTerminal(os.Stdout.Fd()) {
-        fmt.Fprintf(os.Stderr, "%s", b)
-        return 0, nil
-    }
+	if isatty.IsTerminal(os.Stdout.Fd()) {
+		fmt.Fprintf(os.Stderr, "%s", b)
+		return 0, nil
+	}
 
-    if l.file == "" {
-        return 0, nil
-    }
+	if l.file == "" {
+		return 0, nil
+	}
 
-    file, err := os.OpenFile(l.file, os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0666)
-    if err != nil {
-        return 0, nil
-    }
+	file, err := os.OpenFile(l.file, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		return 0, nil
+	}
 
-    st, _ := file.Stat()
-    if st.Size() > 1024 * 1024 {
-        file.Truncate(0)
-    }
+	st, _ := file.Stat()
+	if st.Size() > 1024*1024 {
+		file.Truncate(0)
+	}
 
-    defer file.Close()
+	defer file.Close()
 
-    fmt.Fprintf(file, "%s", b)
+	fmt.Fprintf(file, "%s", b)
 
-    return 0, nil
+	return 0, nil
 }
 
-var rlog = log.New(&RttyLog{file: LOG_FILE}, "", log.LstdFlags)
+func init() {
+	rLog = log.New(&RttyLog{LOG_FILE}, "", log.LstdFlags)
+}
+
+func Print(v ...interface{}) {
+	rLog.Print(v...)
+}
+
+func Println(v ...interface{}) {
+	rLog.Println(v...)
+}
+
+func Printf(format string, v ...interface{}) {
+	rLog.Printf(format, v...)
+}
+
+func Fatal(v ...interface{}) {
+	rLog.Fatal(v...)
+}
