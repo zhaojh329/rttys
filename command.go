@@ -103,6 +103,12 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, err = jsonparser.GetString(body, "cmd")
+	if err != nil {
+		cmdErrReply(RTTY_CMD_ERR_INVALID, w)
+		return
+	}
+
 	dev, ok := br.devices[devid]
 	if !ok {
 		cmdErrReply(RTTY_CMD_ERR_OFFLINE, w)
