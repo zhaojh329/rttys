@@ -6,8 +6,8 @@ generate() {
 	local dir="rttys-$os-$arch"
 	local bin="rttys"
 
-	mkdir -p output/$dir
-	cp conf/rttys.crt conf/rttys.key output/$dir
+	mkdir output/$dir
+	cp output/rttys.crt output/rttys.key output/$dir
 
 	[ "$os" = "windows" ] && {
 		bin="rttys.exe"
@@ -20,15 +20,17 @@ generate() {
 	if [ "$os" = "windows" ];
 	then
 		zip -r $dir.zip $dir
-		rm -r $dir
 	else
-		tar zcvf $dir.tar.gz $dir --remove-files
+		tar zcvf $dir.tar.gz $dir
 	fi
 
 	cd ..
 }
 
 rm -rf output
+mkdir output
+
+TARGET=output ./generate-CA.sh rttys
 
 generate linux amd64
 generate linux 386
