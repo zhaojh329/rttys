@@ -39,7 +39,9 @@ const RttyI18n = {
         'Connect failed': '连接失败',
         'device-count': '在线设备数：{count}',
         'Cannot be greater than 500MB': '不能大于500MB',
-        'Sessions is full':'会话已满'
+        'Sessions is full':'会话已满',
+        'The file name too long':'文件名太长',
+        'Only one file can be uploaded at the same time':'同一时刻只能上传一个文件'
     }
 }
 
