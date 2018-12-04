@@ -66,17 +66,17 @@ export default {
             let th = 0;
             let tm = 0;
 
-            if (ts > 60) {
+            if (ts > 59) {
                 tm = Math.floor(ts / 60);
                 ts = (ts % 60);
             }
 
-            if (tm > 60) {
+            if (tm > 59) {
                 th = Math.floor(tm / 60);
                 tm = (tm % 60);
             }
 
-            if (th > 24) {
+            if (th > 23) {
                 td = Math.floor(th / 24);
                 th = (th % 24);
             }
