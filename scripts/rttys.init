@@ -1,6 +1,8 @@
 #! /bin/sh
 ### BEGIN INIT INFO
 # Provides:         rttys
+# Required-Start:   $network
+# Required-Stop:    $network
 # Default-Start:    2 3 4 5
 # Default-Stop:     0 1 6
 # Short-Description: Execute the rttys command.
