@@ -151,7 +151,7 @@ function RttyFile(ws, term, opt) {
             let type = this.cache[0];
 
             switch (type) {
-            case 0x01:  /* file info */
+            case 0x01:  /* file info */ {
                 if (this.cache.length < 2)
                     return;
                 let nl = this.cache[1];
@@ -164,7 +164,8 @@ function RttyFile(ws, term, opt) {
                 this.offset = 0;
                 this.buffer = [];
                 break;
-            case 0x02:  /* file data */
+            }
+            case 0x02:  /* file data */ {
                 if (this.cache.length < 3)
                     return;
 
@@ -178,9 +179,17 @@ function RttyFile(ws, term, opt) {
 
                 let now_ts = new Date().getTime() / 1000;
 
-                this.term.write('  %d%%    %.2f KB     %.3fs\r'.format(this.offset / this.size * 100, this.offset / 1024, now_ts - this.start_ts));
+                let unit = 'K';
+                let offset = this.offset / 1024;
+
+                if (offset / 1024 > 0) {
+                    offset /= 1024;
+                    unit = 'M';
+                }
+                this.term.write('  %d%%    %.2f %sB     %.3fs\r'.format(this.offset / this.size * 100, offset, unit, now_ts - this.start_ts));
                 break;
-            case 0x03:  /* file eof */
+            }
+            case 0x03:  /* file eof */ {
                 this.cache = [];
     
                 this.term.write('\n');
@@ -203,6 +212,7 @@ function RttyFile(ws, term, opt) {
                 el.click();
                 document.body.removeChild(el);
                 break;
+            }
             default:
                 console.error('invalid type:' + type);
                 return;
