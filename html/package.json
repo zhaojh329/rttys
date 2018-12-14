@@ -13,8 +13,7 @@
     "vue": "^2.5.17",
     "vue-i18n": "^8.1.0",
     "vue-router": "^3.0.1",
-    "xterm": "^3.7.0",
-    "zmodem.js": "^0.1.7"
+    "xterm": "^3.7.0"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^3.0.4",
@@ -35,7 +34,12 @@
       "eslint:recommended"
     ],
     "rules": {
-      "vue/no-parsing-error": [2, { "x-invalid-end-tag": false }]
+      "vue/no-parsing-error": [
+        2,
+        {
+          "x-invalid-end-tag": false
+        }
+      ]
     },
     "parserOptions": {
       "parser": "babel-eslint"

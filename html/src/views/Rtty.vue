@@ -20,7 +20,7 @@ import { Terminal } from 'xterm'
 import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit'
 import * as overlay from '@/overlay'
-import 'zmodem.js/dist/zmodem'
+import RttyFile from '../plugins/rtty-file'
 
 Terminal.applyAddon(fit);
 Terminal.applyAddon(overlay);
@@ -51,15 +51,18 @@ export default {
                 this.$Message.warning(this.$t('Cannot be greater than 500MB'));
                 return false;
             }
+
+            if (file.name.length > 255) {
+                this.$Message.warning(this.$t('The file name too long'));
+                return false;
+            }
+
             this.upfile.file = file;
             return false;
         },
         cancelUpfile() {
-            let zsession = this.zsentry.get_confirmed_session();
-            if (zsession) {
-                zsession.abort();
-                this.term.focus();
-            }
+            this.term.focus();
+            this.rf.sendEof();
         },
         formatTime(ts) {
             let td = 0;
@@ -83,13 +86,6 @@ export default {
 
             return (td > 0) ? '%02d:%02d:%02d:%02d'.format(td, th, tm, ts) : '%02d:%02d:%02d'.format(th, tm, ts);
         },
-        updateProgress(offset, size, start) {
-            let now = Math.floor(new Date().getTime() / 1000);
-            let percent = 100 * offset / size;
-            let consumed = now - start;
-            offset /= 1024;
-            this.term.write('   %d%%    %d KB    %d KB/sec    %s\r'.format(percent, offset, offset / consumed, this.formatTime(consumed)));
-        },
         doUpload() {
             if (!this.upfile.file) {
                 this.$Message.error(this.$t('Select the file to upload'));
@@ -98,105 +94,7 @@ export default {
 
             this.upfile.modal = false;
             this.term.focus();
-
-            this.handleSendSession(this.zsentry.get_confirmed_session(), this.upfile.file);
-        },
-        readFile(file, fr, offset, size) {
-            let blob = file.slice(offset, offset + size);
-            fr.readAsArrayBuffer(blob);
-        },
-        handleReceiveSession(zsession) {
-            zsession.on("offer", (xfer) => {
-                let start_time = Math.floor(new Date().getTime() / 1000);
-                let fileInfo = xfer.get_details();
-                let size = fileInfo.size;
-                let buffer = [];
-
-                this.term.write('Transferring ' + fileInfo.name + '...\n\r');
-                this.updateProgress(0, size, start_time);
-
-                xfer.on("input", (payload) => {
-                    this.updateProgress(xfer.get_offset(), size, start_time);
-                    buffer.push(new Uint8Array(payload));
-                });
-
-                xfer.accept().then(() => {
-                    window.Zmodem.Browser.save_to_disk(buffer, fileInfo.name);
-
-                    /* Maybe lose the 'OO' from the sz command. */
-                    setTimeout(() => {
-                        let zsession = this.zsentry.get_confirmed_session();
-                        if (zsession)
-                            zsession.abort();
-                    }, 100);
-                });
-            });
-
-            zsession.on("session_end", () => {
-                this.term.write('\n');
-                this.ws.send(Buffer.from('\n'));
-            });
-
-            zsession.start();
-        },
-        handleSendSession(zsession, file) {
-            let start_time = Math.floor(new Date().getTime() / 1000);
-            let batch = {
-                obj: file,
-                name: file.name,
-                size: file.size,
-                mtime: new Date(file.lastModified),
-                files_remaining: 1,
-                bytes_remaining: file.size
-            };
-
-            zsession.send_offer(batch).then((xfer) => {
-                this.term.write('Transferring ' + file.name + '...\n\r');
-                if (xfer) {
-                    this.updateProgress(0, batch.size, start_time);
-                } else {
-                    this.term.write(file.name + ' was skipped\n\r');
-                    zsession.close().then(() => {
-                        this.term.write('\n');
-                    });
-                    return;
-                }
-
-                let reader = new FileReader();
-
-                //This really shouldn’t happen … so let’s
-                //blow up if it does.
-                reader.onerror = (e) => {
-                    throw("File read error: " + e);
-                };
-
-                reader.onload = (e) => {
-                    let piece;
-
-                    if (zsession.aborted())
-                        return;
-
-                    if (e.target.result.byteLength > 0) {
-                        piece = new Uint8Array(e.target.result, xfer, piece);
-                        xfer.send(piece);
-
-                        this.updateProgress(xfer.get_offset(), batch.size, start_time);
-                    }
-
-                    if (xfer.get_offset() == batch.size) {
-                        xfer.end(piece).then(() => {
-                            zsession.close().then(() => {
-                                this.term.write('\n');
-                            });
-                        });
-                        return;
-                    }
-
-                    this.readFile(file, reader, xfer.get_offset(), 8192);
-                };
-
-                this.readFile(file, reader, 0, 8192);
-            });
+            this.rf.sendFile(this.upfile.file);
         }
     },
     mounted() {
@@ -239,34 +137,17 @@ export default {
 
             this.term = term;
 
-            let zsentry = new window.Zmodem.Sentry({
-                to_terminal: (octets) => {
-                    this.term.write(Buffer.from(octets).toString());
-                },
-                sender: (octets) => {
-                    this.ws.send(Buffer.from(octets));
-                },
-                on_retract: () => {
-                    this.upfile.modal = false;
-                },
-                on_detect: (detection) => {
-                    let zsession = detection.confirm();
-                    setTimeout(() => {
-                        term.write('\n\rStarting zmodem transfer.  Press Ctrl+C to cancel.\n\r');
-
-                        if (zsession.type === "send")
-                            this.upfile = {modal: true, file: null};
-                        else
-                            this.handleReceiveSession(zsession);
-                    }, 10);
+            this.rf = new RttyFile(ws, term, {
+                on_detect: (t) => {
+                    if (t == 'r')
+                        this.upfile.modal = true;
+                    else if (t == 's')
+                        ;
                 }
             });
-
-            this.zsentry = zsentry;
         };
 
         ws.onmessage = (ev) => {
-            let zsentry = this.zsentry;
             let term = this.term;
 
             if (typeof ev.data == 'string') {
@@ -286,14 +167,24 @@ export default {
                     ws.send(JSON.stringify(msg));
 
                     term.on('data', (data) => {
-                        let zsession = zsentry.get_confirmed_session();
-                        if (zsession) {
-                            if (zsession.aborted())
-                                return;
+                        if (this.rf.state != '') {
+                            if (data.length == 1) {
+                                let key = data.charCodeAt(0);
 
-                            /* Ctrl + C */
-                            if (data.length == 1 && data.charCodeAt(0) == 3)
-                                zsession.abort();
+                                /* Ctrl + C, Esc */
+                                if (key == 3 || key == 27) {
+                                    if (this.rf.state == 'recving') {
+                                        this.rf.abortRecv();
+                                    } else {
+                                        this.upfile.modal = false;
+                                    
+                                        if (this.rf.state == 'send_pending')
+                                            this.rf.sendEof();
+                                        else
+                                            this.rf.abort();
+                                    }
+                                }
+                            }
                             return;
                         }
 
@@ -321,7 +212,7 @@ export default {
                     }
                 }
 
-                zsentry.consume(ev.data);
+                this.rf.consume(ev.data);
             }
         };
 
