@@ -6,6 +6,9 @@ module.exports = {
       },
       '/login': {
         target: 'http://127.0.0.1:5912'
+      },
+      '/cmd': {
+        target: 'http://127.0.0.1:5912'
       }
     }
   }

@@ -5,8 +5,10 @@ import zhLocale from 'iview/dist/locale/zh-CN'
 
 const RttyI18n = {
     'en-US': {
-        'upfile-info': 'The file "{name}" will be saved in the "/tmp/" directory of your device.',
-        'device-count': 'Online Device: {count}'
+        'device-count': 'Online Device: {count}',
+        'cmd-status-total': 'Total: {count}',
+        'cmd-status-succeed': 'Succeed: {count}',
+        'cmd-status-fail': 'Fail: {count}'
     },
     'zh-CN': {
         'Description': '描述',
@@ -34,14 +36,29 @@ const RttyI18n = {
         'Enter username...': '请输入用户名...',
         'Enter password...': '请输入密码...',
         'Login': '登录',
-        'username is required': '用户名为必填',
+        'username is required': '用户名为必填项',
         'Login Fail! username or password wrong.': '登录失败，用户名或密码错误',
         'Connect failed': '连接失败',
         'device-count': '在线设备数：{count}',
         'Cannot be greater than 500MB': '不能大于500MB',
-        'Sessions is full':'会话已满',
-        'The file name too long':'文件名太长',
-        'Only one file can be uploaded at the same time':'同一时刻只能上传一个文件'
+        'Sessions is full': '会话已满',
+        'The file name too long': '文件名太长',
+        'Only one file can be uploaded at the same time': '同一时刻只能上传一个文件',
+        'Refresh List': '刷新列表',
+        'executive command': '执行命令',
+        'Username': '用户名',
+        'Password': '密码',
+        'Command': '命令',
+        'Parameter': '参数',
+        'Environment variable': '环境变量',
+        'OK': '确定',
+        'Cancel': '取消',
+        'command is required': '命令为必填项',
+        'Please select the devices you want to operate.': '请选择您要操作的设备',
+        'status of executive command': '命令执行状态',
+        'cmd-status-total': '总数: {count}',
+        'cmd-status-succeed': '成功: {count}',
+        'cmd-status-fail': '失败: {count}'
     }
 }
 
