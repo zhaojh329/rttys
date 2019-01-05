@@ -32,6 +32,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/rakyll/statik/fs"
 	"github.com/zhaojh329/rttys/rlog"
 	_ "github.com/zhaojh329/rttys/statik"
@@ -41,6 +42,14 @@ const MAX_SESSION_TIME = 30 * time.Minute
 
 type HttpSession struct {
 	active time.Duration
+}
+
+type rttysConfig struct {
+	port     int
+	cert     string
+	key      string
+	username string
+	password string
 }
 
 func allowOrigin(w http.ResponseWriter) {
@@ -94,23 +103,59 @@ func httpAuth(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func pathExist(path string) bool {
-	_, err := os.Stat(path)
-	if err == nil {
+func parseConfig() rttysConfig {
+	port := flag.Int("port", 5912, "http service port")
+	cert := flag.String("ssl-cert", "", "certFile Path")
+	key := flag.String("ssl-key", "", "keyFile Path")
+	conf := flag.String("conf", "./rttys.conf", "config file to load")
+
+	flag.Parse()
+
+	cfg := rttysConfig{}
+
+	config, _ := yaml.ReadFile(*conf)
+	if config != nil {
+		port, _ := config.GetInt("port")
+		cfg.port = int(port)
+		cfg.cert, _ = config.Get("ssl-cert")
+		cfg.key, _ = config.Get("ssl-key")
+		cfg.username, _ = config.Get("username")
+		cfg.password, _ = config.Get("password")
+	}
+
+	if cfg.port == 0 {
+		cfg.port = *port
+	}
+
+	if cfg.cert == "" {
+		cfg.cert = *cert
+	}
+
+	if cfg.key == "" {
+		cfg.key = *key
+	}
+
+	return cfg
+}
+
+func httpLogin(cfg rttysConfig, username, password string) bool {
+	if cfg.username != "" {
+		if cfg.username != username {
+			return false
+		}
+
+		if cfg.password != "" {
+			return cfg.password == password
+		}
+
 		return true
 	}
-	if os.IsNotExist(err) {
-		return false
-	}
-	return false
+
+	return login(username, password)
 }
 
 func main() {
-	port := flag.Int("port", 5912, "http service port")
-	cert := flag.String("cert", "", "certFile Path")
-	key := flag.String("key", "", "keyFile Path")
-
-	flag.Parse()
+	cfg := parseConfig()
 
 	if !checkUser() {
 		rlog.Println("Operation not permitted")
@@ -146,7 +191,7 @@ func main() {
 		username := r.PostFormValue("username")
 		password := r.PostFormValue("password")
 
-		if login(username, password) {
+		if httpLogin(cfg, username, password) {
 			sid := generateHttpSID(username, password)
 			cookie := http.Cookie{
 				Name:     "sid",
@@ -206,23 +251,11 @@ func main() {
 		staticfs.ServeHTTP(w, r)
 	})
 
-	if *cert == "" {
-		if pathExist("rttys.crt") {
-			*cert = "rttys.crt"
-		}
-	}
-
-	if *key == "" {
-		if pathExist("rttys.key") {
-			*key = "rttys.key"
-		}
-	}
-
-	if *cert != "" && *key != "" {
-		rlog.Println("Listen on: ", *port, "SSL on")
-		rlog.Fatal(http.ListenAndServeTLS(":"+strconv.Itoa(*port), *cert, *key, nil))
+	if cfg.cert != "" && cfg.key != "" {
+		rlog.Println("Listen on: ", cfg.port, "SSL on")
+		rlog.Fatal(http.ListenAndServeTLS(":"+strconv.Itoa(cfg.port), cfg.cert, cfg.key, nil))
 	} else {
-		rlog.Println("Listen on: ", *port, "SSL off")
-		rlog.Fatal(http.ListenAndServe(":"+strconv.Itoa(*port), nil))
+		rlog.Println("Listen on: ", cfg.port, "SSL off")
+		rlog.Fatal(http.ListenAndServe(":"+strconv.Itoa(cfg.port), nil))
 	}
 }

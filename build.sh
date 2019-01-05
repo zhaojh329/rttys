@@ -7,6 +7,7 @@ generate() {
 	local bin="rttys"
 
 	mkdir output/$dir
+	cp rttys.conf output/$dir
 	cp output/rttys.crt output/rttys.key output/$dir
 
 	[ "$os" = "windows" ] && {
