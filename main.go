@@ -63,12 +63,14 @@ func allowOrigin(w http.ResponseWriter) {
 var hsMutex sync.Mutex
 var httpSessions = make(map[string]*HttpSession)
 
-func UniqueId() string {
+func UniqueId(extra string) string {
 	b := make([]byte, 48)
 	io.ReadFull(rand.Reader, b)
 
 	h := md5.New()
 	h.Write([]byte(base64.URLEncoding.EncodeToString(b)))
+	h.Write([]byte(extra))
+
 	return hex.EncodeToString(h.Sum(nil))
 }
 
@@ -194,7 +196,7 @@ func main() {
 		password := r.PostFormValue("password")
 
 		if httpLogin(cfg, username, password) {
-			sid := UniqueId()
+			sid := UniqueId("http")
 			cookie := http.Cookie{
 				Name:     "sid",
 				Value:    sid,

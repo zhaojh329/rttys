@@ -105,7 +105,7 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token = UniqueId()
+	token = UniqueId("cmd")
 
 	commands[token] = &commandStatus{
 		t: time.AfterFunc(30*time.Second, func() {
