@@ -21,10 +21,12 @@ package main
 
 import (
 	"crypto/md5"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"math/rand"
+	"io"
 	"net/http"
 	"os"
 	"runtime"
@@ -61,6 +63,15 @@ func allowOrigin(w http.ResponseWriter) {
 var hsMutex sync.Mutex
 var httpSessions = make(map[string]*HttpSession)
 
+func UniqueId() string {
+	b := make([]byte, 48)
+	io.ReadFull(rand.Reader, b)
+
+	h := md5.New()
+	h.Write([]byte(base64.URLEncoding.EncodeToString(b)))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 func cleanHttpSession() {
 	defer hsMutex.Unlock()
 
@@ -72,13 +83,6 @@ func cleanHttpSession() {
 		}
 	}
 	time.AfterFunc(1*time.Second, cleanHttpSession)
-}
-
-func generateHttpSID(username, password string) string {
-	md5Ctx := md5.New()
-	md5Ctx.Write([]byte(username + strconv.FormatFloat(rand.Float64(), 'e', 6, 32) + password))
-	cipherStr := md5Ctx.Sum(nil)
-	return hex.EncodeToString(cipherStr)
 }
 
 func httpAuth(w http.ResponseWriter, r *http.Request) bool {
@@ -162,8 +166,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	rand.Seed(time.Now().Unix())
-
 	rlog.Printf("go version: %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	rlog.Println("rttys version:", rttys_version())
 
@@ -192,7 +194,7 @@ func main() {
 		password := r.PostFormValue("password")
 
 		if httpLogin(cfg, username, password) {
-			sid := generateHttpSID(username, password)
+			sid := UniqueId()
 			cookie := http.Cookie{
 				Name:     "sid",
 				Value:    sid,
