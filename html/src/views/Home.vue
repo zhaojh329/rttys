@@ -239,7 +239,8 @@ export default {
                                 this.cmdStatus.running[resp.token] = {
                                     interval: interval,
                                     devid: item.id,
-                                    cmd: data.cmd
+                                    cmd: data.cmd,
+                                    resp: {}
                                 };
                                 return;
                             }
