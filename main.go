@@ -182,6 +182,8 @@ func main() {
 
 	staticfs := http.FileServer(statikFS)
 
+	go cmdManagement()
+
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(br, w, r)
 	})

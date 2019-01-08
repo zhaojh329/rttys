@@ -48,10 +48,13 @@ var cmdErrMsg = map[int]string{
 }
 
 type commandStatus struct {
-	resp []byte
-	t    *time.Timer
+	token string
+	resp  []byte
+	t     *time.Timer
 }
 
+var cmdAddChan = make(chan *commandStatus, 1000)
+var cmdDelChan = make(chan string, 1000)
 var commands = make(map[string]*commandStatus)
 
 func handleCmdResp(data []byte) {
@@ -67,6 +70,17 @@ func cmdErrReply(err int, w http.ResponseWriter) {
 	w.Write([]byte(msg))
 }
 
+func cmdManagement() {
+	for {
+		select {
+		case cmd := <-cmdAddChan:
+			commands[cmd.token] = cmd
+		case token := <-cmdDelChan:
+			delete(commands, token)
+		}
+	}
+}
+
 func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token != "" {
@@ -76,7 +90,8 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 			} else {
 				w.Write(cmd.resp)
 				cmd.t.Stop()
-				delete(commands, token)
+				cmdDelChan <- token
+
 			}
 		} else {
 			cmdErrReply(RTTY_CMD_ERR_INVALID_TOKEN, w)
@@ -107,9 +122,10 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 
 	token = UniqueId("cmd")
 
-	commands[token] = &commandStatus{
+	cmdAddChan <- &commandStatus{
+		token: token,
 		t: time.AfterFunc(30*time.Second, func() {
-			delete(commands, token)
+			cmdDelChan <- token
 		}),
 	}
 
