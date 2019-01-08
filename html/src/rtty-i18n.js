@@ -58,7 +58,13 @@ const RttyI18n = {
         'status of executive command': '命令执行状态',
         'cmd-status-total': '总数: {count}',
         'cmd-status-succeed': '成功: {count}',
-        'cmd-status-fail': '失败: {count}'
+        'cmd-status-fail': '失败: {count}',
+        'Ignore': '忽略',
+        'Response of executive command': '命令响应内容',
+        'Device ID': '设备ID',
+        'Status Code': '状态码',
+        'Stdout': '标准输出',
+        'Stderr': '标准错误输出'
     }
 }
 

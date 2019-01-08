@@ -31,27 +31,18 @@
             </div>
         </Modal>
         <Modal v-model="cmdStatus.modal" :title="$t('status of executive command')" :closable="false" :mask-closable="false">
-            <div v-if="cmdStatus.total > 1">
-                <Progress :percent="(cmdStatus.total - cmdStatus.execing) / cmdStatus.total * 100" status="active"><span>100%</span></Progress>
-                <p>{{ $t('cmd-status-total', {count: cmdStatus.total}) }}</p>
-                <p>{{ $t('cmd-status-succeed', {count: cmdStatus.succeed}) }}</p>
-                <p>{{ $t('cmd-status-fail', {count: cmdStatus.fail}) }}</p>
-            </div>
-            <div v-else>
-                <p v-if="cmdStatus.err > 0">{{cmdStatus.msg}}</p>
-                <div v-else>
-                    <p>Code: {{cmdStatus.code}}</p>
-                    <Divider />
-                    <span>Stdout:</span>
-                    <Input v-model="cmdStatus.stdout" type="textarea" readonly />
-                    <Divider />
-                    <span>Stderr:</span>
-                    <Input v-model="cmdStatus.stderr" type="textarea" readonly />
-                </div>
-            </div>
+            <Progress :percent="(cmdStatus.total - cmdStatus.execing) / cmdStatus.total * 100" status="active"></Progress>
+            <p>{{ $t('cmd-status-total', {count: cmdStatus.total}) }}</p>
+            <p>{{ $t('cmd-status-succeed', {count: cmdStatus.succeed}) }}</p>
+            <p>{{ $t('cmd-status-fail', {count: cmdStatus.fail}) }}</p>
             <div slot="footer">
-                <Button type="primary" size="large" long :disabled="cmdStatus.execing > 0" @click="cmdStatus.modal = false">{{$t('OK')}}</Button>
+                <Button type="primary" size="large" :disabled="cmdStatus.execing > 0" @click="showCmdResp">{{$t('OK')}}</Button>
+                <Button type="error" size="large" :disabled="cmdStatus.execing == 0" @click="ignoreCmdResp">{{$t('Ignore')}}</Button>
             </div>
+        </Modal>
+        <Modal v-model="cmdStatus.respModal" :title="$t('Response of executive command')">
+            <Table :columns="cmdStatus.response.columns" :data="cmdStatus.response.data" style="width: 100%"></Table>
+            <div slot="footer"></div>
         </Modal>
     </div>
 </template>
@@ -74,7 +65,7 @@ export default {
                     align: 'center'
                 },
                 {
-                    title: 'ID',
+                    title: this.$t('Device ID'),
                     key: 'id',
                     sortType: 'asc',
                     sortable: true
@@ -112,9 +103,25 @@ export default {
                 execing: 0,
                 succeed: 0,
                 fail: 0,
-                stdout: '',
-                stderr: '',
-                code: 0
+                running: {},
+                respModal: false,
+                response: {
+                    columns: [
+                        {
+                            title: this.$t('Device ID'),
+                            key: 'devid'
+                        },
+                        {
+                            title: this.$t('Command'),
+                            key: 'cmd'
+                        },
+                        {
+                            title: this.$t('Status Code'),
+                            key: 'code'
+                        }
+                    ],
+                    data: []
+                }
             },
             cmdData: {
                 username: '',
@@ -164,6 +171,29 @@ export default {
             }
             this.cmdModal = true;
         },
+        queryCmdResp(token) {
+            this.$axios.get('/cmd?token=' + token).then((response) => {
+                let resp = response.data;
+
+                if (resp.err == 1005)
+                    return;
+
+                if (resp.err && resp.err != 0) {
+                    console.log(resp)
+                    this.cmdStatus.fail++;
+                } else {
+                    this.cmdStatus.succeed++;
+                }
+
+                this.cmdStatus.execing--;
+
+                let cmd = this.cmdStatus.running[token];
+                if (cmd) {
+                    clearInterval(cmd.interval);
+                    cmd.resp = resp;
+                }
+            });
+        },
         doCmd() {
             this.$refs['cmdForm'].validate((valid) => {
                 if (valid) {
@@ -173,11 +203,8 @@ export default {
                     this.cmdStatus.execing = this.selection.length;
                     this.cmdStatus.succeed = 0;
                     this.cmdStatus.fail = 0;
-                    this.cmdStatus.code = 0;
-                    this.cmdStatus.stdout = '';
-                    this.cmdStatus.stderr = '';
-                    this.cmdStatus.err = 0;
-                    this.cmdStatus.msg = '';
+                    this.cmdStatus.running = {};
+                    this.cmdStatus.response.data = [];
 
                     this.selection.forEach((item) => {
                         let data = {
@@ -203,32 +230,52 @@ export default {
                         }
 
                         this.$axios.post('/cmd', JSON.stringify(data)).then((response) => {
-                            let cmdresp = response.data;
-                            if (typeof cmdresp == 'string') {
-                                cmdresp = cmdresp.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-                                cmdresp = JSON.parse(cmdresp);
+                            let resp = response.data;
 
-                                if (this.cmdStatus.total == 1)
-                                    cmdresp.stdout = cmdresp.stdout.replace(/\\n/g, '\n').replace(/\\r/g, '\r');
+                            if (resp.token) {
+                                let interval = setInterval(() => {
+                                    this.queryCmdResp(resp.token);
+                                }, 500);
+                                this.cmdStatus.running[resp.token] = {
+                                    interval: interval,
+                                    devid: item.id,
+                                    cmd: data.cmd
+                                };
+                                return;
                             }
 
                             this.cmdStatus.execing--;
-                            if (cmdresp.err)
-                                this.cmdStatus.fail++;
-                            else
-                                this.cmdStatus.succeed++;
+                            this.cmdStatus.fail++;
 
-                            if (this.cmdStatus.total == 1) {
-                                this.cmdStatus.err = cmdresp.err || 0;
-                                this.cmdStatus.msg = cmdresp.msg || '';
-                                this.cmdStatus.code = cmdresp.code;
-                                this.cmdStatus.stdout = cmdresp.stdout;
-                                this.cmdStatus.stderr = cmdresp.stderr;
-                            }
+                            console.log(resp)
                         });
                     });
                 }
             });
+        },
+        ignoreCmdResp() {
+            for (let k in this.cmdStatus.running) {
+                clearInterval(this.cmdStatus.running[k].interval);
+                this.cmdStatus.execing--;
+                this.cmdStatus.fail++;
+            }
+        },
+        showCmdResp() {
+            this.cmdStatus.modal = false;
+
+            for (let k in this.cmdStatus.running) {
+                let cmd = this.cmdStatus.running[k];
+                this.cmdStatus.response.data.push({
+                    devid: cmd.devid,
+                    cmd: cmd.cmd,
+                    code: cmd.resp.code,
+                    stdout: cmd.resp.stdout,
+                    stderr: cmd.resp.stderr
+                });
+            }
+
+            if (this.cmdStatus.response.data.length > 0)
+                this.cmdStatus.respModal = true;
         }
     },
     mounted() {
