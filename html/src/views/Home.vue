@@ -31,7 +31,7 @@
             </div>
         </Modal>
         <Modal v-model="cmdStatus.modal" :title="$t('status of executive command')" :closable="false" :mask-closable="false">
-            <Progress :percent="(cmdStatus.total - cmdStatus.execing) / cmdStatus.total * 100" status="active"></Progress>
+            <Progress :percent="parseInt((cmdStatus.total - cmdStatus.execing) / cmdStatus.total * 100)" status="active"></Progress>
             <p>{{ $t('cmd-status-total', {count: cmdStatus.total}) }}</p>
             <p>{{ $t('cmd-status-succeed', {count: cmdStatus.succeed}) }}</p>
             <p>{{ $t('cmd-status-fail', {count: cmdStatus.fail}) }}</p>
