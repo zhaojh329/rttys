@@ -64,7 +64,9 @@ const RttyI18n = {
         'Device ID': '设备ID',
         'Status Code': '状态码',
         'Stdout': '标准输出',
-        'Stderr': '标准错误输出'
+        'Stderr': '标准错误输出',
+        'Error Code': '错误码',
+        'Error Message': "错误消息"
     }
 }
 

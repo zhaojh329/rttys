@@ -40,8 +40,8 @@
                 <Button type="error" size="large" :disabled="cmdStatus.execing == 0" @click="ignoreCmdResp">{{$t('Ignore')}}</Button>
             </div>
         </Modal>
-        <Modal v-model="cmdStatus.respModal" :title="$t('Response of executive command')">
-            <Table :columns="cmdStatus.response.columns" :data="cmdStatus.response.data" style="width: 100%"></Table>
+        <Modal v-model="cmdStatus.respModal" :title="$t('Response of executive command')" :width="900">
+            <Table :columns="cmdStatus.response.columns" :data="cmdStatus.response.data"></Table>
             <div slot="footer"></div>
         </Modal>
     </div>
@@ -118,6 +118,14 @@ export default {
                         {
                             title: this.$t('Status Code'),
                             key: 'code'
+                        },
+                        {
+                            title: this.$t('Error Code'),
+                            key: 'err'
+                        },
+                        {
+                            title: this.$t('Error Message'),
+                            key: 'msg'
                         }
                     ],
                     data: []
@@ -172,27 +180,45 @@ export default {
             this.cmdModal = true;
         },
         queryCmdResp(token) {
-            this.$axios.get('/cmd?token=' + token).then((response) => {
-                let resp = response.data;
+            for (let token in this.cmdStatus.running) {
+                let item = this.cmdStatus.running[token];
 
-                if (resp.err == 1005)
-                    return;
+                if (item.querying)
+                    continue;
 
-                if (resp.err && resp.err != 0) {
-                    console.log(resp)
-                    this.cmdStatus.fail++;
-                } else {
-                    this.cmdStatus.succeed++;
-                }
+                item.querying = true;
 
-                this.cmdStatus.execing--;
+                this.$axios.get('/cmd?token=' + token).then((response) => {
+                    let resp = response.data;
 
-                let cmd = this.cmdStatus.running[token];
-                if (cmd) {
-                    clearInterval(cmd.interval);
-                    cmd.resp = resp;
-                }
-            });
+                    if (resp.err == 1005) {
+                        item.querying = false;
+                        return;
+                    }
+
+                    if (resp.err && resp.err != 0)
+                        this.cmdStatus.fail++;
+                    else
+                        this.cmdStatus.succeed++;
+
+                    this.cmdStatus.execing--;
+
+                    this.cmdStatus.response.data.push({
+                        devid: item.devid,
+                        cmd: item.cmd,
+                        code: resp.code,
+                        err: resp.err,
+                        msg: resp.msg,
+                        stdout: resp.stdout,
+                        stderr: resp.stderr
+                    });
+
+                    delete this.cmdStatus.running[token];
+                });
+            };
+
+            if (this.cmdStatus.execing > 0)
+                setTimeout(this.queryCmdResp, 1000);
         },
         doCmd() {
             this.$refs['cmdForm'].validate((valid) => {
@@ -233,14 +259,9 @@ export default {
                             let resp = response.data;
 
                             if (resp.token) {
-                                let interval = setInterval(() => {
-                                    this.queryCmdResp(resp.token);
-                                }, 500);
                                 this.cmdStatus.running[resp.token] = {
-                                    interval: interval,
                                     devid: item.id,
-                                    cmd: data.cmd,
-                                    resp: {}
+                                    cmd: data.cmd
                                 };
                                 return;
                             }
@@ -248,33 +269,26 @@ export default {
                             this.cmdStatus.execing--;
                             this.cmdStatus.fail++;
 
-                            console.log(resp)
+                            this.cmdStatus.response.data.push({
+                                devid: item.id,
+                                cmd: data.cmd,
+                                err: resp.err,
+                                msg: resp.msg
+                            });
                         });
                     });
+
+                    setTimeout(this.queryCmdResp, 1000);
                 }
             });
         },
         ignoreCmdResp() {
-            for (let k in this.cmdStatus.running) {
-                clearInterval(this.cmdStatus.running[k].interval);
-                this.cmdStatus.execing--;
-                this.cmdStatus.fail++;
-            }
+            this.cmdStatus.modal = false;
+            this.cmdStatus.execing = 0;
+            this.cmdStatus.running = {};
         },
         showCmdResp() {
             this.cmdStatus.modal = false;
-
-            for (let k in this.cmdStatus.running) {
-                let cmd = this.cmdStatus.running[k];
-                this.cmdStatus.response.data.push({
-                    devid: cmd.devid,
-                    cmd: cmd.cmd,
-                    code: cmd.resp.code,
-                    stdout: cmd.resp.stdout,
-                    stderr: cmd.resp.stderr
-                });
-            }
-
             if (this.cmdStatus.response.data.length > 0)
                 this.cmdStatus.respModal = true;
         }
