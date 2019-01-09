@@ -7,7 +7,6 @@ const RttyI18n = {
     'en-US': {
         'device-count': 'Online Device: {count}',
         'cmd-status-total': 'Total: {count}',
-        'cmd-status-succeed': 'Succeed: {count}',
         'cmd-status-fail': 'Fail: {count}'
     },
     'zh-CN': {
@@ -57,7 +56,6 @@ const RttyI18n = {
         'Please select the devices you want to operate.': '请选择您要操作的设备',
         'status of executive command': '命令执行状态',
         'cmd-status-total': '总数: {count}',
-        'cmd-status-succeed': '成功: {count}',
         'cmd-status-fail': '失败: {count}',
         'Ignore': '忽略',
         'Response of executive command': '命令响应内容',

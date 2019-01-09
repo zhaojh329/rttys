@@ -6,7 +6,14 @@
         <div class="counter">
             {{ $t('device-count', {count: devlists.length}) }}
         </div>
-        <Table :loading="loading" :columns="devlistTitle" :data="filtered" style="margin-top: 10px; width: 100%" :no-data-text="$t('No devices connected')" @on-selection-change='handleSelection'></Table>
+        <Table :loading="loading" :columns="devlistTitle" :data="filtered" style="margin-top: 10px; width: 100%" :no-data-text="$t('No devices connected')" @on-selection-change='handleSelection'>
+            <template slot-scope="{ row }" slot="uptime">
+                <span>{{ '%t'.format(row.uptime) }}</span>
+            </template>
+            <template slot-scope="{ row }" slot="action">
+                <Button type="primary" @click="connectDevice(row.id)">{{$t('Connect')}}</Button>
+            </template>
+        </Table>
         <Modal v-model="cmdModal" :title="$t('executive command')">
             <Form :model="cmdData" ref="cmdForm" :rules="cmdRuleValidate" :label-width="80">
                 <FormItem :label="$t('Username')" prop="username">
@@ -33,7 +40,6 @@
         <Modal v-model="cmdStatus.modal" :title="$t('status of executive command')" :closable="false" :mask-closable="false">
             <Progress :percent="parseInt((cmdStatus.total - cmdStatus.execing) / cmdStatus.total * 100)" status="active"></Progress>
             <p>{{ $t('cmd-status-total', {count: cmdStatus.total}) }}</p>
-            <p>{{ $t('cmd-status-succeed', {count: cmdStatus.succeed}) }}</p>
             <p>{{ $t('cmd-status-fail', {count: cmdStatus.fail}) }}</p>
             <div slot="footer">
                 <Button type="primary" size="large" :disabled="cmdStatus.execing > 0" @click="showCmdResp">{{$t('OK')}}</Button>
@@ -74,9 +80,7 @@ export default {
                     title: this.$t('Uptime'),
                     key: 'uptime',
                     sortable: true,
-                    render: (h, params) => {
-                        return h('span', '%t'.format(params.row.uptime));
-                    }
+                    slot: 'uptime'
                 },
                 {
                     title: this.$t('Description'),
@@ -85,23 +89,13 @@ export default {
                 {
                     width: 150,
                     align: 'center',
-                    render: (h, params) => {
-                        return h('Button', {
-                            props: { type: 'primary' },
-                            on: {
-                                click: () => {
-                                    this.$router.push({path: '/rtty', query: {devid: params.row.id}});
-                                }
-                            }
-                        }, this.$t('Connect'));
-                    }
+                    slot: 'action'
                 }
             ],
             cmdModal: false,
             cmdStatus: {
                 modal: false,
                 execing: 0,
-                succeed: 0,
                 fail: 0,
                 running: {},
                 respModal: false,
@@ -172,6 +166,9 @@ export default {
         handleSelection(selection) {
             this.selection = selection;
         },
+        connectDevice(devid) {
+            this.$router.push({path: '/rtty', query: {devid: devid}});
+        },
         showCmdForm() {
             if (this.selection.length < 1) {
                 this.$Message.error(this.$t('Please select the devices you want to operate.'));
@@ -198,8 +195,6 @@ export default {
 
                     if (resp.err && resp.err != 0)
                         this.cmdStatus.fail++;
-                    else
-                        this.cmdStatus.succeed++;
 
                     this.cmdStatus.execing--;
 
@@ -227,7 +222,6 @@ export default {
                     this.cmdStatus.modal = true;
                     this.cmdStatus.total = this.selection.length;
                     this.cmdStatus.execing = this.selection.length;
-                    this.cmdStatus.succeed = 0;
                     this.cmdStatus.fail = 0;
                     this.cmdStatus.running = {};
                     this.cmdStatus.response.data = [];
