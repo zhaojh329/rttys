@@ -3,7 +3,7 @@ package main
 import "fmt"
 
 const RTTYS_VERSION_MAJOR = 2
-const RTTYS_VERSION_MINOR = 7
+const RTTYS_VERSION_MINOR = 8
 const RTTYS_VERSION_PATCH = 0
 
 func rttys_version() string {
