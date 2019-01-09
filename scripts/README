@@ -1,10 +1,15 @@
-# For Ubuntu, Debian
+# init.d
 
-cp rttys.init /etc/init.d/rttys
+    sudo cp rttys.init /etc/init.d/rttys
+    mkdir /etc/rttys
+    cp rttys.crt rttys.key /etc/rttys 
+    update-rc.d rttys defaults
+    /etc/init.d/rttys start
 
-mkdir /etc/rttys
-cp rttys.crt rttys.key /etc/rttys 
+# Systemd
 
-update-rc.d rttys defaults
-
-/etc/init.d/rttys start
+    mkdir /etc/rttys
+    cp rttys.crt rttys.key /etc/rttys 
+    cp rttys.service /lib/systemd/system
+    sudo systemctl enable rttys
+    sudo systemctl start rttys
