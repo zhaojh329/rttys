@@ -23,10 +23,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"
+	"github.com/zhaojh329/rttys/rlog"
 )
 
 const (
@@ -53,13 +55,16 @@ type commandStatus struct {
 	t     *time.Timer
 }
 
-var cmdAddChan = make(chan *commandStatus, 1000)
-var cmdDelChan = make(chan string, 1000)
+var cmdLock sync.RWMutex
 var commands = make(map[string]*commandStatus)
 
 func handleCmdResp(data []byte) {
 	token, _ := jsonparser.GetString(data, "token")
-	if cmd, ok := commands[token]; ok {
+
+	cmdLock.RLock()
+	cmd, ok := commands[token]
+	cmdLock.RUnlock()
+	if ok {
 		attrs, _, _, _ := jsonparser.Get(data, "attrs")
 		cmd.resp = attrs
 	}
@@ -70,28 +75,23 @@ func cmdErrReply(err int, w http.ResponseWriter) {
 	w.Write([]byte(msg))
 }
 
-func cmdManagement() {
-	for {
-		select {
-		case cmd := <-cmdAddChan:
-			commands[cmd.token] = cmd
-		case token := <-cmdDelChan:
-			delete(commands, token)
-		}
-	}
-}
-
 func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token != "" {
-		if cmd, ok := commands[token]; ok {
+		cmdLock.RLock()
+		cmd, ok := commands[token]
+		cmdLock.RUnlock()
+		if ok {
 			if len(cmd.resp) == 0 {
 				cmdErrReply(RTTY_CMD_ERR_PENDING, w)
 			} else {
+				cmdLock.Lock()
+				delete(commands, token)
+				rlog.Println("del token:", len(commands), token)
+				cmdLock.Unlock()
+
 				w.Write(cmd.resp)
 				cmd.t.Stop()
-				cmdDelChan <- token
-
 			}
 		} else {
 			cmdErrReply(RTTY_CMD_ERR_INVALID_TOKEN, w)
@@ -122,12 +122,20 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 
 	token = UniqueId("cmd")
 
-	cmdAddChan <- &commandStatus{
+	cmd := &commandStatus{
 		token: token,
 		t: time.AfterFunc(30*time.Second, func() {
-			cmdDelChan <- token
+			cmdLock.Lock()
+			delete(commands, token)
+			rlog.Println("del token:", len(commands), token)
+			cmdLock.Unlock()
 		}),
 	}
+
+	cmdLock.Lock()
+	commands[token] = cmd
+	rlog.Println("add token:", len(commands), token)
+	cmdLock.Unlock()
 
 	msg := fmt.Sprintf(`{"type":"cmd","token":"%s","attrs":%s}`, token, string(body))
 	dev.wsWrite(websocket.TextMessage, []byte(msg))
