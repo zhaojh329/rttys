@@ -38,7 +38,7 @@
             </div>
         </Modal>
         <Modal v-model="cmdStatus.modal" :title="$t('status of executive command')" :closable="false" :mask-closable="false">
-            <Progress :percent="parseInt((cmdStatus.total - cmdStatus.execing) / cmdStatus.total * 100)" status="active"></Progress>
+            <Progress :percent="cmdStatusPercent" status="active"></Progress>
             <p>{{ $t('cmd-status-total', {count: cmdStatus.total}) }}</p>
             <p>{{ $t('cmd-status-fail', {count: cmdStatus.fail}) }}</p>
             <div slot="footer">
@@ -47,7 +47,7 @@
             </div>
         </Modal>
         <Modal v-model="cmdStatus.respModal" :title="$t('Response of executive command')" :width="900">
-            <Table :columns="cmdStatus.response.columns" :data="cmdStatus.response.data"></Table>
+            <Table :columns="cmdStatus.response.columns" :data="cmdStatus.response.data" height="300"></Table>
             <div slot="footer"></div>
         </Modal>
     </div>
@@ -101,6 +101,11 @@ export default {
                 respModal: false,
                 response: {
                     columns: [
+                        {
+                            type: 'index',
+                            width: 60,
+                            align: 'center'
+                        },
                         {
                             title: this.$t('Device ID'),
                             key: 'devid'
@@ -176,7 +181,9 @@ export default {
             }
             this.cmdModal = true;
         },
-        queryCmdResp(token) {
+        queryCmdResp() {
+            let count = 0;
+
             for (let token in this.cmdStatus.running) {
                 let item = this.cmdStatus.running[token];
 
@@ -210,10 +217,15 @@ export default {
 
                     delete this.cmdStatus.running[token];
                 });
-            };
+
+                count++;
+
+                if (count > 10)
+                    break;
+            }
 
             if (this.cmdStatus.execing > 0)
-                setTimeout(this.queryCmdResp, 1000);
+                setTimeout(this.queryCmdResp, 500);
         },
         doCmd() {
             this.$refs['cmdForm'].validate((valid) => {
@@ -272,19 +284,27 @@ export default {
                         });
                     });
 
-                    setTimeout(this.queryCmdResp, 1000);
+                    setTimeout(this.queryCmdResp, 100);
                 }
             });
         },
         ignoreCmdResp() {
-            this.cmdStatus.modal = false;
             this.cmdStatus.execing = 0;
             this.cmdStatus.running = {};
+
+            this.cmdStatus.respModal = true;
+            this.cmdStatus.modal = false;
         },
         showCmdResp() {
             this.cmdStatus.modal = false;
             if (this.cmdStatus.response.data.length > 0)
                 this.cmdStatus.respModal = true;
+        }
+    },
+    computed: {
+        cmdStatusPercent() {
+            let percent = (this.cmdStatus.total - this.cmdStatus.execing) / this.cmdStatus.total * 100;
+            return parseInt(percent);
         }
     },
     mounted() {
