@@ -151,6 +151,14 @@ export default {
                 ],
                 cmd: [
                     { required: true, trigger: 'blur', message: this.$t('command is required') }
+                ],
+                params: [
+                    {validator: (rule, value, callback, source, options) => {
+                        let err = [];
+                        if (!this.parseCmdParam(value))
+                            err.push(new Error(this.$t('Invalid Params')));
+                        callback(err);
+                    }}
                 ]
             }
         }
@@ -235,6 +243,53 @@ export default {
             if (this.cmdStatus.execing > 0)
                 setTimeout(this.queryCmdResp, 500);
         },
+        parseCmdParam(str) {
+            let param = [];
+            let separative;
+            let val;
+            let idx;
+
+            while (str.length > 0) {
+                str = str.trim();
+
+                if (str.length < 1)
+                    return param;
+
+                separative = str.charAt(0);
+
+                if (separative == '\'' || separative == '"') {
+                    str = str.substr(1);
+                    idx = str.indexOf(separative);
+                    if (idx < 1)
+                        return null;
+                    param.push(str.substr(0, idx))
+                    str = str.substr(idx + 1);
+
+                    if (str.length > 0 && str.charAt(0) != ' ')
+                        return null;
+                    continue;
+                }
+
+                idx = str.indexOf(' ');
+                if (idx < 0) {
+
+                    if (str.indexOf('\'') > 0 || str.indexOf('"') > 0)
+                        return null;
+
+                    param.push(str);
+                    return param;
+                }
+
+                val = str.substr(0, idx)
+                if (val.indexOf('\'') > 0 || val.indexOf('"') > 0)
+                    return null;
+
+                param.push(val);
+                str = str.substr(idx + 1);
+            }
+
+            return param;
+        },
         doCmd() {
             this.$refs['cmdForm'].validate((valid) => {
                 if (valid) {
@@ -252,13 +307,9 @@ export default {
                             username: this.cmdData.username,
                             password: this.cmdData.password,
                             cmd: this.cmdData.cmd.trim(),
-                            params: [],
+                            params: this.parseCmdParam(this.cmdData.params),
                             env: {}
                         };
-
-                        this.cmdData.params = this.cmdData.params.trim();
-                        if (this.cmdData.params != '')
-                            data.params = this.cmdData.params.split(' ');
 
                         this.cmdData.env = this.cmdData.env.trim();
                         if (this.cmdData.env != '') {

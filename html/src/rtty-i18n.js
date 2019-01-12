@@ -64,7 +64,8 @@ const RttyI18n = {
         'Stdout': '标准输出',
         'Stderr': '标准错误输出',
         'Error Code': '错误码',
-        'Error Message': "错误消息"
+        'Error Message': "错误消息",
+        'Invalid Params': '参数格式错误'
     }
 }
 
