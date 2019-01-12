@@ -227,8 +227,8 @@ export default {
                         code: resp.code,
                         err: resp.err,
                         msg: resp.msg,
-                        stdout: window.atob(resp.stdout),
-                        stderr: window.atob(resp.stderr)
+                        stdout: resp.stdout && window.atob(resp.stdout),
+                        stderr: resp.stderr && window.atob(resp.stderr)
                     });
 
                     delete this.cmdStatus.running[token];
