@@ -46,7 +46,7 @@
                 <Button type="error" size="large" :disabled="cmdStatus.execing == 0" @click="ignoreCmdResp">{{$t('Ignore')}}</Button>
             </div>
         </Modal>
-        <Modal v-model="cmdStatus.respModal" :title="$t('Response of executive command')" :width="900">
+        <Modal v-model="cmdStatus.respModal" :title="$t('Response of executive command')" :width="1000">
             <Table :columns="cmdStatus.response.columns" :data="cmdStatus.response.data" height="300"></Table>
             <div slot="footer"></div>
         </Modal>
@@ -115,16 +115,24 @@ export default {
                             key: 'cmd'
                         },
                         {
-                            title: this.$t('Status Code'),
-                            key: 'code'
-                        },
-                        {
                             title: this.$t('Error Code'),
                             key: 'err'
                         },
                         {
                             title: this.$t('Error Message'),
                             key: 'msg'
+                        },
+                        {
+                            title: this.$t('Status Code'),
+                            key: 'code'
+                        },
+                        {
+                            title: this.$t('Stdout'),
+                            key: 'stdout'
+                        },
+                        {
+                            title: this.$t('Stderr'),
+                            key: 'stderr'
                         }
                     ],
                     data: []
@@ -211,8 +219,8 @@ export default {
                         code: resp.code,
                         err: resp.err,
                         msg: resp.msg,
-                        stdout: resp.stdout,
-                        stderr: resp.stderr
+                        stdout: window.atob(resp.stdout),
+                        stderr: window.atob(resp.stderr)
                     });
 
                     delete this.cmdStatus.running[token];
