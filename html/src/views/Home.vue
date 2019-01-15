@@ -242,7 +242,7 @@ export default {
         handleDelCmdParam(index) {
             this.cmdData.params.splice(index, 1);
         },
-        handleAddCmdParam(value) {
+        handleAddCmdParam() {
             this.cmdData.currentParam = this.cmdData.currentParam.trim();
             if (this.cmdData.currentParam != '') {
                 this.cmdData.params.push(this.cmdData.currentParam);
@@ -252,7 +252,7 @@ export default {
         handleDelCmdEnv(key) {
             delete this.cmdData.env[key];
         },
-        handleAddCmdEnv(value) {
+        handleAddCmdEnv() {
             this.cmdData.currentEnv = this.cmdData.currentEnv.trim();
             if (this.cmdData.currentEnv != '') {
                 let e = this.cmdData.currentEnv.split('=');
