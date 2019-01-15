@@ -26,10 +26,12 @@
                     <Input v-model="cmdData.cmd"></Input>
                 </FormItem>
                 <FormItem :label="$t('Parameter')" prop="params">
-                    <Input v-model="cmdData.params"></Input>
+                    <Tag v-for="(item, index) in cmdData.params" :key="item + index" closable @on-close="handleDelCmdParam(index)" :fade="false">{{ item }}</Tag>
+                    <Input v-model="cmdData.currentParam" icon="md-add-circle" :placeholder="$t('Please enter a single parameter')"  @on-click="handleAddCmdParam" />
                 </FormItem>
                 <FormItem :label="$t('Environment variable')" prop="env">
-                    <Input v-model="cmdData.env"></Input>
+                    <Tag v-for="(v, k) in cmdData.env" :key="v + k" closable @on-close="handleDelCmdEnv(k)" :fade="false">{{ k + '=' + v }}</Tag>
+                    <Input v-model="cmdData.currentEnv" icon="md-add-circle" :placeholder="$t('Please enter a single environment')"  @on-click="handleAddCmdEnv" />
                 </FormItem>
             </Form>
             <div slot="footer">
@@ -142,8 +144,10 @@ export default {
                 username: '',
                 password: '',
                 cmd: '',
-                params: '',
-                env: ''
+                params: [],
+                currentParam: '',
+                env: {},
+                currentEnv: ''
             },
             cmdRuleValidate: {
                 username: [
@@ -151,14 +155,6 @@ export default {
                 ],
                 cmd: [
                     { required: true, trigger: 'blur', message: this.$t('command is required') }
-                ],
-                params: [
-                    {validator: (rule, value, callback, source, options) => {
-                        let err = [];
-                        if (!this.parseCmdParam(value))
-                            err.push(new Error(this.$t('Invalid Params')));
-                        callback(err);
-                    }}
                 ]
             }
         }
@@ -243,52 +239,27 @@ export default {
             if (this.cmdStatus.execing > 0)
                 setTimeout(this.queryCmdResp, 500);
         },
-        parseCmdParam(str) {
-            let param = [];
-            let separative;
-            let val;
-            let idx;
-
-            while (str.length > 0) {
-                str = str.trim();
-
-                if (str.length < 1)
-                    return param;
-
-                separative = str.charAt(0);
-
-                if (separative == '\'' || separative == '"') {
-                    str = str.substr(1);
-                    idx = str.indexOf(separative);
-                    if (idx < 1)
-                        return null;
-                    param.push(str.substr(0, idx))
-                    str = str.substr(idx + 1);
-
-                    if (str.length > 0 && str.charAt(0) != ' ')
-                        return null;
-                    continue;
-                }
-
-                idx = str.indexOf(' ');
-                if (idx < 0) {
-
-                    if (str.indexOf('\'') > 0 || str.indexOf('"') > 0)
-                        return null;
-
-                    param.push(str);
-                    return param;
-                }
-
-                val = str.substr(0, idx)
-                if (val.indexOf('\'') > 0 || val.indexOf('"') > 0)
-                    return null;
-
-                param.push(val);
-                str = str.substr(idx + 1);
+        handleDelCmdParam(index) {
+            this.cmdData.params.splice(index, 1);
+        },
+        handleAddCmdParam(value) {
+            this.cmdData.currentParam = this.cmdData.currentParam.trim();
+            if (this.cmdData.currentParam != '') {
+                this.cmdData.params.push(this.cmdData.currentParam);
+                this.cmdData.currentParam = '';
             }
-
-            return param;
+        },
+        handleDelCmdEnv(key) {
+            delete this.cmdData.env[key];
+        },
+        handleAddCmdEnv(value) {
+            this.cmdData.currentEnv = this.cmdData.currentEnv.trim();
+            if (this.cmdData.currentEnv != '') {
+                let e = this.cmdData.currentEnv.split('=');
+                if (e.length == 2)
+                    this.cmdData.env[e[0]] = e[1];
+                this.cmdData.currentEnv = '';
+            }
         },
         doCmd() {
             this.$refs['cmdForm'].validate((valid) => {
@@ -307,18 +278,9 @@ export default {
                             username: this.cmdData.username,
                             password: this.cmdData.password,
                             cmd: this.cmdData.cmd.trim(),
-                            params: this.parseCmdParam(this.cmdData.params),
-                            env: {}
+                            params: this.cmdData.params,
+                            env: this.cmdData.env
                         };
-
-                        this.cmdData.env = this.cmdData.env.trim();
-                        if (this.cmdData.env != '') {
-                            this.cmdData.env.split(' ').forEach((item) => {
-                                let e = item.split('=');
-                                if (e.length == 2)
-                                    data.env[e[0]] = e[1];
-                            });
-                        }
 
                         this.$axios.post('/cmd', JSON.stringify(data)).then((response) => {
                             let resp = response.data;
