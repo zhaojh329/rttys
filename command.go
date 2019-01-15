@@ -87,7 +87,6 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 			} else {
 				cmdLock.Lock()
 				delete(commands, token)
-				rlog.Println("del token:", len(commands), token)
 				cmdLock.Unlock()
 
 				w.Write(cmd.resp)
@@ -134,7 +133,6 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 
 	cmdLock.Lock()
 	commands[token] = cmd
-	rlog.Println("add token:", len(commands), token)
 	cmdLock.Unlock()
 
 	msg := fmt.Sprintf(`{"type":"cmd","token":"%s","attrs":%s}`, token, string(body))
