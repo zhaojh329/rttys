@@ -10,7 +10,7 @@
                     <Input type="password" v-model="form.password" size="large" auto-complete="off" prefix="ios-lock" :placeholder="$t('Enter password...')" />
                 </FormItem>
                 <FormItem>
-                    <Button type="primary" long size="large" icon="log-in" @click="handleSubmit">{{ $t('Login') }}</Button>
+                    <Button type="primary" long size="large" icon="ios-log-in" @click="handleSubmit">{{ $t('Login') }}</Button>
                 </FormItem>
             </Form>
         </Card>
