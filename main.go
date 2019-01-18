@@ -22,7 +22,7 @@ package main
 import (
 	"crypto/md5"
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -65,11 +65,13 @@ var hsMutex sync.Mutex
 var httpSessions = make(map[string]*HttpSession)
 
 func UniqueId(extra string) string {
-	b := make([]byte, 48)
-	io.ReadFull(rand.Reader, b)
+	buf := make([]byte, 20)
+
+	binary.BigEndian.PutUint32(buf, uint32(time.Now().Unix()))
+	io.ReadFull(rand.Reader, buf[4:])
 
 	h := md5.New()
-	h.Write([]byte(base64.URLEncoding.EncodeToString(b)))
+	h.Write(buf)
 	h.Write([]byte(extra))
 
 	return hex.EncodeToString(h.Sum(nil))
