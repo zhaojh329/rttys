@@ -33,7 +33,7 @@ const RTTY_MAX_SESSION_ID = 1000000
 
 type Broker struct {
 	devices    map[string]*Client
-	sessions   map[uint32]*Session
+	sessions   map[string]*Session
 	register   chan *Client      /* Register requests from the clients. */
 	unregister chan *Client      /* Unregister requests from clients. */
 	inMessage  chan *wsInMessage /* Buffered channel of inbound messages. */
@@ -50,30 +50,14 @@ func newBroker() *Broker {
 		register:   make(chan *Client, 100),
 		unregister: make(chan *Client, 100),
 		devices:    make(map[string]*Client),
-		sessions:   make(map[uint32]*Session),
+		sessions:   make(map[string]*Session),
 		inMessage:  make(chan *wsInMessage, 10000),
 	}
 }
 
-// return 0 for failed
-func getFreeSid(br *Broker) uint32 {
-	for sid := uint32(1); sid <= RTTY_MAX_SESSION_ID; sid++ {
-		if _, ok := br.sessions[sid]; !ok {
-			return sid
-		}
-	}
-
-	return 0
-}
-
 func (br *Broker) newSession(web *Client) bool {
 	devid := web.devid
-	sid := getFreeSid(br)
-
-	if sid < 1 {
-		rlog.Println("Not found  available sid")
-		return false
-	}
+	sid := genUniqueID("dev")
 
 	if dev, ok := br.devices[devid]; ok {
 		devsid := dev.getFreeSid()
@@ -148,7 +132,7 @@ func (br *Broker) run() {
 		case msg := <-br.inMessage:
 			msgType := msg.msgType
 			data := msg.data
-			var sid uint32
+			var sid string
 			c := msg.c
 
 			if c.isDev {

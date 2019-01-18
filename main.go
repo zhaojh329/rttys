@@ -64,7 +64,7 @@ func allowOrigin(w http.ResponseWriter) {
 var hsMutex sync.Mutex
 var httpSessions = make(map[string]*HttpSession)
 
-func UniqueId(extra string) string {
+func genUniqueID(extra string) string {
 	buf := make([]byte, 20)
 
 	binary.BigEndian.PutUint32(buf, uint32(time.Now().Unix()))
@@ -199,7 +199,7 @@ func main() {
 		password := r.PostFormValue("password")
 
 		if httpLogin(cfg, username, password) {
-			sid := UniqueId("http")
+			sid := genUniqueID("http")
 			cookie := http.Cookie{
 				Name:     "sid",
 				Value:    sid,

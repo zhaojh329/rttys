@@ -119,7 +119,7 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token = UniqueId("cmd")
+	token = genUniqueID("cmd")
 
 	cmd := &commandStatus{
 		token: token,

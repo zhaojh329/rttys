@@ -52,8 +52,8 @@ type Client struct {
 	mutex      sync.Mutex /* Avoid repeated closes and concurrent map writes */
 	closed     bool
 	closeChan  chan byte
-	sessions   map[uint8]uint32
-	sid        uint32
+	sessions   map[uint8]string
+	sid        string
 	outMessage chan *wsOutMessage /* Buffered channel of outbound messages */
 }
 
@@ -211,7 +211,7 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
 
 	if isDev {
 		client.isDev = true
-		client.sessions = make(map[uint8]uint32)
+		client.sessions = make(map[uint8]string)
 		client.desc = r.URL.Query().Get("description")
 
 		if keepalive > 0 {
