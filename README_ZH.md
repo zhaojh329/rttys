@@ -24,14 +24,12 @@
 
 ## 查看支持哪些命令行参数
 
-	$ sudo ./rttys -h
-	Usage of rttys:
+    ./rttys -h
+    Usage of ./rttys:
+      -addr string
+            address to listen (default ":5912")
       -conf string
             config file to load (default "./rttys.conf")
-	  -cert string
-	        certFile Path
-	  -port int
-	        http service port (default 5912)
       -ssl-cert string
             certFile Path
       -ssl-key string
@@ -39,7 +37,7 @@
 
 ## 运行
 
-	sudo ./rttys
+      sudo ./rttys
 
 # 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考

@@ -23,12 +23,13 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
 ## download the precompiled programs from [Release](https://github.com/zhaojh329/rttys/releases) page according to your os and arch or compile it by yourself.
 
 ## See Supported Command Line Parameters
+
     ./rttys -h
     Usage of ./rttys:
+      -addr string
+            address to listen (default ":5912")
       -conf string
             config file to load (default "./rttys.conf")
-      -port int
-            http service port (default 5912)
       -ssl-cert string
             certFile Path
       -ssl-key string

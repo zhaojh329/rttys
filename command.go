@@ -28,7 +28,6 @@ import (
 
 	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"
-	"github.com/zhaojh329/rttys/internal/rlog"
 )
 
 const (
@@ -126,7 +125,7 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 		t: time.AfterFunc(30*time.Second, func() {
 			cmdLock.Lock()
 			delete(commands, token)
-			rlog.Println("del token:", len(commands), token)
+			log.Println("del token:", len(commands), token)
 			cmdLock.Unlock()
 		}),
 	}
