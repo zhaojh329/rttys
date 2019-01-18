@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/zhaojh329/rttys/rlog"
+	"github.com/zhaojh329/rttys/internal/rlog"
 )
 
 const (

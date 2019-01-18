@@ -34,9 +34,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zhaojh329/rttys/internal/rlog"
+
 	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/rakyll/statik/fs"
-	"github.com/zhaojh329/rttys/rlog"
 	_ "github.com/zhaojh329/rttys/statik"
 )
 
