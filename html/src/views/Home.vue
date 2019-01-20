@@ -285,7 +285,7 @@ export default {
                             env: this.cmdData.env
                         };
 
-                        this.$axios.post('/cmd', JSON.stringify(data)).then((response) => {
+                        this.$axios.post('/cmd', data).then((response) => {
                             let resp = response.data;
 
                             if (resp.token) {
