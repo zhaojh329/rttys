@@ -27,11 +27,11 @@
                 </FormItem>
                 <FormItem :label="$t('Parameter')" prop="params">
                     <Tag v-for="(item, index) in cmdData.params" :key="item + index" closable @on-close="handleDelCmdParam(index)" :fade="false">{{ item }}</Tag>
-                    <Input v-model="cmdData.currentParam" icon="md-add-circle" :placeholder="$t('Please enter a single parameter')"  @on-click="handleAddCmdParam" />
+                    <Input v-model="cmdData.currentParam" icon="md-add-circle" :placeholder="$t('Please enter a single parameter')"  @on-click="handleAddCmdParam" @on-keyup.enter="handleAddCmdParam" />
                 </FormItem>
                 <FormItem :label="$t('Environment variable')" prop="env">
                     <Tag v-for="(v, k) in cmdData.env" :key="v + k" closable @on-close="handleDelCmdEnv(k)" :fade="false">{{ k + '=' + v }}</Tag>
-                    <Input v-model="cmdData.currentEnv" icon="md-add-circle" :placeholder="$t('Please enter a single environment')"  @on-click="handleAddCmdEnv" />
+                    <Input v-model="cmdData.currentEnv" icon="md-add-circle" :placeholder="$t('Please enter a single environment')"  @on-click="handleAddCmdEnv" @on-keyup.enter="handleAddCmdEnv" />
                 </FormItem>
             </Form>
             <div slot="footer">
