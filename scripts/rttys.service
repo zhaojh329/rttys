@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 PIDFile=/var/run/rttys.pid
-ExecStart=/usr/local/bin/rttys -port 5912 -ssl-cert /etc/rttys/rttys.crt -ssl-key /etc/rttys/rttys.key
+ExecStart=/usr/local/bin/rttys -addr :5912 -ssl-cert /etc/rttys/rttys.crt -ssl-key /etc/rttys/rttys.key
 ExecStop=/sbin/start-stop-daemon --quiet --stop --retry QUIT/5 --pidfile $PIDFile
 TimeoutStopSec=5
 
