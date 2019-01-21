@@ -250,17 +250,14 @@ export default {
             }
         },
         handleDelCmdEnv(key) {
-            delete this.cmdData.env[key];
-            this.cmdData.env = Object.assign({}, this.cmdData.env);
+            this.$delete(this.cmdData.env, key);
         },
         handleAddCmdEnv() {
             this.cmdData.currentEnv = this.cmdData.currentEnv.trim();
             if (this.cmdData.currentEnv != '') {
                 let e = this.cmdData.currentEnv.split('=');
-                if (e.length == 2) {
-                    this.cmdData.env[e[0]] = e[1];
-                    this.cmdData.env = Object.assign({}, this.cmdData.env);
-                }
+                if (e.length == 2)
+                    this.$set(this.cmdData.env, [e[0]], e[1]);
                 this.cmdData.currentEnv = '';
             }
         },
