@@ -35,9 +35,13 @@
       -ssl-key string
             keyFile Path
 
-## 运行
+## 以root用户运行(使用系统用户名和密码)
 
-      sudo ./rttys
+    sudo ./rttys
+
+## 以普通用户运行(用户名和密码来自配置文件)
+
+    ./rttys
 
 # 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
