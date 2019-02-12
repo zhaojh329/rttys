@@ -35,9 +35,13 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
       -ssl-key string
             keyFile Path
 
-## run
+## run as root (use system credentials)
 
     sudo ./rttys
+    
+## run as normal user (define username and password in config file)
+
+    ./rttys
 
 # Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
