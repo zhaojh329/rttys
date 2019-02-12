@@ -38,7 +38,7 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
 ## run as root (use system credentials)
 
     sudo ./rttys
-    
+
 ## run as normal user (define username and password in config file)
 
     ./rttys
