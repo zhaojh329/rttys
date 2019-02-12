@@ -60,8 +60,8 @@ var httpSessions = make(map[string]*HttpSession)
 func main() {
 	cfg := parseConfig()
 
-	if !checkUser() {
-		log.Println("Operation not permitted")
+	if (!checkUser() && cfg.username == "" && cfg.password =="") {
+		log.Println("Operation not permitted. Please start as root or define Username and Password in configuration file")
 		os.Exit(1)
 	}
 
