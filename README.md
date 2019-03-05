@@ -43,6 +43,10 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
 
     ./rttys
 
+## View logs when running in the background
+
+    cat /var/log/rtty.log
+
 # Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
 see the [CONTRIBUTING.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING.md) file.
