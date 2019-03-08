@@ -57,11 +57,9 @@ export default {
 <style>
 .login-container {
     width: 400px;
-    height: 240px;
     position: absolute;
     top: 50%;
     left: 50%;
-    margin-left: -200px;
-    margin-top: -120px;
+    transform: translate(-50%, -50%);
 }
 </style>
