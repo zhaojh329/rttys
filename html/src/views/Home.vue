@@ -1,12 +1,12 @@
 <template>
-    <div id="home">
+    <div style="padding:10px">
         <Button style="margin-right: 4px;" type="primary" shape="circle" icon="md-refresh" @click="handleRefresh" :disabled="loading">{{$t('Refresh List')}}</Button>
         <Input style="margin-right: 4px;width:200px" v-model="filterString" icon="search" size="large" @on-change="handleSearch" :placeholder="$t('Please enter the filter key...')" />
         <Button style="margin-right: 4px;" @click="showCmdForm" type="primary" :disabled="cmdStatus.execing > 0"><Icon type="search"/>{{$t('executive command')}}</Button>
         <div class="counter">
             {{ $t('device-count', {count: devlists.length}) }}
         </div>
-        <Table :loading="loading" :columns="devlistTitle" :data="filtered" style="margin-top: 10px; width: 100%" :no-data-text="$t('No devices connected')" @on-selection-change='handleSelection'>
+        <Table :height="tableHeight" :loading="loading" :columns="devlistTitle" :data="filtered" style="margin-top: 10px; width: 100%" :no-data-text="$t('No devices connected')" @on-selection-change='handleSelection'>
             <template slot-scope="{ row }" slot="uptime">
                 <span>{{ '%t'.format(row.uptime) }}</span>
             </template>
@@ -67,6 +67,10 @@ export default {
             filtered: [],
             selection: [],
             devlistTitle: [
+                {
+                    type: 'index',
+                    width: 80
+                },
                 {
                     type: 'selection',
                     width: 60,
@@ -156,7 +160,8 @@ export default {
                 cmd: [
                     { required: true, trigger: 'blur', message: this.$t('command is required') }
                 ]
-            }
+            },
+            tableHeight: 0
         }
     },
     methods: {
@@ -330,20 +335,19 @@ export default {
     },
     mounted() {
         this.getDevices();
+
+        this.tableHeight = document.body.clientHeight - 70;
+        window.addEventListener('resize', () => {
+            this.tableHeight = document.body.clientHeight - 70;
+        });
     }
 };
 </script>
 
 <style>
-    #home {
-        padding:10px;
-    }
-    .counter {
-        float: right;
-        color: #3399ff;
-        font-size: 16px;
-    }
-    .cmdbtn {
-        margin-left: 4px;
-    }
+.counter {
+    float: right;
+    color: #3399ff;
+    font-size: 16px;
+}
 </style>

@@ -1,6 +1,6 @@
 <template>
-    <div id="rtty">
-        <div ref="terminal" class="terminal"></div>
+    <div style="height: 100%; padding: 5px">
+        <div ref="terminal" style="height: 100%"></div>
         <Modal v-model="upfile.modal" width="380" :mask-closable="false" @on-cancel="cancelUpfile">
             <p slot="header"><span>{{ $t('Upload file to device') }}</span></p>
             <Upload :before-upload="beforeUpload" action="">
@@ -155,7 +155,7 @@ export default {
                                         this.rf.abortRecv();
                                     } else {
                                         this.upfile.modal = false;
-                                    
+
                                         if (this.rf.state == 'send_pending')
                                             this.rf.sendEof();
                                         else
@@ -207,11 +207,7 @@ export default {
 </script>
 
 <style>
-#rtty {
-    height: 100%;
-}
-
-.terminal {
-    height: 100%;
+.xterm .xterm-viewport {
+    overflow: auto;
 }
 </style>
