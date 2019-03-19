@@ -77,6 +77,8 @@ func main() {
 		return
 	}
 
+	time.AfterFunc(1*time.Second, cleanHttpSession)
+
 	staticfs := http.FileServer(statikFS)
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
