@@ -1,7 +1,6 @@
 // ported from hterm.Terminal.prototype.showOverlay
 // https://chromium.googlesource.com/apps/libapps/+/master/hterm/js/hterm_terminal.js
 "use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
 
 function showOverlay(term, msg, timeout) {
     if (!term.overlayNode_) {
