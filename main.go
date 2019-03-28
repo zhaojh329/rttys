@@ -24,6 +24,7 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -77,7 +78,7 @@ func main() {
 		return
 	}
 
-	time.AfterFunc(1*time.Second, cleanHttpSession)
+	time.AfterFunc(5*time.Second, cleanHttpSession)
 
 	staticfs := http.FileServer(statikFS)
 
@@ -121,21 +122,18 @@ func main() {
 			return
 		}
 
-		devs := "["
-		comma := ""
-		for id, dev := range br.devices {
-			devs += fmt.Sprintf(`%s{"id":"%s","uptime":%d,"description":"%s"}`,
-				comma, id, time.Now().Unix()-dev.timestamp, dev.desc)
-			if comma == "" {
-				comma = ","
-			}
-		}
+		devs := []DeviceInfo{}
 
-		devs += "]"
+		for id, dev := range br.devices {
+			dev := DeviceInfo{id, time.Now().Unix() - dev.timestamp, dev.desc}
+			devs = append(devs, dev)
+		}
 
 		allowOrigin(w)
 
-		io.WriteString(w, devs)
+		resp, _ := json.Marshal(devs)
+
+		w.Write(resp)
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +188,7 @@ func cleanHttpSession() {
 			delete(httpSessions, sid)
 		}
 	}
-	time.AfterFunc(1*time.Second, cleanHttpSession)
+	time.AfterFunc(5*time.Second, cleanHttpSession)
 }
 
 func httpAuth(w http.ResponseWriter, r *http.Request) bool {

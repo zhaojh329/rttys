@@ -37,6 +37,12 @@ type Device struct {
 	sessions  map[uint8]string /* sessions of each device */
 }
 
+type DeviceInfo struct {
+	ID          string `json:"id"`
+	Uptime      int64  `json:"uptime"`
+	Description string `json:"description"`
+}
+
 type DevMessage struct {
 	msgType int
 	data    []byte
