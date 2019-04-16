@@ -72,6 +72,8 @@ func (dev *Device) keepAlive(keepalive int64) {
 	defer dev.Close()
 
 	ticker := time.NewTicker(time.Second * time.Duration(keepalive))
+	defer ticker.Stop()
+
 	last := time.Now().Unix()
 	keepalive = keepalive * 3
 
