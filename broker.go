@@ -27,8 +27,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const RTTY_MESSAGE_VERSION = 2
-const RTTY_MAX_SESSION_ID = 1000000
+const (
+	RTTY_MESSAGE_VERSION = 2
+	RTTY_MAX_SESSION_ID  = 1000000
+)
 
 type Broker struct {
 	devices       map[string]*Device
