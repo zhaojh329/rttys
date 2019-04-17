@@ -55,8 +55,7 @@ type rttysConfig struct {
 const MAX_SESSION_TIME = 30 * time.Minute
 
 var log = logInit()
-var hsMutex sync.Mutex
-var httpSessions = make(map[string]*HttpSession)
+var httpSessions sync.Map
 
 func main() {
 	cfg := parseConfig()
@@ -103,11 +102,7 @@ func main() {
 				HttpOnly: true,
 			}
 
-			hsMutex.Lock()
-			httpSessions[sid] = &HttpSession{
-				active: MAX_SESSION_TIME,
-			}
-			hsMutex.Unlock()
+			httpSessions.Store(sid, &HttpSession{active: MAX_SESSION_TIME})
 
 			w.Header().Set("Set-Cookie", cookie.String())
 			fmt.Fprint(w, sid)
@@ -179,15 +174,18 @@ func genUniqueID(extra string) string {
 }
 
 func cleanHttpSession() {
-	defer hsMutex.Unlock()
+	httpSessions.Range(func(k, v interface{}) bool {
+		sid := k.(string)
+		s := v.(*HttpSession)
 
-	hsMutex.Lock()
-	for sid, s := range httpSessions {
 		s.active = s.active - time.Second
 		if s.active == 0 {
-			delete(httpSessions, sid)
+			httpSessions.Delete(sid)
 		}
-	}
+
+		return true
+	})
+
 	time.AfterFunc(5*time.Second, cleanHttpSession)
 }
 
@@ -198,17 +196,13 @@ func httpAuth(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	defer hsMutex.Unlock()
-
-	hsMutex.Lock()
-
-	s, ok := httpSessions[c.Value]
+	s, ok := httpSessions.Load(c.Value)
 	if !ok {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return false
 	}
 
-	s.active = MAX_SESSION_TIME
+	(s.(*HttpSession)).active = MAX_SESSION_TIME
 
 	return true
 }

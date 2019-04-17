@@ -54,16 +54,14 @@ type commandStatus struct {
 	t     *time.Timer
 }
 
-var cmdLock sync.RWMutex
-var commands = make(map[string]*commandStatus)
+var commands sync.Map
 
 func handleCmdResp(data []byte) {
 	token, _ := jsonparser.GetString(data, "token")
 
-	cmdLock.RLock()
-	cmd, ok := commands[token]
-	cmdLock.RUnlock()
+	cmd, ok := commands.Load(token)
 	if ok {
+		cmd := cmd.(*commandStatus)
 		attrs, _, _, _ := jsonparser.Get(data, "attrs")
 		cmd.resp = attrs
 	}
@@ -77,16 +75,13 @@ func cmdErrReply(err int, w http.ResponseWriter) {
 func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 	if token != "" {
-		cmdLock.RLock()
-		cmd, ok := commands[token]
-		cmdLock.RUnlock()
+		cmd, ok := commands.Load(token)
 		if ok {
+			cmd := cmd.(*commandStatus)
 			if len(cmd.resp) == 0 {
 				cmdErrReply(RTTY_CMD_ERR_PENDING, w)
 			} else {
-				cmdLock.Lock()
-				delete(commands, token)
-				cmdLock.Unlock()
+				commands.Delete(token)
 
 				w.Write(cmd.resp)
 				cmd.t.Stop()
@@ -123,16 +118,11 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 	cmd := &commandStatus{
 		token: token,
 		t: time.AfterFunc(30*time.Second, func() {
-			cmdLock.Lock()
-			delete(commands, token)
-			log.Println("del token:", len(commands), token)
-			cmdLock.Unlock()
+			commands.Delete(token)
 		}),
 	}
 
-	cmdLock.Lock()
-	commands[token] = cmd
-	cmdLock.Unlock()
+	commands.Store(token, cmd)
 
 	msg := fmt.Sprintf(`{"type":"cmd","token":"%s","attrs":%s}`, token, string(body))
 	dev.wsWrite(websocket.TextMessage, []byte(msg))
