@@ -21,43 +21,39 @@ package main
 
 import (
 	"fmt"
-	ilog "log"
+	slog "log"
 	"os"
 
 	"github.com/mattn/go-isatty"
 )
 
-type RttyLog string
+type RttysLog struct {
+	file string
+}
 
-const LOG_FILE RttyLog = "/var/log/rtty.log"
+var log = LogInit()
 
-func (l RttyLog) Write(b []byte) (n int, err error) {
+const logFile = "/var/log/rttys.log"
+
+func (l *RttysLog) Write(b []byte) (n int, err error) {
 	if isatty.IsTerminal(os.Stdout.Fd()) {
-		fmt.Fprintf(os.Stderr, "%s", b)
-		return 0, nil
+		return fmt.Fprintf(os.Stderr, "%s", b)
 	}
 
-	if l == "" {
-		return 0, nil
-	}
-
-	file, err := os.OpenFile(string(l), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	file, err := os.OpenFile(l.file, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return 0, nil
 	}
+	defer file.Close()
 
 	st, _ := file.Stat()
 	if st.Size() > 1024*1024 {
 		file.Truncate(0)
 	}
 
-	defer file.Close()
-
-	fmt.Fprintf(file, "%s", b)
-
-	return 0, nil
+	return fmt.Fprintf(file, "%s", b)
 }
 
-func logInit() *ilog.Logger {
-	return ilog.New(LOG_FILE, "", ilog.LstdFlags)
+func LogInit() *slog.Logger {
+	return slog.New(&RttysLog{logFile}, "", slog.LstdFlags)
 }

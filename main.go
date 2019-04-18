@@ -54,7 +54,6 @@ type rttysConfig struct {
 
 const MAX_SESSION_TIME = 30 * time.Minute
 
-var log = logInit()
 var httpSessions sync.Map
 
 func main() {
