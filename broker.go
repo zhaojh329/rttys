@@ -170,9 +170,7 @@ func (br *Broker) run() {
 
 			if session, ok := br.sessions[msg.user.sid]; ok {
 				if msgType == websocket.BinaryMessage {
-					devsid := make([]byte, 1)
-					devsid[0] = session.devsid
-					data = append(devsid, data...)
+					data = append([]byte{session.devsid}, data...)
 				}
 				session.dev.wsWrite(msgType, data)
 			}

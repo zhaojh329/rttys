@@ -68,8 +68,7 @@ func handleCmdResp(data []byte) {
 }
 
 func cmdErrReply(err int, w http.ResponseWriter) {
-	msg := fmt.Sprintf(`{"err": %d, "msg":"%s"}`, err, cmdErrMsg[err])
-	w.Write([]byte(msg))
+	fmt.Fprintf(w, `{"err": %d, "msg":"%s"}`, err, cmdErrMsg[err])
 }
 
 func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
@@ -127,6 +126,5 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 	msg := fmt.Sprintf(`{"type":"cmd","token":"%s","attrs":%s}`, token, string(body))
 	dev.wsWrite(websocket.TextMessage, []byte(msg))
 
-	resp := fmt.Sprintf(`{"token":"%s"}`, token)
-	w.Write([]byte(resp))
+	fmt.Fprintf(w, `{"token":"%s"}`, token)
 }
