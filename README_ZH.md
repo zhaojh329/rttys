@@ -45,7 +45,7 @@
 
 # 如何在后台运行模式下查看日志
 
-    cat /var/log/rtty.log
+    cat /var/log/rttys.log
 
 # 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
