@@ -5,28 +5,42 @@ import (
 	"unsafe"
 )
 
+const (
+	LOGON32_LOGON_INTERACTIVE = 2
+	LOGON32_PROVIDER_DEFAULT  = 0
+)
+
+var errERROR_ACCOUNT_RESTRICTION error = syscall.Errno(1327)
+
+var (
+	advapi32       = syscall.NewLazyDLL("advapi32.dll")
+	procLogonUserW = advapi32.NewProc("LogonUserW")
+)
+
 func checkUser() bool {
 	return true
 }
 
-func login(username, password string) bool {
-	mod := syscall.NewLazyDLL("Advapi32.dll")
-	LOGON32_LOGON_INTERACTIVE := 2
-	LOGON32_PROVIDER_DEFAULT := 0
-	var token syscall.Handle
-
-	usernamePtr, _ := syscall.UTF16PtrFromString(username)
-	domainPtr, _ := syscall.UTF16PtrFromString(".")
-	passwordPtr, _ := syscall.UTF16PtrFromString(password)
-
-	proc := mod.NewProc("LogonUserW")
-	ret, _, err := proc.Call(
-		uintptr(unsafe.Pointer(usernamePtr)),
-		uintptr(unsafe.Pointer(domainPtr)),
-		uintptr(unsafe.Pointer(passwordPtr)),
-		uintptr(LOGON32_LOGON_INTERACTIVE),
-		uintptr(LOGON32_PROVIDER_DEFAULT),
+func LogonUserW(username, domain, password *uint16, logonType, logonProvider uint32) (token syscall.Handle, err error) {
+	r1, _, e1 := procLogonUserW.Call(
+		uintptr(unsafe.Pointer(username)),
+		uintptr(unsafe.Pointer(domain)),
+		uintptr(unsafe.Pointer(password)),
+		uintptr(logonType),
+		uintptr(logonProvider),
 		uintptr(unsafe.Pointer(&token)))
+	if int(r1) == 0 {
+		return syscall.InvalidHandle, e1
+	}
+	return token, nil
+}
 
-	return ret == 1 || err == syscall.Errno(1327)
+func login(username, password string) bool {
+	pUsername, _ := syscall.UTF16PtrFromString(username)
+	pDomain, _ := syscall.UTF16PtrFromString(".")
+	pPassword, _ := syscall.UTF16PtrFromString(password)
+
+	_, err := LogonUserW(pUsername, pDomain, pPassword, LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT)
+
+	return err == nil || err == errERROR_ACCOUNT_RESTRICTION
 }
