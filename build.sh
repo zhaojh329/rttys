@@ -14,7 +14,7 @@ generate() {
 		bin="rttys.exe"
 	}
 
-	GOOS=$os GOARCH=$arch go build -ldflags='-s -w' -o output/$dir/$bin
+	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags='-s -w' -o output/$dir/$bin
 
 	cd output
 
