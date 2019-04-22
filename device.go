@@ -20,9 +20,9 @@
 package main
 
 import (
-	"time"
-
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 const (
@@ -92,7 +92,7 @@ func (dev *Device) keepAlive(keepalive int64) {
 		case <-ticker.C:
 			now := time.Now().Unix()
 			if now-last > keepalive {
-				log.Printf("Inactive device in long time, now kill it: %s\n", dev.devid)
+				log.Error("Inactive device in long time, now kill it: %s", dev.devid)
 				return
 			}
 		}
@@ -106,7 +106,7 @@ func (dev *Device) readAlway() {
 		msgType, data, err := dev.ws.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				log.Errorf("error: %v", err)
 			}
 			break
 		}
@@ -116,7 +116,7 @@ func (dev *Device) readAlway() {
 		select {
 		case dev.br.inDevMessage <- msg:
 		case <-dev.closeChan:
-			log.Println("closeChan from readAlway")
+			log.Error("closeChan from readAlway")
 			return
 		}
 	}

@@ -37,6 +37,8 @@ import (
 
 	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/rakyll/statik/fs"
+	"github.com/rifflock/lfshook"
+	log "github.com/sirupsen/logrus"
 	_ "github.com/zhaojh329/rttys/statik"
 )
 
@@ -56,16 +58,20 @@ const MAX_SESSION_TIME = 30 * time.Minute
 
 var httpSessions sync.Map
 
+func init() {
+	log.AddHook(lfshook.NewHook("/var/log/rttys.log", &log.TextFormatter{}))
+}
+
 func main() {
 	cfg := parseConfig()
 
 	if !checkUser() && cfg.username == "" {
-		log.Println("Operation not permitted. Please start as root or define Username and Password in configuration file")
+		log.Error("Operation not permitted. Please start as root or define Username and Password in configuration file")
 		os.Exit(1)
 	}
 
-	log.Printf("go version: %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	log.Println("rttys version:", rttys_version())
+	log.Infof("go version: %s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	log.Info("rttys version:", rttys_version())
 
 	br := newBroker()
 	go br.run()
@@ -145,10 +151,10 @@ func main() {
 	})
 
 	if cfg.cert != "" && cfg.key != "" {
-		log.Println("Listen on: ", cfg.addr, "SSL on")
+		log.Info("Listen on: ", cfg.addr, "SSL on")
 		log.Fatal(http.ListenAndServeTLS(cfg.addr, cfg.cert, cfg.key, nil))
 	} else {
-		log.Println("Listen on: ", cfg.addr, "SSL off")
+		log.Info("Listen on: ", cfg.addr, "SSL off")
 		log.Fatal(http.ListenAndServe(cfg.addr, nil))
 	}
 }

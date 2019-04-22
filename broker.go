@@ -21,10 +21,10 @@ package main
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 const (
@@ -69,7 +69,7 @@ func (br *Broker) newSession(user *User) bool {
 	if dev, ok := br.devices[devid]; ok {
 		devsid := dev.getFreeSid()
 		if devsid < 1 {
-			log.Println("Not found  available devsid")
+			log.Warn("Not found  available devsid")
 			return false
 		}
 
@@ -82,13 +82,13 @@ func (br *Broker) newSession(user *User) bool {
 		// Notify the device to create a pty and associate it with a session id
 		dev.wsWrite(websocket.TextMessage, []byte(msg))
 
-		log.Println("New session:", sid)
+		log.Info("New session:", sid)
 		return true
 	} else {
 		// Notify the user that the device is offline
 		msg := `{"type":"login","err":1,"msg":"offline"}`
 		user.wsWrite(websocket.TextMessage, []byte(msg))
-		log.Println("Device", devid, "offline")
+		log.Info("Device", devid, "offline")
 		return false
 	}
 }
@@ -98,24 +98,24 @@ func (br *Broker) run() {
 		select {
 		case dev := <-br.connecting:
 			if _, ok := br.devices[dev.devid]; ok {
-				log.Println("ID conflicting:", dev.devid)
+				log.Warn("ID conflicting:", dev.devid)
 				dev.Close()
 			} else {
 				br.devices[dev.devid] = dev
-				log.Println("New device:", dev.devid)
+				log.Info("New device:", dev.devid)
 			}
 
 		case dev := <-br.disconnecting:
 			if dev, ok := br.devices[dev.devid]; ok {
 				delete(br.devices, dev.devid)
 
-				log.Println("Died device:", dev.devid)
+				log.Info("Died device:", dev.devid)
 
 				for sid, session := range br.sessions {
 					if session.dev.devid == dev.devid {
 						session.user.Close()
 						delete(br.sessions, sid)
-						log.Println("Delete session: ", sid)
+						log.Info("Delete session: ", sid)
 					}
 				}
 			}
@@ -137,7 +137,7 @@ func (br *Broker) run() {
 				delete(br.sessions, sid)
 				delete(session.dev.sessions, devsid)
 
-				log.Println("Delete session: ", sid)
+				log.Info("Delete session: ", sid)
 			}
 
 		case msg := <-br.inDevMessage:

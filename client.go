@@ -20,12 +20,12 @@
 package main
 
 import (
+	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
@@ -95,7 +95,7 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request) {
 
 	if devid == "" {
 		conn.Close()
-		log.Println("devid required")
+		log.Error("devid required")
 		return
 	}
 
