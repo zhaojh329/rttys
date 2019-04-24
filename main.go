@@ -36,10 +36,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type rttysConfig struct {
+type RttysConfig struct {
 	addr     string
-	cert     string
-	key      string
+	sslCert  string
+	sslKey   string
 	username string
 	password string
 }
@@ -78,35 +78,31 @@ func genUniqueID(extra string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func parseConfig() *rttysConfig {
-	addr := flag.String("addr", ":5912", "address to listen")
-	cert := flag.String("ssl-cert", "", "certFile Path")
-	key := flag.String("ssl-key", "", "keyFile Path")
+func setConfigOpt(yamlCfg *yaml.File, name string, opt *string) {
+	val, err := yamlCfg.Get("addr")
+	if err != nil {
+		return
+	}
+	*opt = val
+}
+
+func parseConfig() *RttysConfig {
+	cfg := &RttysConfig{}
+
+	flag.StringVar(&cfg.addr, "addr", ":5912", "address to listen")
+	flag.StringVar(&cfg.sslCert, "ssl-cert", "./rttys.crt", "certFile Path")
+	flag.StringVar(&cfg.sslKey, "ssl-key", "./rttys.key", "keyFile Path")
 	conf := flag.String("conf", "./rttys.conf", "config file to load")
 
 	flag.Parse()
 
-	cfg := &rttysConfig{}
-
-	config, _ := yaml.ReadFile(*conf)
-	if config != nil {
-		cfg.addr, _ = config.Get("addr")
-		cfg.cert, _ = config.Get("ssl-cert")
-		cfg.key, _ = config.Get("ssl-key")
-		cfg.username, _ = config.Get("username")
-		cfg.password, _ = config.Get("password")
-	}
-
-	if cfg.addr == "" {
-		cfg.addr = *addr
-	}
-
-	if cfg.cert == "" {
-		cfg.cert = *cert
-	}
-
-	if cfg.key == "" {
-		cfg.key = *key
+	yamlCfg, err := yaml.ReadFile(*conf)
+	if err == nil {
+		setConfigOpt(yamlCfg, "addr", &cfg.addr)
+		setConfigOpt(yamlCfg, "ssl-cert", &cfg.sslCert)
+		setConfigOpt(yamlCfg, "ssl-key", &cfg.sslKey)
+		setConfigOpt(yamlCfg, "username", &cfg.username)
+		setConfigOpt(yamlCfg, "password", &cfg.password)
 	}
 
 	return cfg

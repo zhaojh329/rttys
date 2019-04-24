@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	_ "github.com/zhaojh329/rttys/statik"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -60,7 +61,7 @@ func httpAuth(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func httpLogin(cfg *rttysConfig, username, password string) bool {
+func httpLogin(cfg *RttysConfig, username, password string) bool {
 	if cfg.username != "" {
 		if cfg.username != username {
 			return false
@@ -76,7 +77,7 @@ func httpLogin(cfg *rttysConfig, username, password string) bool {
 	return login(username, password)
 }
 
-func httpStart(br *Broker, cfg *rttysConfig) {
+func httpStart(br *Broker, cfg *RttysConfig) {
 	statikFS, err := fs.New()
 	if err != nil {
 		log.Fatal(err)
@@ -150,11 +151,25 @@ func httpStart(br *Broker, cfg *rttysConfig) {
 
 	time.AfterFunc(5*time.Second, cleanHttpSession)
 
-	if cfg.cert != "" && cfg.key != "" {
-		log.Info("Listen on: ", cfg.addr, "SSL on")
-		log.Fatal(http.ListenAndServeTLS(cfg.addr, cfg.cert, cfg.key, nil))
+	if cfg.sslCert != "" && cfg.sslKey != "" {
+		_, err := os.Lstat(cfg.sslCert)
+		if err != nil {
+			log.Error(err)
+			cfg.sslCert = ""
+		}
+
+		_, err = os.Lstat(cfg.sslKey)
+		if err != nil {
+			log.Error(err)
+			cfg.sslKey = ""
+		}
+	}
+
+	if cfg.sslCert != "" && cfg.sslKey != "" {
+		log.Info("Listen on: ", cfg.addr, " SSL on")
+		log.Fatal(http.ListenAndServeTLS(cfg.addr, cfg.sslCert, cfg.sslKey, nil))
 	} else {
-		log.Info("Listen on: ", cfg.addr, "SSL off")
+		log.Info("Listen on: ", cfg.addr, " SSL off")
 		log.Fatal(http.ListenAndServe(cfg.addr, nil))
 	}
 }
