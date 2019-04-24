@@ -30,10 +30,14 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
             address to listen (default ":5912")
       -conf string
             config file to load (default "./rttys.conf")
+      -gen-token
+            generate token
       -ssl-cert string
-            certFile Path
+            certFile Path (default "./rttys.crt")
       -ssl-key string
-            keyFile Path
+            keyFile Path (default "./rttys.key")
+      -token string
+            token to use
 
 ## run as root (use system credentials)
 
@@ -46,6 +50,13 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
 ## View logs when running in the background
 
     cat /var/log/rttys.log
+
+## Authorization
+
+    ./rttys -gen-token
+    34762d07637276694b938d23f10d7164
+
+    ./rttys -token 34762d07637276694b938d23f10d7164
 
 # Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,

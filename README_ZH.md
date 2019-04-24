@@ -30,10 +30,14 @@
             address to listen (default ":5912")
       -conf string
             config file to load (default "./rttys.conf")
+      -gen-token
+            generate token
       -ssl-cert string
-            certFile Path
+            certFile Path (default "./rttys.crt")
       -ssl-key string
-            keyFile Path
+            keyFile Path (default "./rttys.key")
+      -token string
+            token to use
 
 ## 以root用户运行(使用系统用户名和密码)
 
@@ -43,9 +47,16 @@
 
     ./rttys
 
-# 如何在后台运行模式下查看日志
+## 如何在后台运行模式下查看日志
 
     cat /var/log/rttys.log
+
+## 认证
+
+    ./rttys -gen-token
+    34762d07637276694b938d23f10d7164
+
+    ./rttys -token 34762d07637276694b938d23f10d7164
 
 # 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
