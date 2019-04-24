@@ -25,6 +25,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"runtime"
@@ -42,6 +43,7 @@ type RttysConfig struct {
 	sslKey   string
 	username string
 	password string
+	token    string
 }
 
 func init() {
@@ -79,7 +81,7 @@ func genUniqueID(extra string) string {
 }
 
 func setConfigOpt(yamlCfg *yaml.File, name string, opt *string) {
-	val, err := yamlCfg.Get("addr")
+	val, err := yamlCfg.Get(name)
 	if err != nil {
 		return
 	}
@@ -92,9 +94,16 @@ func parseConfig() *RttysConfig {
 	flag.StringVar(&cfg.addr, "addr", ":5912", "address to listen")
 	flag.StringVar(&cfg.sslCert, "ssl-cert", "./rttys.crt", "certFile Path")
 	flag.StringVar(&cfg.sslKey, "ssl-key", "./rttys.key", "keyFile Path")
+	flag.StringVar(&cfg.token, "token", "", "token to use")
 	conf := flag.String("conf", "./rttys.conf", "config file to load")
+	genToken := flag.Bool("gen-token", false, "generate token")
 
 	flag.Parse()
+
+	if *genToken {
+		fmt.Println(genUniqueID("rttys-token"))
+		os.Exit(0)
+	}
 
 	yamlCfg, err := yaml.ReadFile(*conf)
 	if err == nil {
@@ -103,6 +112,7 @@ func parseConfig() *RttysConfig {
 		setConfigOpt(yamlCfg, "ssl-key", &cfg.sslKey)
 		setConfigOpt(yamlCfg, "username", &cfg.username)
 		setConfigOpt(yamlCfg, "password", &cfg.password)
+		setConfigOpt(yamlCfg, "token", &cfg.token)
 	}
 
 	return cfg

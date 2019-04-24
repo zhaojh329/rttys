@@ -86,7 +86,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	staticfs := http.FileServer(statikFS)
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(br, w, r)
+		serveWs(br, w, r, cfg)
 	})
 
 	http.HandleFunc("/cmd", func(w http.ResponseWriter, r *http.Request) {
