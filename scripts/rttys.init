@@ -14,10 +14,9 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 . /lib/lsb/init-functions
 
 RTTYSPID=/var/run/rttys.pid
-ADDR=:5912
 
 do_start () {
-	start-stop-daemon --start --make-pidfile --pidfile $RTTYSPID --background --exec /usr/local/bin/rttys -- -addr $ADDR -ssl-cert /etc/rttys/rttys.crt -ssl-key /etc/rttys/rttys.key
+	start-stop-daemon --start --make-pidfile --pidfile $RTTYSPID --background --exec /usr/local/bin/rttys -- -conf /etc/rttys/rttys.conf
 }
 
 do_stop () {
