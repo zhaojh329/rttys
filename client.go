@@ -83,15 +83,18 @@ func (c *Client) writePump() {
 
 /* serveWs handles websocket requests from the device or user. */
 func serveWs(br *Broker, w http.ResponseWriter, r *http.Request, cfg *RttysConfig) {
-	token := r.Header.Get("Authorization")
-	if token != cfg.token {
-		log.Error("Invalid token from terminal device")
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
+	isDev := r.URL.Query().Get("device") != ""
+
+	if isDev {
+		token := r.Header.Get("Authorization")
+		if token != cfg.token {
+			log.Error("Invalid token from terminal device")
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 	}
 
 	keepalive, _ := strconv.Atoi(r.URL.Query().Get("keepalive"))
-	isDev := r.URL.Query().Get("device") != ""
 	devid := r.URL.Query().Get("devid")
 
 	conn, err := upgrader.Upgrade(w, r, nil)
