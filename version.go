@@ -4,8 +4,8 @@ import "fmt"
 
 const (
 	RTTYS_VERSION_MAJOR = 2
-	RTTYS_VERSION_MINOR = 9
-	RTTYS_VERSION_PATCH = 2
+	RTTYS_VERSION_MINOR = 10
+	RTTYS_VERSION_PATCH = 0
 )
 
 func rttys_version() string {
