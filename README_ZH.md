@@ -54,7 +54,8 @@
 ## 认证
 
     ./rttys -gen-token
-    34762d07637276694b938d23f10d7164
+    Please set a password:******
+    Your token is: 34762d07637276694b938d23f10d7164
 
     ./rttys -token 34762d07637276694b938d23f10d7164
 
