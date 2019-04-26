@@ -21,12 +21,13 @@ package main
 
 import (
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"
 )
 
@@ -50,20 +51,23 @@ var cmdErrMsg = map[int]string{
 
 type commandStatus struct {
 	token string
-	resp  []byte
+	resp  string
 	t     *time.Timer
+}
+
+type CommandInfo struct {
+	Devid string `json:"devid"`
+	Cmd   string `json:"cmd"`
 }
 
 var commands sync.Map
 
 func handleCmdResp(data []byte) {
-	token, _ := jsonparser.GetString(data, "token")
+	token := jsoniter.Get(data, "token").ToString()
 
-	cmd, ok := commands.Load(token)
-	if ok {
+	if cmd, ok := commands.Load(token); ok {
 		cmd := cmd.(*commandStatus)
-		attrs, _, _, _ := jsonparser.Get(data, "attrs")
-		cmd.resp = attrs
+		cmd.resp = jsoniter.Get(data, "attrs").ToString()
 	}
 }
 
@@ -81,8 +85,7 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 				cmdErrReply(RTTY_CMD_ERR_PENDING, w)
 			} else {
 				commands.Delete(token)
-
-				w.Write(cmd.resp)
+				io.WriteString(w, cmd.resp)
 				cmd.t.Stop()
 			}
 		} else {
@@ -94,19 +97,14 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 	body, _ := ioutil.ReadAll(r.Body)
 	r.Body.Close()
 
-	devid, err := jsonparser.GetString(body, "devid")
-	if err != nil {
+	cmdInfo := CommandInfo{}
+	err := jsoniter.Unmarshal(body, &cmdInfo)
+	if err != nil || cmdInfo.Cmd == "" || cmdInfo.Devid == "" {
 		cmdErrReply(RTTY_CMD_ERR_INVALID, w)
 		return
 	}
 
-	_, err = jsonparser.GetString(body, "cmd")
-	if err != nil {
-		cmdErrReply(RTTY_CMD_ERR_INVALID, w)
-		return
-	}
-
-	dev, ok := br.devices[devid]
+	dev, ok := br.devices[cmdInfo.Devid]
 	if !ok {
 		cmdErrReply(RTTY_CMD_ERR_OFFLINE, w)
 		return
@@ -123,7 +121,7 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 
 	commands.Store(token, cmd)
 
-	msg := fmt.Sprintf(`{"type":"cmd","token":"%s","attrs":%s}`, token, string(body))
+	msg := fmt.Sprintf(`{"type":"cmd","token":"%s","attrs":%s}`, token, body)
 	dev.wsWrite(websocket.TextMessage, []byte(msg))
 
 	fmt.Fprintf(w, `{"token":"%s"}`, token)

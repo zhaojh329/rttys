@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/rakyll/statik/fs"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhaojh329/rttys/cache"
@@ -84,7 +84,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		var creds Credentials
 
 		// Get the JSON body and decode into credentials
-		err := json.NewDecoder(r.Body).Decode(&creds)
+		err := jsoniter.NewDecoder(r.Body).Decode(&creds)
 		if err != nil {
 			// If the structure of the body is wrong, return an HTTP error
 			w.WriteHeader(http.StatusBadRequest)
@@ -121,7 +121,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 		allowOrigin(w)
 
-		resp, _ := json.Marshal(devs)
+		resp, _ := jsoniter.Marshal(devs)
 
 		w.Write(resp)
 	})
