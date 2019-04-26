@@ -21,8 +21,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/buger/jsonparser"
 	"github.com/gorilla/websocket"
+	"github.com/json-iterator/go"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
@@ -149,12 +149,12 @@ func (br *Broker) run() {
 				devsid = data[0]
 				data = data[1:]
 			} else {
-				typ, _ := jsonparser.GetString(data, "type")
+				typ := jsoniter.Get(data, "type").ToString()
 				if typ == "cmd" {
 					handleCmdResp(data)
 					continue
 				}
-				val, _ := jsonparser.GetInt(data, "sid")
+				val := jsoniter.Get(data, "sid").ToInt()
 				devsid = uint8(val)
 			}
 
