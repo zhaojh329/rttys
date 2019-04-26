@@ -100,15 +100,13 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 		if httpLogin(cfg, username, password) {
 			sid := genUniqueID("http")
-			cookie := http.Cookie{
+			httpSessions.Store(sid, &HttpSession{active: MAX_SESSION_TIME})
+
+			http.SetCookie(w, &http.Cookie{
 				Name:     "sid",
 				Value:    sid,
 				HttpOnly: true,
-			}
-
-			httpSessions.Store(sid, &HttpSession{active: MAX_SESSION_TIME})
-
-			w.Header().Set("Set-Cookie", cookie.String())
+			})
 			fmt.Fprint(w, sid)
 			return
 		}
