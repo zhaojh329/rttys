@@ -22,6 +22,8 @@ The server side of [rtty](https://github.com/zhaojh329/rtty)
 # Usage
 ## download the precompiled programs from [Release](https://github.com/zhaojh329/rttys/releases) page according to your os and arch or compile it by yourself.
 
+    go get -u github.com/zhaojh329/rttys
+
 ## See Supported Command Line Parameters
 
     ./rttys -h

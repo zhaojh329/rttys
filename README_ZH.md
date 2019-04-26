@@ -22,6 +22,8 @@
 # 如何使用
 ## 从[Release](https://github.com/zhaojh329/rttys/releases)页面下载编译好的程序或者自己编译
 
+    go get -u github.com/zhaojh329/rttys
+
 ## 查看支持哪些命令行参数
 
     ./rttys -h
