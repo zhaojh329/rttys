@@ -5,42 +5,20 @@ import (
 	"fmt"
 	"github.com/rakyll/statik/fs"
 	log "github.com/sirupsen/logrus"
+	"github.com/zhaojh329/rttys/cache"
 	_ "github.com/zhaojh329/rttys/statik"
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 )
 
-type HttpSession struct {
-	active time.Duration
-}
-
-const MAX_SESSION_TIME = 30 * time.Minute
-
-var httpSessions sync.Map
+var httpSessions *cache.Cache
 
 func allowOrigin(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("content-type", "application/json")
-}
-
-func cleanHttpSession() {
-	httpSessions.Range(func(k, v interface{}) bool {
-		sid := k.(string)
-		s := v.(*HttpSession)
-
-		s.active = s.active - time.Second
-		if s.active == 0 {
-			httpSessions.Delete(sid)
-		}
-
-		return true
-	})
-
-	time.AfterFunc(5*time.Second, cleanHttpSession)
 }
 
 func httpAuth(w http.ResponseWriter, r *http.Request) bool {
@@ -50,13 +28,14 @@ func httpAuth(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
-	s, ok := httpSessions.Load(c.Value)
-	if !ok {
+	if _, ok := httpSessions.Get(c.Value); !ok {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return false
 	}
 
-	(s.(*HttpSession)).active = MAX_SESSION_TIME
+	// Update
+	httpSessions.Del(c.Value)
+	httpSessions.Set(c.Value, true, 0)
 
 	return true
 }
@@ -78,6 +57,8 @@ func httpLogin(cfg *RttysConfig, username, password string) bool {
 }
 
 func httpStart(br *Broker, cfg *RttysConfig) {
+	httpSessions = cache.New(30*time.Minute, 5*time.Second)
+
 	statikFS, err := fs.New()
 	if err != nil {
 		log.Fatal(err)
@@ -100,7 +81,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 		if httpLogin(cfg, username, password) {
 			sid := genUniqueID("http")
-			httpSessions.Store(sid, &HttpSession{active: MAX_SESSION_TIME})
+			httpSessions.Set(sid, true, 0)
 
 			http.SetCookie(w, &http.Cookie{
 				Name:     "sid",
@@ -146,8 +127,6 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 		staticfs.ServeHTTP(w, r)
 	})
-
-	time.AfterFunc(5*time.Second, cleanHttpSession)
 
 	if cfg.sslCert != "" && cfg.sslKey != "" {
 		_, err := os.Lstat(cfg.sslCert)
