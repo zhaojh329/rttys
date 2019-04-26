@@ -13,6 +13,11 @@ import (
 	"time"
 )
 
+type Credentials struct {
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
 var httpSessions *cache.Cache
 
 func allowOrigin(w http.ResponseWriter) {
@@ -40,20 +45,20 @@ func httpAuth(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-func httpLogin(cfg *RttysConfig, username, password string) bool {
+func httpLogin(cfg *RttysConfig, creds *Credentials) bool {
 	if cfg.username != "" {
-		if cfg.username != username {
+		if cfg.username != creds.Username {
 			return false
 		}
 
 		if cfg.password != "" {
-			return cfg.password == password
+			return cfg.password == creds.Password
 		}
 
 		return true
 	}
 
-	return login(username, password)
+	return login(creds.Username, creds.Password)
 }
 
 func httpStart(br *Broker, cfg *RttysConfig) {
@@ -75,11 +80,18 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		serveCmd(br, w, r)
 	})
 
-	http.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
-		username := r.PostFormValue("username")
-		password := r.PostFormValue("password")
+	http.HandleFunc("/signin", func(w http.ResponseWriter, r *http.Request) {
+		var creds Credentials
 
-		if httpLogin(cfg, username, password) {
+		// Get the JSON body and decode into credentials
+		err := json.NewDecoder(r.Body).Decode(&creds)
+		if err != nil {
+			// If the structure of the body is wrong, return an HTTP error
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		if httpLogin(cfg, &creds) {
 			sid := genUniqueID("http")
 			httpSessions.Set(sid, true, 0)
 

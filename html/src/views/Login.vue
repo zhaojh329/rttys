@@ -38,14 +38,15 @@ export default {
         handleSubmit() {
             this.$refs['form'].validate((valid) => {
                 if (valid) {
-                    const params = new URLSearchParams();
-                    params.append('username', this.form.username);
-                    params.append('password', this.form.password);
-                    this.$axios.post('/login', params).then(res => {
+                    let params = {
+                        username: this.form.username,
+                        password: this.form.password
+                    };
+                    this.$axios.post('/signin', params).then(res => {
                         sessionStorage.setItem('rtty-sid', res);
                         this.$router.push('/');
                     }).catch(() => {
-                        this.$Message.error(this.$t('Login Fail! username or password wrong.'));
+                        this.$Message.error(this.$t('Signin Fail! username or password wrong.'));
                     });
                 }
             });
