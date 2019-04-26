@@ -33,6 +33,7 @@ import (
 
 	"github.com/kylelemons/go-gypsy/yaml"
 
+	"github.com/howeyc/gopass"
 	"github.com/rifflock/lfshook"
 	log "github.com/sirupsen/logrus"
 )
@@ -101,8 +102,7 @@ func parseConfig() *RttysConfig {
 	flag.Parse()
 
 	if *genToken {
-		fmt.Println(genUniqueID("rttys-token"))
-		os.Exit(0)
+		genTokenAndExit()
 	}
 
 	yamlCfg, err := yaml.ReadFile(*conf)
@@ -116,4 +116,17 @@ func parseConfig() *RttysConfig {
 	}
 
 	return cfg
+}
+
+func genTokenAndExit() {
+	password, err := gopass.GetPasswdPrompt("Please set a password:", true, os.Stdin, os.Stdout)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	token := genUniqueID(string(password))
+
+	fmt.Println("Your token is:", token)
+
+	os.Exit(0)
 }
