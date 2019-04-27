@@ -22,5 +22,5 @@ require (
 	github.com/rakyll/statik v0.1.6
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
 	github.com/sirupsen/logrus v1.4.1
-	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 // indirect
+	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 )

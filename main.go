@@ -26,6 +26,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"os"
 	"runtime"
@@ -48,6 +49,9 @@ type RttysConfig struct {
 }
 
 func init() {
+	if terminal.IsTerminal(int(os.Stdout.Fd())) {
+		return
+	}
 	log.AddHook(lfshook.NewHook("/var/log/rttys.log", &log.TextFormatter{}))
 }
 
