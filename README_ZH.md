@@ -20,7 +20,7 @@
 [rtty](https://github.com/zhaojh329/rtty)的服务端。
 
 # 如何使用
-## 从[Release](https://github.com/zhaojh329/rttys/releases)页面下载编译好的程序或者自己编译
+## 从[Release](https://github.com/zhaojh329/rttys/releases)页面下载编译好的二进制文件或者自己编译
 
     go get -u github.com/zhaojh329/rttys
 

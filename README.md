@@ -20,7 +20,7 @@
 The server side of [rtty](https://github.com/zhaojh329/rtty)
 
 # Usage
-## download the precompiled programs from [Release](https://github.com/zhaojh329/rttys/releases) page according to your os and arch or compile it by yourself.
+## download the pre-built release binary from [Release](https://github.com/zhaojh329/rttys/releases) page according to your os and arch or compile it by yourself.
 
     go get -u github.com/zhaojh329/rttys
 
