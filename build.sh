@@ -1,5 +1,9 @@
 #!/bin/sh
 
+VersionPath="github.com/zhaojh329/rttys/version"
+GitCommit=$(git log --pretty=format:"%h" -1)
+BuildTime=$(date +%FT%T%z)
+
 generate() {
 	local os="$1"
 	local arch="$2"
@@ -14,7 +18,7 @@ generate() {
 		bin="rttys.exe"
 	}
 
-	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags='-s -w' -o output/$dir/$bin
+	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X $VersionPath.gitCommit=$GitCommit -X $VersionPath.buildTime=$BuildTime" -o output/$dir/$bin
 
 	cd output
 

@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/kylelemons/go-gypsy/yaml"
+	"github.com/zhaojh329/rttys/version"
 
 	"github.com/howeyc/gopass"
 	"github.com/rifflock/lfshook"
@@ -63,8 +64,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.Infof("go version: %s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	log.Info("rttys version:", rttys_version())
+	log.Info("Go Version: ", runtime.Version())
+	log.Info("Go OS/Arch: ", runtime.GOOS, "/", runtime.GOARCH)
+
+	log.Info("Rttys Version: ", version.Version())
+	log.Info("Git Commit: ", version.GitCommit())
+	log.Info("Build Time: ", version.BuildTime())
 
 	br := newBroker()
 	go br.run()
