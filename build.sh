@@ -42,3 +42,6 @@ generate linux 386
 
 generate windows amd64
 generate windows 386
+
+generate darwin amd64
+generate darwin 386
