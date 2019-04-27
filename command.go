@@ -95,7 +95,6 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 	}
 
 	body, _ := ioutil.ReadAll(r.Body)
-	r.Body.Close()
 
 	cmdInfo := CommandInfo{}
 	err := jsoniter.Unmarshal(body, &cmdInfo)
