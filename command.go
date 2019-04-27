@@ -22,6 +22,7 @@ package main
 import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -94,10 +95,15 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, _ := ioutil.ReadAll(r.Body)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Error(err)
+		cmdErrReply(RTTY_CMD_ERR_INVALID, w)
+		return
+	}
 
 	cmdInfo := CommandInfo{}
-	err := jsoniter.Unmarshal(body, &cmdInfo)
+	err = jsoniter.Unmarshal(body, &cmdInfo)
 	if err != nil || cmdInfo.Cmd == "" || cmdInfo.Devid == "" {
 		cmdErrReply(RTTY_CMD_ERR_INVALID, w)
 		return
