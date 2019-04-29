@@ -45,3 +45,6 @@ generate windows 386
 
 generate darwin amd64
 generate darwin 386
+
+generate freebsd amd64
+generate freebsd 386
