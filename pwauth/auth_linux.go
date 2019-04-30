@@ -1,4 +1,4 @@
-package main
+package pwauth
 
 import (
 	"errors"
@@ -13,20 +13,15 @@ import (
 	_ "github.com/GehirnInc/crypt/sha512_crypt"
 )
 
-type spwd struct {
-	sp_namp string
-	sp_pwdp string
-}
-
-func getspnam(name string) (*spwd, error) {
+func getPassword(name string) (string, error) {
 	/* Disallow potentially-malicious user names */
 	if name == "" || name[0] == '.' || strings.Contains(name, "/") {
-		return nil, errors.New("Invalid")
+		return "", errors.New("Invalid")
 	}
 
 	data, err := ioutil.ReadFile("/etc/shadow")
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	for _, l := range strings.Split(string(data), "\n") {
@@ -36,22 +31,22 @@ func getspnam(name string) (*spwd, error) {
 
 		s := strings.Split(l, ":")
 
-		return &spwd{s[0], s[1]}, nil
+		return s[1], nil
 	}
 
-	return nil, errors.New("Not found")
+	return "", errors.New("Not found")
 }
 
-func checkUser() bool {
-	return os.Getuid() == 0
-}
-
-func login(username, password string) bool {
-	sp, _ := getspnam(username)
-	if sp == nil {
+func Auth(username, password string) bool {
+	if os.Getuid() != 0 {
 		return false
 	}
 
-	c := crypt.NewFromHash(sp.sp_pwdp)
-	return c.Verify(sp.sp_pwdp, []byte(password)) == nil
+	pw, err := getPassword(username)
+	if err != nil {
+		return false
+	}
+
+	c := crypt.NewFromHash(pw)
+	return c.Verify(pw, []byte(password)) == nil
 }

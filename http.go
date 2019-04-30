@@ -6,6 +6,7 @@ import (
 	"github.com/rakyll/statik/fs"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhaojh329/rttys/cache"
+	"github.com/zhaojh329/rttys/pwauth"
 	_ "github.com/zhaojh329/rttys/statik"
 	"net/http"
 	"os"
@@ -46,6 +47,11 @@ func httpAuth(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func httpLogin(cfg *RttysConfig, creds *Credentials) bool {
+	ok := pwauth.Auth(creds.Username, creds.Password)
+	if ok {
+		return true
+	}
+
 	if cfg.username != "" {
 		if cfg.username != creds.Username {
 			return false
@@ -58,7 +64,7 @@ func httpLogin(cfg *RttysConfig, creds *Credentials) bool {
 		return true
 	}
 
-	return login(creds.Username, creds.Password)
+	return false
 }
 
 func httpStart(br *Broker, cfg *RttysConfig) {

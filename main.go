@@ -59,7 +59,7 @@ func init() {
 func main() {
 	cfg := parseConfig()
 
-	if !checkUser() && cfg.username == "" {
+	if os.Getuid() > 0 && cfg.username == "" {
 		log.Error("Operation not permitted. Please start as root or define Username and Password in configuration file")
 		os.Exit(1)
 	}

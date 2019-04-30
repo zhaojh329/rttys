@@ -1,4 +1,4 @@
-package main
+package pwauth
 
 import (
 	"syscall"
@@ -17,10 +17,6 @@ var (
 	procLogonUserW = advapi32.NewProc("LogonUserW")
 )
 
-func checkUser() bool {
-	return true
-}
-
 func LogonUserW(username, domain, password *uint16, logonType, logonProvider uint32) (token syscall.Handle, err error) {
 	r1, _, e1 := procLogonUserW.Call(
 		uintptr(unsafe.Pointer(username)),
@@ -35,7 +31,7 @@ func LogonUserW(username, domain, password *uint16, logonType, logonProvider uin
 	return token, nil
 }
 
-func login(username, password string) bool {
+func Auth(username, password string) bool {
 	pUsername, _ := syscall.UTF16PtrFromString(username)
 	pDomain, _ := syscall.UTF16PtrFromString(".")
 	pPassword, _ := syscall.UTF16PtrFromString(password)
