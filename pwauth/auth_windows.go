@@ -1,6 +1,7 @@
 package pwauth
 
 import (
+	"os/user"
 	"syscall"
 	"unsafe"
 )
@@ -31,12 +32,20 @@ func LogonUserW(username, domain, password *uint16, logonType, logonProvider uin
 	return token, nil
 }
 
-func Auth(username, password string) bool {
+func auth(username, password string) error {
+	if _, err := user.Lookup(username); err != nil {
+		return err
+	}
+
 	pUsername, _ := syscall.UTF16PtrFromString(username)
 	pDomain, _ := syscall.UTF16PtrFromString(".")
 	pPassword, _ := syscall.UTF16PtrFromString(password)
 
 	_, err := LogonUserW(pUsername, pDomain, pPassword, LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT)
 
-	return err == nil || err == errERROR_ACCOUNT_RESTRICTION
+	if err == errERROR_ACCOUNT_RESTRICTION {
+		return nil
+	}
+
+	return err
 }

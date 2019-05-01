@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"strings"
 
 	"github.com/GehirnInc/crypt"
@@ -37,16 +38,20 @@ func getPassword(name string) (string, error) {
 	return "", errors.New("Not found")
 }
 
-func Auth(username, password string) bool {
+func auth(username, password string) error {
 	if os.Getuid() != 0 {
-		return false
+		return errors.New("Cannot possibly work without effective root")
+	}
+
+	if _, err := user.Lookup(username); err != nil {
+		return err
 	}
 
 	pw, err := getPassword(username)
 	if err != nil {
-		return false
+		return err
 	}
 
 	c := crypt.NewFromHash(pw)
-	return c.Verify(pw, []byte(password)) == nil
+	return c.Verify(pw, []byte(password))
 }

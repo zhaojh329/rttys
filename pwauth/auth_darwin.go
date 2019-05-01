@@ -1,6 +1,10 @@
 package pwauth
 
+import (
+	"errors"
+)
+
 // Need to be implemented
-func Auth(username, password string) bool {
-	return false
+func auth(username, password string) error {
+	return errors.New("not implemented")
 }

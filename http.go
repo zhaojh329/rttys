@@ -47,8 +47,7 @@ func httpAuth(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func httpLogin(cfg *RttysConfig, creds *Credentials) bool {
-	ok := pwauth.Auth(creds.Username, creds.Password)
-	if ok {
+	if err := pwauth.Auth(creds.Username, creds.Password); err == nil {
 		return true
 	}
 
