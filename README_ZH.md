@@ -17,7 +17,7 @@
 [![Release Version][7]][8]
 [![Build Status][9]][10]
 
-[rtty](https://github.com/zhaojh329/rtty)的服务端。
+这是[rtty](https://github.com/zhaojh329/rtty)的服务器程序。
 
 # 如何使用
 ## 从[Release](https://github.com/zhaojh329/rttys/releases)页面下载编译好的二进制文件或者自己编译

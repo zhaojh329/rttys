@@ -17,7 +17,7 @@
 [![Release Version][7]][8]
 [![Build Status][9]][10]
 
-The server side of [rtty](https://github.com/zhaojh329/rtty)
+This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 
 # Usage
 ## download the pre-built release binary from [Release](https://github.com/zhaojh329/rttys/releases) page according to your os and arch or compile it by yourself.
