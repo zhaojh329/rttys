@@ -214,7 +214,7 @@ function RttyFile(ws, term, opt) {
                 break;
             }
             default:
-                console.error('invalid type:' + type);
+                // console.error('invalid type:' + type);
                 return;
             }
         }
