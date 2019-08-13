@@ -49,7 +49,7 @@
             </div>
         </Modal>
         <Modal v-model="cmdStatus.respModal" :title="$t('Response of executive command')" :width="1000">
-            <Table :columns="cmdStatus.response.columns" :data="cmdStatus.response.data" height="300"></Table>
+            <Table :columns="cmdStatus.response.columns" :data="cmdStatus.response.data" height="300" :no-data-text="$t('No Response')"></Table>
             <div slot="footer"></div>
         </Modal>
     </div>

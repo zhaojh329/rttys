@@ -66,7 +66,8 @@ const RttyI18n = {
         'Error Code': '错误码',
         'Error Message': "错误消息",
         'Please enter a single parameter': '请输入单个参数',
-        'Please enter a single environment': '请输入单个环境变量'
+        'Please enter a single environment': '请输入单个环境变量',
+		'No Response': '没有任何响应'
     }
 }
 
