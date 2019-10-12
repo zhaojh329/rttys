@@ -171,7 +171,7 @@ export default {
             });
         },
         getDevices() {
-            this.$axios.get('/devs').then(res => {
+            this.$axios.get(process.env.BASE_URL+'devs').then(res => {
                 this.loading = false;
                 this.devlists = res.data;
                 this.handleSearch();
@@ -209,7 +209,7 @@ export default {
 
                 item.querying = true;
 
-                this.$axios.get('/cmd?token=' + token).then((response) => {
+                this.$axios.get(process.env.BASE_URL+'cmd?token=' + token).then((response) => {
                     let resp = response.data;
 
                     if (resp.err == 1005) {
@@ -287,7 +287,7 @@ export default {
                             env: this.cmdData.env
                         };
 
-                        this.$axios.post('/cmd', data).then((response) => {
+                        this.$axios.post(process.env.BASE_URL+'cmd', data).then((response) => {
                             let resp = response.data;
 
                             if (resp.token) {
