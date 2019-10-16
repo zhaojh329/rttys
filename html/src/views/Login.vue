@@ -42,7 +42,7 @@ export default {
                         username: this.form.username,
                         password: this.form.password
                     };
-                    this.$axios.post('/signin', params).then(res => {
+                    this.$axios.post(process.env.BASE_URL+'signin', params).then(res => {
                         sessionStorage.setItem('rtty-sid', res);
                         this.$router.push('/');
                     }).catch(() => {

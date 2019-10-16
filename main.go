@@ -7,11 +7,12 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"os"
 	"runtime"
 	"time"
+
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/zhaojh329/rttys/version"
@@ -28,6 +29,7 @@ type RttysConfig struct {
 	username string
 	password string
 	token    string
+	baseURL  string
 }
 
 func init() {
@@ -86,6 +88,7 @@ func parseConfig() *RttysConfig {
 	flag.StringVar(&cfg.sslCert, "ssl-cert", "./rttys.crt", "certFile Path")
 	flag.StringVar(&cfg.sslKey, "ssl-key", "./rttys.key", "keyFile Path")
 	flag.StringVar(&cfg.token, "token", "", "token to use")
+	flag.StringVar(&cfg.baseURL, "base-url", "/", "base url to serve on")
 	conf := flag.String("conf", "./rttys.conf", "config file to load")
 	genToken := flag.Bool("gen-token", false, "generate token")
 
@@ -103,6 +106,7 @@ func parseConfig() *RttysConfig {
 		setConfigOpt(yamlCfg, "username", &cfg.username)
 		setConfigOpt(yamlCfg, "password", &cfg.password)
 		setConfigOpt(yamlCfg, "token", &cfg.token)
+		setConfigOpt(yamlCfg, "base-url", &cfg.baseURL)
 	}
 
 	return cfg

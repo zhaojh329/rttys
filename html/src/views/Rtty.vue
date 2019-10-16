@@ -82,7 +82,7 @@ export default {
         this.username = this.$route.query.username;
         this.password = this.$route.query.password;
 
-        let ws = new WebSocket(protocol + location.host + '/ws?devid=' + devid);
+        let ws = new WebSocket(protocol + location.host + process.env.BASE_URL + 'ws?devid=' + devid);
 
         ws.onopen = () => {
             ws.binaryType = 'arraybuffer';

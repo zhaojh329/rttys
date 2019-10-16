@@ -2,16 +2,17 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rakyll/statik/fs"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhaojh329/rttys/cache"
 	"github.com/zhaojh329/rttys/pwauth"
 	_ "github.com/zhaojh329/rttys/statik"
-	"net/http"
-	"os"
-	"strconv"
-	"time"
 )
 
 type Credentials struct {
@@ -76,16 +77,20 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 	staticfs := http.FileServer(statikFS)
 
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	if cfg.baseURL == "/" {
+		cfg.baseURL = ""
+	}
+
+	http.HandleFunc(cfg.baseURL+"/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(br, w, r, cfg)
 	})
 
-	http.HandleFunc("/cmd", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(cfg.baseURL+"/cmd", func(w http.ResponseWriter, r *http.Request) {
 		allowOrigin(w)
 		serveCmd(br, w, r)
 	})
 
-	http.HandleFunc("/signin", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(cfg.baseURL+"/signin", func(w http.ResponseWriter, r *http.Request) {
 		var creds Credentials
 
 		// Get the JSON body and decode into credentials
@@ -112,7 +117,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 	})
 
-	http.HandleFunc("/devs", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(cfg.baseURL+"/devs", func(w http.ResponseWriter, r *http.Request) {
 		if !httpAuth(w, r) {
 			return
 		}
@@ -131,19 +136,25 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		w.Write(resp)
 	})
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	hfunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			t := r.URL.Query().Get("t")
 			id := r.URL.Query().Get("id")
 
 			if t == "" && id == "" {
-				http.Redirect(w, r, "/?t="+strconv.FormatInt(time.Now().Unix(), 10), http.StatusFound)
+				http.Redirect(w, r, cfg.baseURL+"?t="+strconv.FormatInt(time.Now().Unix(), 10), http.StatusFound)
 				return
 			}
 		}
 
 		staticfs.ServeHTTP(w, r)
 	})
+
+	if cfg.baseURL != "" {
+		http.Handle(cfg.baseURL+"/", http.StripPrefix(cfg.baseURL, hfunc))
+	} else {
+		http.Handle("/", hfunc)
+	}
 
 	if cfg.sslCert != "" && cfg.sslKey != "" {
 		_, err := os.Lstat(cfg.sslCert)
