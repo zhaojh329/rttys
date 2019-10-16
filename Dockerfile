@@ -1,7 +1,7 @@
 FROM node
 WORKDIR /build
 COPY ./html ./
-RUN  npm install && npm run build 
+RUN  npm install && npm run build
 
 FROM golang:alpine
 WORKDIR /build
@@ -15,6 +15,6 @@ RUN apk update && \
 
 FROM alpine
 WORKDIR /rttys
-RUN apk --no-cache add ca-certificates 
+RUN apk --no-cache add ca-certificates
 COPY  --from=1 /build/rttys /rttys/rttys
 ENTRYPOINT ["/rttys/rttys"]
