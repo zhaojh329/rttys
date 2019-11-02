@@ -41,13 +41,9 @@
       -token string
             token to use
 
-## 以root用户运行(使用系统用户名和密码)
+## 运行
 
     sudo ./rttys
-
-## 以普通用户运行(用户名和密码来自配置文件)
-
-    ./rttys
 
 ## 如何在后台运行模式下查看日志
 

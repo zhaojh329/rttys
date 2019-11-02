@@ -41,11 +41,7 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
       -token string
             token to use
 
-## run as root (use system credentials)
-
-    sudo ./rttys
-
-## run as normal user (define username and password in config file)
+## run
 
     ./rttys
 
