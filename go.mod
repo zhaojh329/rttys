@@ -8,6 +8,7 @@ require (
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
 	github.com/json-iterator/go v1.1.7
 	github.com/kylelemons/go-gypsy v0.0.0-20160905020020-08cad365cd28
+	github.com/msteinert/pam v0.0.0-20190215180659-f29b9f28d6f9
 	github.com/rakyll/statik v0.1.6
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
 	github.com/sirupsen/logrus v1.4.2
