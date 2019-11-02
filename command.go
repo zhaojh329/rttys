@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	jsoniter "github.com/json-iterator/go"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/gorilla/websocket"
 )
@@ -40,6 +41,7 @@ type commandStatus struct {
 type CommandInfo struct {
 	Devid string `json:"devid"`
 	Cmd   string `json:"cmd"`
+	Sid   string `json:"sid"`
 }
 
 var commands sync.Map
@@ -85,7 +87,7 @@ func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
 
 	cmdInfo := CommandInfo{}
 	err = jsoniter.Unmarshal(body, &cmdInfo)
-	if err != nil || cmdInfo.Cmd == "" || cmdInfo.Devid == "" {
+	if _, ok := httpSessions.Get(cmdInfo.Sid); err != nil || cmdInfo.Cmd == "" || cmdInfo.Devid == "" || ok == false {
 		cmdErrReply(RTTY_CMD_ERR_INVALID, w)
 		return
 	}

@@ -43,7 +43,7 @@ export default {
                         password: this.form.password
                     };
                     this.$axios.post(process.env.BASE_URL + 'signin', params).then(res => {
-                        sessionStorage.setItem('rtty-sid', res);
+                        sessionStorage.setItem('rtty-sid', res.data);
                         this.$router.push('/');
                     }).catch(() => {
                         this.$Message.error(this.$t('Signin Fail! username or password wrong.'));

@@ -1,12 +1,13 @@
 package main
 
 import (
-	"github.com/gorilla/websocket"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 var upgrader = websocket.Upgrader{
@@ -73,6 +74,10 @@ func serveWs(br *Broker, w http.ResponseWriter, r *http.Request, cfg *RttysConfi
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+	} else if _, ok := httpSessions.Get(r.URL.Query().Get("sid")); !ok {
+		log.Error("Invalid sid from client")
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
 	}
 
 	keepalive, _ := strconv.Atoi(r.URL.Query().Get("keepalive"))
