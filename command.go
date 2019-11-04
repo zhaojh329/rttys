@@ -39,9 +39,11 @@ type commandStatus struct {
 }
 
 type CommandInfo struct {
-	Devid string `json:"devid"`
-	Cmd   string `json:"cmd"`
-	Sid   string `json:"sid"`
+	Devid    string `json:"devid"`
+	Cmd      string `json:"cmd"`
+	Sid      string `json:"sid"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 var commands sync.Map
