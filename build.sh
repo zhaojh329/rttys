@@ -9,6 +9,7 @@ generate() {
 	local arch="$2"
 	local dir="rttys-$os-$arch"
 	local bin="rttys"
+	local cgo=0
 
 	mkdir output/$dir
 	cp rttys.conf output/$dir
@@ -18,7 +19,11 @@ generate() {
 		bin="rttys.exe"
 	}
 
-	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X $VersionPath.gitCommit=$GitCommit -X $VersionPath.buildTime=$BuildTime" -o output/$dir/$bin
+	[ "$os" = "linux" ] && {
+		cgo=1
+	}
+
+	GOOS=$os GOARCH=$arch CGO_ENABLED=$cgo go build -ldflags="-s -w -X $VersionPath.gitCommit=$GitCommit -X $VersionPath.buildTime=$BuildTime" -o output/$dir/$bin
 
 	cd output
 
