@@ -282,6 +282,7 @@ export default {
                             devid: item.id,
                             username: this.cmdData.username,
                             password: this.cmdData.password,
+                            sid: sessionStorage.getItem('rtty-sid'),
                             cmd: this.cmdData.cmd.trim(),
                             params: this.cmdData.params,
                             env: this.cmdData.env
