@@ -1,104 +1,259 @@
 package main
 
 import (
-	"github.com/gorilla/websocket"
+	"bufio"
+	"crypto/rand"
+	"crypto/tls"
 	log "github.com/sirupsen/logrus"
+	"io"
+	"net"
+	"strings"
+	"sync"
 	"time"
 )
 
 const (
-	/* Max session id for each device */
-	RTTY_MAX_SESSION_ID_DEV = 5
+	MsgTypeRegister  = 0x00
+	MsgTypeLogin     = 0x01
+	MsgTypeLogout    = 0x02
+	MsgTypeTermData  = 0x03
+	MsgTypeWinsize   = 0x04
+	MsgTypeCmd       = 0x05
+	MsgTypeHeartbeat = 0x06
+	MsgTypeFile      = 0x07
 )
 
-type Device struct {
-	*Client
-	desc      string           /* description of the device */
-	timestamp int64            /* Connection time */
-	sessions  map[uint8]string /* sessions of each device */
-}
+const HeartbeatInterval = time.Second * 5
 
-type DeviceInfo struct {
-	ID          string `json:"id"`
-	Uptime      int64  `json:"uptime"`
-	Description string `json:"description"`
+type Device struct {
+	br         *Broker
+	id         string
+	desc       string /* description of the device */
+	timestamp  int64  /* Connection time */
+	token      string
+	conn       net.Conn
+	loginMutex sync.Mutex
+	user       *User /* User who is wait login */
+	active     time.Time
+	closeMutex sync.Mutex
+	closed     bool
+	closeCh    chan struct{}
 }
 
 type DevMessage struct {
-	msgType int
-	data    []byte
-	dev     *Device
+	devid     string
+	sid       uint8
+	data      []byte
+	isFileMsg bool
 }
 
-func (dev *Device) Close() {
-	dev.Client.Close()
-	dev.br.disconnecting <- dev
-}
+func (dev *Device) login(user *User) bool {
+	defer dev.loginMutex.Unlock()
 
-func (dev *Device) getFreeSid() uint8 {
-	for sid := uint8(1); sid <= RTTY_MAX_SESSION_ID_DEV; sid++ {
-		if _, ok := dev.sessions[sid]; !ok {
-			return sid
-		}
+	dev.loginMutex.Lock()
+
+	if dev.user != nil {
+		return false
 	}
-	return uint8(0)
+
+	dev.user = user
+	dev.writeMsg(MsgTypeLogin, []byte{})
+	return true
 }
 
-/*
- * If the Server does not receive a PING Packet from the Client within one and
- * a half times the Keep Alive time period, the server will disconnect the
- * Connection
- */
-func (dev *Device) keepAlive(keepalive int64) {
-	defer dev.Close()
+func (dev *Device) handleLogin(code byte, sid byte) {
+	defer dev.loginMutex.Unlock()
 
-	ticker := time.NewTicker(time.Second * time.Duration(keepalive))
+	dev.loginMutex.Lock()
+
+	if dev.user == nil {
+		return
+	}
+
+	user := dev.user
+	dev.user = nil
+
+	if code == 1 {
+		log.Errorf("login fail, device busy")
+		user.loginAck(LoginErrorBusy)
+		return
+	}
+
+	dev.br.newSession <- &Session{dev, user, sid}
+}
+
+func (dev *Device) logout(sid byte) {
+	dev.writeMsg(MsgTypeLogout, []byte{sid})
+}
+
+func (dev *Device) keepAlive() {
+	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	last := time.Now().Unix()
-	keepalive = keepalive * 3
-
-	/* Get the current ping handler */
-	pingHandler := dev.ws.PingHandler()
-
-	dev.ws.SetPingHandler(func(appData string) error {
-		last = time.Now().Unix()
-		return pingHandler(appData)
-	})
-
 	for {
 		select {
-		case <-dev.closeChan:
-			return
 		case <-ticker.C:
-			now := time.Now().Unix()
-			if now-last > keepalive {
-				log.Error("Inactive device in long time, now kill it: %s", dev.devid)
+			if time.Now().Sub(dev.active) > HeartbeatInterval*3/2 {
+				log.Errorf("Inactive device in long time, now kill it: %s %s", dev.id, time.Now())
+				dev.close()
 				return
 			}
+		case <-dev.closeCh:
+			return
 		}
 	}
 }
 
-func (dev *Device) readAlway() {
-	defer dev.Close()
+func (dev *Device) close() {
+	defer dev.closeMutex.Unlock()
+
+	dev.closeMutex.Lock()
+
+	if !dev.closed {
+		dev.closed = true
+		time.AfterFunc(time.Second, func() {
+			dev.br.unregister <- dev
+			close(dev.closeCh)
+			dev.conn.Close()
+			log.Infof("Device '%s' closed", dev.id)
+		})
+	}
+}
+
+func (dev *Device) writeMsg(typ byte, data []byte) {
+	b := []byte{typ}
+	b = append(b, intToBytes(len(data), 2)...)
+	b = append(b, data...)
+	dev.conn.Write(b)
+}
+
+func parseDeviceInfo(br *bufio.Reader) (string, string, string) {
+	id, _ := br.ReadString(0)
+	desc, _ := br.ReadString(0)
+	token, _ := br.ReadString(0)
+
+	id = strings.Trim(id, "\000")
+	desc = strings.Trim(desc, "\000")
+	token = strings.Trim(token, "\000")
+
+	return id, desc, token
+}
+
+func (dev *Device) readLoop() {
+	defer dev.close()
+
+	br := bufio.NewReaderSize(dev.conn, 4096+100)
+
+	msgLen := -1
 
 	for {
-		msgType, data, err := dev.ws.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Errorf("error: %v", err)
+		if msgLen < 0 {
+			b, err := br.Peek(3)
+			if err != nil {
+				if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
+					log.Error(err)
+				}
+				return
 			}
-			break
+			msgLen = bytesToIntU(b[1:])
 		}
 
-		msg := &DevMessage{msgType, data, dev}
-
-		select {
-		case dev.br.inDevMessage <- msg:
-		case <-dev.closeChan:
-			log.Error("closeChan from readAlway")
+		_, err := br.Peek(msgLen + 3)
+		if err != nil {
+			log.Error(err)
 			return
 		}
+
+		typ, _ := br.ReadByte()
+		br.Discard(2)
+
+		dev.active = time.Now()
+
+		switch typ {
+		case MsgTypeRegister:
+			id, desc, token := parseDeviceInfo(br)
+			dev.id = id
+			dev.token = token
+			dev.desc = desc
+			dev.br.register <- dev
+
+		case MsgTypeLogin:
+			code, _ := br.ReadByte()
+			sid := byte(0)
+			if code == 0 {
+				sid, _ = br.ReadByte()
+			}
+			dev.handleLogin(code, sid)
+
+		case MsgTypeLogout:
+			sid, _ := br.ReadByte()
+			dev.br.logout <- dev.id + string(sid+'0')
+
+		case MsgTypeTermData:
+			fallthrough
+		case MsgTypeFile:
+			sid, _ := br.ReadByte()
+			data := make([]byte, msgLen-1)
+			br.Read(data)
+			dev.br.devMessage <- &DevMessage{dev.id, sid, data, typ == MsgTypeFile}
+
+		case MsgTypeCmd:
+			data := make([]byte, msgLen)
+			br.Read(data)
+			dev.br.cmdMessage <- data
+
+		case MsgTypeHeartbeat:
+			dev.writeMsg(MsgTypeHeartbeat, []byte{})
+
+		default:
+			log.Error("invalid msg type")
+			br.Discard(msgLen)
+		}
+
+		msgLen = -1
+	}
+}
+
+func listenDevice(br *Broker, cfg *RttysConfig) {
+	ln, err := net.Listen("tcp", cfg.addrDev)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer ln.Close()
+
+	if cfg.sslCert != "" && cfg.sslKey != "" {
+		crt, err := tls.LoadX509KeyPair(cfg.sslCert, cfg.sslKey)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		tlsConfig := &tls.Config{}
+		tlsConfig.Certificates = []tls.Certificate{crt}
+		tlsConfig.Time = time.Now
+		tlsConfig.Rand = rand.Reader
+
+		ln = tls.NewListener(ln, tlsConfig)
+		log.Info("Listen device on: ", cfg.addrDev, " SSL on")
+	} else {
+		log.Info("Listen device on: ", cfg.addrDev, " SSL off")
+	}
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+
+		dev := &Device{
+			br:        br,
+			conn:      conn,
+			closeCh:   make(chan struct{}),
+			active:    time.Now(),
+			timestamp: time.Now().Unix(),
+		}
+
+		go dev.readLoop()
+		go dev.keepAlive()
 	}
 }

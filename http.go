@@ -2,17 +2,16 @@ package main
 
 import (
 	"fmt"
-	"net/http"
-	"os"
-	"strconv"
-	"time"
-
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rakyll/statik/fs"
 	log "github.com/sirupsen/logrus"
 	"github.com/zhaojh329/rttys/cache"
 	"github.com/zhaojh329/rttys/pwauth"
 	_ "github.com/zhaojh329/rttys/statik"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+	"time"
 )
 
 type Credentials struct {
@@ -82,22 +81,54 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	}
 
 	http.HandleFunc(cfg.baseURL+"/ws", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(br, w, r, cfg)
+		if _, ok := httpSessions.Get(r.URL.Query().Get("sid")); !ok {
+			http.Error(w, "Invalid sid", http.StatusForbidden)
+			return
+		}
+
+		serveUser(br, w, r)
 	})
 
 	http.HandleFunc(cfg.baseURL+"/cmd", func(w http.ResponseWriter, r *http.Request) {
 		allowOrigin(w)
-		serveCmd(br, w, r)
+
+		done := make(chan struct{})
+		req := &CommandReq{
+			done: done,
+			w:    w,
+		}
+
+		if r.Method == "GET" {
+			req.token = r.URL.Query().Get("token")
+		} else if r.Method == "POST" {
+			content, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+
+			sid := jsoniter.Get(content, "sid").ToString()
+			if _, ok := httpSessions.Get(sid); !ok {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+
+			req.content = content
+		} else {
+			http.Error(w, "MethodNotAllowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		br.cmdReq <- req
+		<-done
 	})
 
 	http.HandleFunc(cfg.baseURL+"/signin", func(w http.ResponseWriter, r *http.Request) {
 		var creds Credentials
 
-		// Get the JSON body and decode into credentials
 		err := jsoniter.NewDecoder(r.Body).Decode(&creds)
 		if err != nil {
-			// If the structure of the body is wrong, return an HTTP error
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
@@ -118,11 +149,17 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	})
 
 	http.HandleFunc(cfg.baseURL+"/devs", func(w http.ResponseWriter, r *http.Request) {
+		type DeviceInfo struct {
+			ID          string `json:"id"`
+			Uptime      int64  `json:"uptime"`
+			Description string `json:"description"`
+		}
+
 		if !httpAuth(w, r) {
 			return
 		}
 
-		devs := []DeviceInfo{}
+		devs := make([]DeviceInfo, 0)
 
 		for id, dev := range br.devices {
 			dev := DeviceInfo{id, time.Now().Unix() - dev.timestamp, dev.desc}
@@ -138,11 +175,11 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 	hfunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
-			t := r.URL.Query().Get("t")
+			t := r.URL.Query().Get("tmr")
 			id := r.URL.Query().Get("id")
 
 			if t == "" && id == "" {
-				http.Redirect(w, r, cfg.baseURL+"?t="+strconv.FormatInt(time.Now().Unix(), 10), http.StatusFound)
+				http.Redirect(w, r, cfg.baseURL+"?tmr="+strconv.FormatInt(time.Now().Unix(), 10), http.StatusFound)
 				return
 			}
 		}
@@ -157,24 +194,10 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	}
 
 	if cfg.sslCert != "" && cfg.sslKey != "" {
-		_, err := os.Lstat(cfg.sslCert)
-		if err != nil {
-			log.Error(err)
-			cfg.sslCert = ""
-		}
-
-		_, err = os.Lstat(cfg.sslKey)
-		if err != nil {
-			log.Error(err)
-			cfg.sslKey = ""
-		}
-	}
-
-	if cfg.sslCert != "" && cfg.sslKey != "" {
-		log.Info("Listen on: ", cfg.addr, " SSL on")
-		log.Fatal(http.ListenAndServeTLS(cfg.addr, cfg.sslCert, cfg.sslKey, nil))
+		log.Info("Listen user on: ", cfg.addrUser, " SSL on")
+		log.Fatal(http.ListenAndServeTLS(cfg.addrUser, cfg.sslCert, cfg.sslKey, nil))
 	} else {
-		log.Info("Listen on: ", cfg.addr, " SSL off")
-		log.Fatal(http.ListenAndServe(cfg.addr, nil))
+		log.Info("Listen user on: ", cfg.addrUser, " SSL off")
+		log.Fatal(http.ListenAndServe(cfg.addrUser, nil))
 	}
 }

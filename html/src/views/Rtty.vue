@@ -25,6 +25,9 @@ import RttyFile from '../plugins/rtty-file'
 Terminal.applyAddon(fit);
 Terminal.applyAddon(overlay);
 
+const LoginErrorOffline = 0x01;
+const LoginErrorBusy = 0x02;
+
 export default {
     name: 'Rtty',
     data() {
@@ -62,7 +65,7 @@ export default {
         },
         cancelUpfile() {
             this.term.focus();
-            this.rf.sendEof();
+            this.rf.cancel();
         },
         doUpload() {
             if (!this.upfile.file) {
@@ -73,6 +76,9 @@ export default {
             this.upfile.modal = false;
             this.term.focus();
             this.rf.sendFile(this.upfile.file);
+        },
+        wsSendData(type, data) {
+            this.ws.send(Buffer.concat([Buffer.from([type]), Buffer.from(data)]));
         }
     },
     mounted() {
@@ -107,90 +113,73 @@ export default {
 
             term.on('resize', (size) => {
                 setTimeout(() => {
-                    let msg = {type: "winsize", sid: this.sid, cols: size.cols, rows: size.rows};
+                    let msg = {type: "winsize", cols: size.cols, rows: size.rows};
                     ws.send(JSON.stringify(msg));
                     term.showOverlay(size.cols + 'x' + size.rows);
                 }, 500);
             });
 
             this.term = term;
-
-            this.rf = new RttyFile(ws, term, {
-                on_detect: (t) => {
-                    if (t == 'r')
-                        this.upfile.modal = true;
-                    else if (t == 's')
-                        ;
-                }
+            this.rf = new RttyFile(data => {
+                this.ws.send(data);
+            }, () => {
+                this.upfile.modal = true;
             });
         };
 
         ws.onmessage = (ev) => {
             let term = this.term;
 
-            if (typeof ev.data == 'string') {
+            if (typeof ev.data === 'string') {
                 let msg = JSON.parse(ev.data);
-                if (msg.type == "login") {
-                    if (msg.err == 1) {
+                if (msg.type === "login") {
+                    if (msg.err === LoginErrorOffline) {
                         this.$Message.error(this.$t('Device offline'));
                         this.logout();
                         return;
-                    } else if (msg.err == 2) {
+                    } else if (msg.err === LoginErrorBusy) {
                         this.$Message.error(this.$t('Sessions is full'));
                         this.logout();
+                        return;
                     }
 
-                    this.sid = msg.sid;
-                    msg = {type: 'winsize', sid: this.sid, cols: term.cols, rows: term.rows};
+                    msg = {type: 'winsize', cols: term.cols, rows: term.rows};
                     ws.send(JSON.stringify(msg));
 
                     term.on('data', (data) => {
-                        if (this.rf.state != '') {
-                            if (data.length == 1) {
-                                let key = data.charCodeAt(0);
-
-                                /* Ctrl + C, Esc */
-                                if (key == 3 || key == 27) {
-                                    if (this.rf.state == 'recving') {
-                                        this.rf.abortRecv();
-                                    } else {
-                                        this.upfile.modal = false;
-
-                                        if (this.rf.state == 'send_pending')
-                                            this.rf.sendEof();
-                                        else
-                                            this.rf.abort();
-                                    }
-                                }
-                            }
-                            return;
-                        }
-
-                        this.ws.send(Buffer.from(data));
+                        this.wsSendData(0, data);
                     });
-                } else if (msg.type == 'logout') {
+                } else if (msg.type === 'logout') {
                     this.logout();
                 }
             } else {
+                let data = Buffer.from(ev.data);
+                let isFileMsg = data[0] === 1;
+
+                if (isFileMsg) {
+                    this.rf.recvFileMsg(data.slice(1));
+                    return;
+                }
+
+                data = data.slice(1).toString();
+
                 if (!this.recvTTYCnt)
                     this.recvTTYCnt = 0;
                 this.recvTTYCnt++;
 
                 if (this.recvTTYCnt < 4) {
-                    let data = Buffer.from(ev.data).toString();
-
-                    if (data.match('login:') && this.username && this.username != '') {
-                        ws.send(Buffer.from(this.username + '\n'));
+                    if (data.match('login:') && this.username && this.username !== '') {
+                        this.wsSendData(0, this.username + '\n');
                         return;
                     }
 
-                    if (data.match('Password:') && this.password && this.password != '') {
-                        ws.send(Buffer.from(this.password + '\n'));
+                    if (data.match('Password:') && this.password && this.password !== '') {
+                        this.wsSendData(0, this.password + '\n');
                         return;
                     }
                 }
 
-                this.rf.consume(ev.data);
+                term.write(data);
             }
         };
 

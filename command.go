@@ -3,116 +3,139 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
-	"sync"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
-	log "github.com/sirupsen/logrus"
-
-	"github.com/gorilla/websocket"
 )
 
+const CommandTimeout = time.Second * 30
+
 const (
-	RTTY_CMD_ERR_INVALID       = 1001
-	RTTY_CMD_ERR_OFFLINE       = 1002
-	RTTY_CMD_ERR_BUSY          = 1003
-	RTTY_CMD_ERR_TIMEOUT       = 1004
-	RTTY_CMD_ERR_PENDING       = 1005
-	RTTY_CMD_ERR_INVALID_TOKEN = 1006
+	RttyCmdErrInvalid      = 1001
+	RttyCmdErrOffline      = 1002
+	RttyCmdErrBusy         = 1003
+	RttyCmdErrTimeout      = 1004
+	RttyCmdErrPending      = 1005
+	RttyCmdErrInvalidToken = 1006
 )
 
 var cmdErrMsg = map[int]string{
-	RTTY_CMD_ERR_INVALID:       "invalid format",
-	RTTY_CMD_ERR_OFFLINE:       "device offline",
-	RTTY_CMD_ERR_BUSY:          "server is busy",
-	RTTY_CMD_ERR_TIMEOUT:       "timeout",
-	RTTY_CMD_ERR_PENDING:       "pending",
-	RTTY_CMD_ERR_INVALID_TOKEN: "invalid token",
+	RttyCmdErrInvalid:      "invalid format",
+	RttyCmdErrOffline:      "device offline",
+	RttyCmdErrBusy:         "server is busy",
+	RttyCmdErrTimeout:      "timeout",
+	RttyCmdErrPending:      "pending",
+	RttyCmdErrInvalidToken: "invalid token",
 }
 
-type commandStatus struct {
+type CommandStatus struct {
+	ts    time.Time
 	token string
 	resp  string
-	t     *time.Timer
+	tmr   *time.Timer
 }
 
 type CommandInfo struct {
 	Devid    string `json:"devid"`
 	Cmd      string `json:"cmd"`
-	Sid      string `json:"sid"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-var commands sync.Map
+type CommandReq struct {
+	done    chan struct{}
+	token   string
+	content []byte
+	w       http.ResponseWriter
+}
 
-func handleCmdResp(data []byte) {
+func handleCmdResp(br *Broker, data []byte) {
 	token := jsoniter.Get(data, "token").ToString()
 
-	if cmd, ok := commands.Load(token); ok {
-		cmd := cmd.(*commandStatus)
+	if cmd, ok := br.commands[token]; ok {
 		cmd.resp = jsoniter.Get(data, "attrs").ToString()
 	}
 }
 
-func cmdErrReply(err int, w http.ResponseWriter) {
-	fmt.Fprintf(w, `{"err": %d, "msg":"%s"}`, err, cmdErrMsg[err])
+func cmdErrReply(err int, req *CommandReq) {
+	fmt.Fprintf(req.w, `{"err": %d, "msg":"%s"}`, err, cmdErrMsg[err])
+	close(req.done)
 }
 
-func serveCmd(br *Broker, w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
+func handleCmdReq(br *Broker, req *CommandReq) {
+	token := req.token
+
 	if token != "" {
-		cmd, ok := commands.Load(token)
-		if ok {
-			cmd := cmd.(*commandStatus)
+		if cmd, ok := br.commands[token]; ok {
 			if len(cmd.resp) == 0 {
-				cmdErrReply(RTTY_CMD_ERR_PENDING, w)
+				if time.Now().Sub(cmd.ts) > CommandTimeout {
+					cmdErrReply(RttyCmdErrTimeout, req)
+				} else {
+					cmdErrReply(RttyCmdErrPending, req)
+				}
 			} else {
-				commands.Delete(token)
-				io.WriteString(w, cmd.resp)
-				cmd.t.Stop()
+				io.WriteString(req.w, cmd.resp)
+				close(req.done)
+				br.clearCmd <- token
 			}
 		} else {
-			cmdErrReply(RTTY_CMD_ERR_INVALID_TOKEN, w)
+			cmdErrReply(RttyCmdErrInvalidToken, req)
 		}
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Error(err)
-		cmdErrReply(RTTY_CMD_ERR_INVALID, w)
-		return
-	}
-
 	cmdInfo := CommandInfo{}
-	err = jsoniter.Unmarshal(body, &cmdInfo)
-	if _, ok := httpSessions.Get(cmdInfo.Sid); err != nil || cmdInfo.Cmd == "" || cmdInfo.Devid == "" || ok == false {
-		cmdErrReply(RTTY_CMD_ERR_INVALID, w)
+	err := jsoniter.Unmarshal(req.content, &cmdInfo)
+	if err != nil || cmdInfo.Cmd == "" || cmdInfo.Devid == "" {
+		cmdErrReply(RttyCmdErrInvalid, req)
 		return
 	}
 
 	dev, ok := br.devices[cmdInfo.Devid]
 	if !ok {
-		cmdErrReply(RTTY_CMD_ERR_OFFLINE, w)
+		cmdErrReply(RttyCmdErrOffline, req)
 		return
 	}
 
 	token = genUniqueID("cmd")
 
-	cmd := &commandStatus{
+	cmd := &CommandStatus{
+		ts:    time.Now(),
 		token: token,
-		t: time.AfterFunc(30*time.Second, func() {
-			commands.Delete(token)
+		tmr: time.AfterFunc(CommandTimeout+time.Second*2, func() {
+			br.clearCmd <- token
 		}),
 	}
 
-	commands.Store(token, cmd)
+	br.commands[token] = cmd
 
-	msg := fmt.Sprintf(`{"type":"cmd","token":"%s","attrs":%s}`, token, body)
-	dev.wsWrite(websocket.TextMessage, []byte(msg))
+	username := jsoniter.Get(req.content, "username").ToString()
+	password := jsoniter.Get(req.content, "password").ToString()
+	cmdName := jsoniter.Get(req.content, "cmd").ToString()
+	params := jsoniter.Get(req.content, "params")
 
-	fmt.Fprintf(w, `{"token":"%s"}`, token)
+	var data []byte
+	data = append(data, username...)
+	data = append(data, 0)
+
+	data = append(data, password...)
+	data = append(data, 0)
+
+	data = append(data, cmdName...)
+	data = append(data, 0)
+
+	data = append(data, token...)
+	data = append(data, 0)
+
+	data = append(data, byte(params.Size()))
+	for i := 0; i < params.Size(); i++ {
+		data = append(data, params.Get(i).ToString()...)
+		data = append(data, 0)
+	}
+
+	dev.writeMsg(MsgTypeCmd, data)
+
+	fmt.Fprintf(req.w, `{"token":"%s"}`, token)
+	close(req.done)
 }
