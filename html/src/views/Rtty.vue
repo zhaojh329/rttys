@@ -19,7 +19,7 @@
 import { Terminal } from 'xterm'
 import 'xterm/lib/xterm.css'
 import * as fit from 'xterm/lib/addons/fit/fit'
-import * as overlay from '@/overlay'
+import * as overlay from '../plugins//overlay'
 import RttyFile from '../plugins/rtty-file'
 
 Terminal.applyAddon(fit);
