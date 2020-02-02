@@ -1,7 +1,7 @@
 import Vue from 'vue'
 import VueI18n from 'vue-i18n'
-import enLocale from 'iview/dist/locale/en-US'
-import zhLocale from 'iview/dist/locale/zh-CN'
+import enLocale from 'view-design/dist/locale/en-US'
+import zhLocale from 'view-design/dist/locale/zh-CN'
 
 const RttyI18n = {
     'en-US': {
