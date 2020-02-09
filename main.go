@@ -25,8 +25,17 @@ func main() {
 	log.Info("Go OS/Arch: ", runtime.GOOS, "/", runtime.GOARCH)
 
 	log.Info("Rttys Version: ", version.Version())
-	log.Info("Git Commit: ", version.GitCommit())
-	log.Info("Build Time: ", version.BuildTime())
+
+	gitCommit := version.GitCommit()
+	buildTime := version.BuildTime()
+
+	if gitCommit != "" {
+		log.Info("Git Commit: ", version.GitCommit())
+	}
+
+	if buildTime != "" {
+		log.Info("Build Time: ", version.BuildTime())
+	}
 
 	br := newBroker(cfg.token)
 	go br.run()
