@@ -18,7 +18,7 @@
   import {Upload as ElUpload} from 'element-ui'
   import {Terminal, IDisposable} from 'xterm';
   import {FitAddon} from 'xterm-addon-fit';
-  import { OverlayAddon } from '@/plugins/xterm-addon-overlay'
+  import {OverlayAddon} from '@/plugins/xterm-addon-overlay'
   import 'xterm/css/xterm.css'
 
   const LoginErrorOffline = 0x01;
@@ -203,7 +203,7 @@
 
         if (typeof data === 'string') {
           const msg = JSON.parse(data);
-          if (msg.type === "login") {
+          if (msg.type === 'login') {
             if (msg.err === LoginErrorOffline) {
               this.$message.error(this.$t('Device offline').toString());
               this.dispose();
@@ -256,7 +256,7 @@
       });
 
       term.onResize(size => {
-        const msg = {type: "winsize", cols: size.cols, rows: size.rows};
+        const msg = {type: 'winsize', cols: size.cols, rows: size.rows};
         socket.send(JSON.stringify(msg));
         overlayAddon.show(term.cols + 'x' + term.rows);
       });
@@ -269,6 +269,7 @@
     destroyed() {
       window.removeEventListener('resize', this.fitTerm);
       this.disposables.forEach(d => d.dispose());
+      console.log('dfg');
     }
   }
 </script>
