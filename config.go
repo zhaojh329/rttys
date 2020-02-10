@@ -8,14 +8,14 @@ import (
 )
 
 type RttysConfig struct {
-	addrDev  string
-	addrUser string
-	sslCert  string
-	sslKey   string
-	username string
-	password string
-	token    string
-	baseURL  string
+	addrDev      string
+	addrUser     string
+	sslCert      string
+	sslKey       string
+	httpUsername string
+	httpPassword string
+	token        string
+	baseURL      string
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt *string) {
@@ -50,8 +50,8 @@ func parseConfig() *RttysConfig {
 		getConfigOpt(yamlCfg, "addr-user", &cfg.addrUser)
 		getConfigOpt(yamlCfg, "ssl-cert", &cfg.sslCert)
 		getConfigOpt(yamlCfg, "ssl-key", &cfg.sslKey)
-		getConfigOpt(yamlCfg, "username", &cfg.username)
-		getConfigOpt(yamlCfg, "password", &cfg.password)
+		getConfigOpt(yamlCfg, "http-username", &cfg.httpUsername)
+		getConfigOpt(yamlCfg, "http-password", &cfg.httpPassword)
 		getConfigOpt(yamlCfg, "token", &cfg.token)
 		getConfigOpt(yamlCfg, "base-url", &cfg.baseURL)
 	}

@@ -51,13 +51,13 @@ func httpLogin(cfg *RttysConfig, creds *Credentials) bool {
 		return true
 	}
 
-	if cfg.username != "" {
-		if cfg.username != creds.Username {
+	if cfg.httpUsername != "" {
+		if cfg.httpUsername != creds.Username {
 			return false
 		}
 
-		if cfg.password != "" {
-			return cfg.password == creds.Password
+		if cfg.httpPassword != "" {
+			return cfg.httpPassword == creds.Password
 		}
 
 		return true
