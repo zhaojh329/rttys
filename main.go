@@ -21,6 +21,10 @@ func init() {
 func main() {
 	cfg := parseConfig()
 
+	if cfg.httpUsername == "" {
+		log.Fatal("You must configure the http username by commandline or config file")
+	}
+
 	log.Info("Go Version: ", runtime.Version())
 	log.Info("Go OS/Arch: ", runtime.GOOS, "/", runtime.GOARCH)
 

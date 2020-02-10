@@ -33,6 +33,8 @@ func parseConfig() *RttysConfig {
 	flag.StringVar(&cfg.addrUser, "addr-user", ":5913", "address to listen user")
 	flag.StringVar(&cfg.sslCert, "ssl-cert", "./rttys.crt", "certFile Path")
 	flag.StringVar(&cfg.sslKey, "ssl-key", "./rttys.key", "keyFile Path")
+	flag.StringVar(&cfg.httpUsername, "http-username", "", "username for http auth")
+	flag.StringVar(&cfg.httpPassword, "http-password", "", "password for http auth")
 	flag.StringVar(&cfg.token, "token", "", "token to use")
 	flag.StringVar(&cfg.baseURL, "base-url", "/", "base url to serve on")
 	conf := flag.String("conf", "./rttys.conf", "config file to load")
