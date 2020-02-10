@@ -24,7 +24,7 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 
     go get -u github.com/zhaojh329/rttys
 
-## See Supported Command Line Parameters
+## Command Line Parameters
 
     ./rttys -h
     Usage of rttys:
@@ -38,16 +38,16 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
             config file to load (default "./rttys.conf")
       -gen-token
             generate token
+      -http-password string
+            password for http auth
+      -http-username string
+            username for http auth
       -ssl-cert string
             certFile Path (default "./rttys.crt")
       -ssl-key string
             keyFile Path (default "./rttys.key")
       -token string
             token to use
-
-## run
-
-    ./rttys
 
 ## View logs when running in the background
 

@@ -24,7 +24,7 @@
 
     go get -u github.com/zhaojh329/rttys
 
-## 查看支持哪些命令行参数
+## 命令行参数
 
     ./rttys -h
     Usage of rttys:
@@ -38,6 +38,10 @@
             config file to load (default "./rttys.conf")
       -gen-token
             generate token
+      -http-password string
+            password for http auth
+      -http-username string
+            username for http auth
       -ssl-cert string
             certFile Path (default "./rttys.crt")
       -ssl-key string
@@ -45,11 +49,7 @@
       -token string
             token to use
 
-## 运行
-
-    sudo ./rttys
-
-## 如何在后台运行模式下查看日志
+## 在后台运行模式下查看日志
 
     cat /var/log/rttys.log
 
