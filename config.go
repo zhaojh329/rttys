@@ -18,7 +18,7 @@ type RttysConfig struct {
 	baseURL  string
 }
 
-func setConfigOpt(yamlCfg *yaml.File, name string, opt *string) {
+func getConfigOpt(yamlCfg *yaml.File, name string, opt *string) {
 	val, err := yamlCfg.Get(name)
 	if err != nil {
 		return
@@ -46,14 +46,14 @@ func parseConfig() *RttysConfig {
 
 	yamlCfg, err := yaml.ReadFile(*conf)
 	if err == nil {
-		setConfigOpt(yamlCfg, "addr-dev", &cfg.addrDev)
-		setConfigOpt(yamlCfg, "addr-user", &cfg.addrUser)
-		setConfigOpt(yamlCfg, "ssl-cert", &cfg.sslCert)
-		setConfigOpt(yamlCfg, "ssl-key", &cfg.sslKey)
-		setConfigOpt(yamlCfg, "username", &cfg.username)
-		setConfigOpt(yamlCfg, "password", &cfg.password)
-		setConfigOpt(yamlCfg, "token", &cfg.token)
-		setConfigOpt(yamlCfg, "base-url", &cfg.baseURL)
+		getConfigOpt(yamlCfg, "addr-dev", &cfg.addrDev)
+		getConfigOpt(yamlCfg, "addr-user", &cfg.addrUser)
+		getConfigOpt(yamlCfg, "ssl-cert", &cfg.sslCert)
+		getConfigOpt(yamlCfg, "ssl-key", &cfg.sslKey)
+		getConfigOpt(yamlCfg, "username", &cfg.username)
+		getConfigOpt(yamlCfg, "password", &cfg.password)
+		getConfigOpt(yamlCfg, "token", &cfg.token)
+		getConfigOpt(yamlCfg, "base-url", &cfg.baseURL)
 	}
 
 	if cfg.sslCert != "" && cfg.sslKey != "" {
