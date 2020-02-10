@@ -9,7 +9,6 @@ generate() {
 	local arch="$2"
 	local dir="rttys-$os-$arch"
 	local bin="rttys"
-	local cgo=0
 
 	mkdir output/$dir
 	cp rttys.conf output/$dir
@@ -19,11 +18,7 @@ generate() {
 		bin="rttys.exe"
 	}
 
-	[ "$os" = "linux" ] && {
-		cgo=1
-	}
-
-	GOOS=$os GOARCH=$arch CGO_ENABLED=$cgo go build -ldflags="-s -w -X $VersionPath.gitCommit=$GitCommit -X $VersionPath.buildTime=$BuildTime" -o output/$dir/$bin
+	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X $VersionPath.gitCommit=$GitCommit -X $VersionPath.buildTime=$BuildTime" -o output/$dir/$bin
 
 	cd output
 
@@ -45,11 +40,20 @@ TARGET=output ./generate-CA.sh rttys
 generate linux amd64
 generate linux 386
 
-generate windows amd64
-generate windows 386
+generate linux arm64
+generate linux arm
+
+generate linux mips64
+generate linux mips
+
+generate linux mips64le
+generate linux mipsle
 
 generate darwin amd64
 generate darwin 386
 
 generate freebsd amd64
 generate freebsd 386
+
+generate windows amd64
+generate windows 386
