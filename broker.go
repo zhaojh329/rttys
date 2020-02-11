@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 )
 
 type Session struct {
@@ -56,16 +56,16 @@ func (br *Broker) run() {
 			msg := "OK"
 
 			if _, ok := br.devices[dev.id]; ok {
-				log.Error("Device ID conflicting: ", dev.id)
+				log.Error().Msg("Device ID conflicting: " + dev.id)
 				msg = "ID conflicting"
 				err = 1
 			} else if dev.token != br.token {
-				log.Error("Invalid token from terminal device")
+				log.Error().Msg("Invalid token from terminal device")
 				msg = "Invalid token"
 				err = 1
 			} else {
 				br.devices[dev.id] = dev
-				log.Info("New device: ", dev.id)
+				log.Info().Msg("New device: " + dev.id)
 			}
 
 			dev.writeMsg(MsgTypeRegister, append([]byte{err}, msg...))
@@ -82,7 +82,7 @@ func (br *Broker) run() {
 				if session.dev == dev {
 					session.user.close()
 					delete(br.sessions, sid)
-					log.Info("Delete session: ", sid)
+					log.Info().Msg("Delete session: " + sid)
 				}
 			}
 
@@ -90,11 +90,11 @@ func (br *Broker) run() {
 			if dev, ok := br.devices[user.devid]; ok {
 				if !dev.login(user) {
 					user.loginAck(LoginErrorBusy)
-					log.Errorf("Device '%s' is busy", dev.id)
+					log.Error().Msgf("Device '%s' is busy", dev.id)
 				}
 			} else {
 				user.loginAck(LoginErrorOffline)
-				log.Errorf("Not found the device '%s'", user.devid)
+				log.Error().Msgf("Not found the device '%s'", user.devid)
 			}
 
 		case sid := <-br.logout:
@@ -102,7 +102,7 @@ func (br *Broker) run() {
 				delete(br.sessions, sid)
 				session.user.close()
 				session.dev.logout(sid[len(sid)-1] - '0')
-				log.Info("Delete session: ", sid)
+				log.Info().Msg("Delete session: " + sid)
 			}
 
 		case session := <-br.newSession:
@@ -110,7 +110,7 @@ func (br *Broker) run() {
 			session.user.sid = sid
 			session.user.loginAck(LoginErrorNone)
 			br.sessions[sid] = session
-			log.Infof("New session: %s", sid)
+			log.Info().Msg("New session: " + sid)
 
 		case msg := <-br.devMessage:
 			sid := msg.devid + string(msg.sid+'0')
@@ -147,7 +147,7 @@ func (br *Broker) run() {
 					}
 				}
 			} else {
-				log.Error("Not found sid: ", msg.sid)
+				log.Error().Msg("Not found sid: " + msg.sid)
 			}
 
 		case cmdReq := <-br.cmdReq:

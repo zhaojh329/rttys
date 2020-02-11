@@ -8,7 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/howeyc/gopass"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"io"
 	"os"
 	"time"
@@ -74,7 +74,7 @@ func genUniqueID(extra string) string {
 func genTokenAndExit() {
 	password, err := gopass.GetPasswdPrompt("Please set a password:", true, os.Stdin, os.Stdout)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Msg(err.Error())
 	}
 
 	token := genUniqueID(string(password))

@@ -42,16 +42,14 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
             password for http auth
       -http-username string
             username for http auth
+      -log string
+            log file path (default "/var/log/rttys.log")
       -ssl-cert string
             certFile Path (default "./rttys.crt")
       -ssl-key string
             keyFile Path (default "./rttys.key")
       -token string
             token to use
-
-## View logs when running in the background
-
-    cat /var/log/rttys.log
 
 ## Authorization
 

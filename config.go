@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/kylelemons/go-gypsy/yaml"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"os"
 )
 
@@ -61,13 +61,13 @@ func parseConfig() *RttysConfig {
 	if cfg.sslCert != "" && cfg.sslKey != "" {
 		_, err := os.Lstat(cfg.sslCert)
 		if err != nil {
-			log.Error(err)
+			log.Error().Msg(err.Error())
 			cfg.sslCert = ""
 		}
 
 		_, err = os.Lstat(cfg.sslKey)
 		if err != nil {
-			log.Error(err)
+			log.Error().Msg(err.Error())
 			cfg.sslKey = ""
 		}
 	}

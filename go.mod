@@ -3,14 +3,13 @@ module github.com/zhaojh329/rttys
 go 1.13
 
 require (
-	github.com/GehirnInc/crypt v0.0.0-20190301055215-6c0105aabd46
+	github.com/dwdcth/consoleEx v0.0.0-20180521133551-f56f6eb78b76
 	github.com/gorilla/websocket v1.4.1
-	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c
-	github.com/json-iterator/go v1.1.7
+	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
+	github.com/json-iterator/go v1.1.9
 	github.com/kylelemons/go-gypsy v0.0.0-20160905020020-08cad365cd28
-	github.com/msteinert/pam v0.0.0-20190215180659-f29b9f28d6f9
+	github.com/mattn/go-colorable v0.1.4
 	github.com/rakyll/statik v0.1.6
-	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
-	github.com/sirupsen/logrus v1.4.2
-	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
+	github.com/rs/zerolog v1.18.0
+	golang.org/x/crypto v0.0.0-20200210222208-86ce3cb69678
 )

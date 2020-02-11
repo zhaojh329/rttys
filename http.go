@@ -4,7 +4,7 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rakyll/statik/fs"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
 	_ "github.com/zhaojh329/rttys/statik"
 	"io/ioutil"
@@ -62,7 +62,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 	statikFS, err := fs.New()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Msg(err.Error())
 	}
 
 	staticfs := http.FileServer(statikFS)
@@ -94,7 +94,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		} else if r.Method == "POST" {
 			content, err := ioutil.ReadAll(r.Body)
 			if err != nil {
-				log.Error(err)
+				log.Error().Msg(err.Error())
 				return
 			}
 
@@ -185,10 +185,10 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	}
 
 	if cfg.sslCert != "" && cfg.sslKey != "" {
-		log.Info("Listen user on: ", cfg.addrUser, " SSL on")
-		log.Fatal(http.ListenAndServeTLS(cfg.addrUser, cfg.sslCert, cfg.sslKey, nil))
+		log.Info().Msgf("Listen user on: %s SSL on")
+		log.Fatal().Msg(http.ListenAndServeTLS(cfg.addrUser, cfg.sslCert, cfg.sslKey, nil).Error())
 	} else {
-		log.Info("Listen user on: ", cfg.addrUser, " SSL off")
-		log.Fatal(http.ListenAndServe(cfg.addrUser, nil))
+		log.Info().Msgf("Listen user on: %s SSL off", cfg.addrUser)
+		log.Fatal().Msg(http.ListenAndServe(cfg.addrUser, nil).Error())
 	}
 }

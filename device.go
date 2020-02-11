@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"crypto/rand"
 	"crypto/tls"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"io"
 	"net"
 	"strings"
@@ -74,7 +74,7 @@ func (dev *Device) handleLogin(code byte, sid byte) {
 	dev.user = nil
 
 	if code == 1 {
-		log.Errorf("login fail, device busy")
+		log.Error().Msg("login fail, device busy")
 		user.loginAck(LoginErrorBusy)
 		return
 	}
@@ -94,7 +94,7 @@ func (dev *Device) keepAlive() {
 		select {
 		case <-ticker.C:
 			if time.Now().Sub(dev.active) > HeartbeatInterval*3/2 {
-				log.Errorf("Inactive device in long time, now kill it: %s %s", dev.id, time.Now())
+				log.Error().Msgf("Inactive device in long time, now kill it: %s %s", dev.id, time.Now())
 				dev.close()
 				return
 			}
@@ -115,7 +115,7 @@ func (dev *Device) close() {
 			dev.br.unregister <- dev
 			close(dev.closeCh)
 			dev.conn.Close()
-			log.Infof("Device '%s' closed", dev.id)
+			log.Info().Msgf("Device '%s' closed", dev.id)
 		})
 	}
 }
@@ -151,7 +151,7 @@ func (dev *Device) readLoop() {
 			b, err := br.Peek(3)
 			if err != nil {
 				if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-					log.Error(err)
+					log.Error().Msg(err.Error())
 				}
 				return
 			}
@@ -160,7 +160,7 @@ func (dev *Device) readLoop() {
 
 		_, err := br.Peek(msgLen + 3)
 		if err != nil {
-			log.Error(err)
+			log.Error().Msg(err.Error())
 			return
 		}
 
@@ -206,7 +206,7 @@ func (dev *Device) readLoop() {
 			dev.writeMsg(MsgTypeHeartbeat, []byte{})
 
 		default:
-			log.Error("invalid msg type")
+			log.Error().Msg("invalid msg type")
 			br.Discard(msgLen)
 		}
 
@@ -217,14 +217,14 @@ func (dev *Device) readLoop() {
 func listenDevice(br *Broker, cfg *RttysConfig) {
 	ln, err := net.Listen("tcp", cfg.addrDev)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Msg(err.Error())
 	}
 	defer ln.Close()
 
 	if cfg.sslCert != "" && cfg.sslKey != "" {
 		crt, err := tls.LoadX509KeyPair(cfg.sslCert, cfg.sslKey)
 		if err != nil {
-			log.Fatalln(err)
+			log.Fatal().Msg(err.Error())
 		}
 
 		tlsConfig := &tls.Config{}
@@ -233,15 +233,15 @@ func listenDevice(br *Broker, cfg *RttysConfig) {
 		tlsConfig.Rand = rand.Reader
 
 		ln = tls.NewListener(ln, tlsConfig)
-		log.Info("Listen device on: ", cfg.addrDev, " SSL on")
+		log.Info().Msgf("Listen device on: %s SSL on", cfg.addrDev)
 	} else {
-		log.Info("Listen device on: ", cfg.addrDev, " SSL off")
+		log.Info().Msgf("Listen device on: %s SSL off", cfg.addrDev)
 	}
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Error(err)
+			log.Error().Msg(err.Error())
 			continue
 		}
 
