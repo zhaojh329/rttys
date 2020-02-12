@@ -45,9 +45,9 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
       -log string
             log file path (default "/var/log/rttys.log")
       -ssl-cert string
-            certFile Path (default "./rttys.crt")
+            certFile Path
       -ssl-key string
-            keyFile Path (default "./rttys.key")
+            keyFile Path
       -token string
             token to use
 
