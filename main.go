@@ -54,7 +54,7 @@ func init() {
 	}
 
 	out := consoleEx.ConsoleWriterEx{Out: colorable.NewColorableStdout()}
-	logger := zerolog.New(out).With().Caller().Timestamp().Logger().Hook(logFile)
+	logger := zerolog.New(out).With().Caller().Timestamp().Logger()
 
 	if !terminal.IsTerminal(int(os.Stdout.Fd())) {
 		logger = logger.Hook(logFile)
