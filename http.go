@@ -185,7 +185,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	}
 
 	if cfg.sslCert != "" && cfg.sslKey != "" {
-		log.Info().Msgf("Listen user on: %s SSL on")
+		log.Info().Msgf("Listen user on: %s SSL on", cfg.addrUser)
 		log.Fatal().Msg(http.ListenAndServeTLS(cfg.addrUser, cfg.sslCert, cfg.sslKey, nil).Error())
 	} else {
 		log.Info().Msgf("Listen user on: %s SSL off", cfg.addrUser)
