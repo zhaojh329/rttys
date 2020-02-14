@@ -269,7 +269,6 @@
     destroyed() {
       window.removeEventListener('resize', this.fitTerm);
       this.disposables.forEach(d => d.dispose());
-      console.log('dfg');
     }
   }
 </script>
