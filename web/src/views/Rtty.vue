@@ -16,8 +16,8 @@
   import {Component, Vue} from 'vue-property-decorator'
   import {HttpRequestOptions} from 'element-ui/types/upload'
   import {Upload as ElUpload} from 'element-ui'
-  import {Terminal, IDisposable} from 'xterm';
-  import {FitAddon} from 'xterm-addon-fit';
+  import {Terminal, IDisposable} from 'xterm'
+  import {FitAddon} from 'xterm-addon-fit'
   import {OverlayAddon} from '@/plugins/xterm-addon-overlay'
   import 'xterm/css/xterm.css'
 

@@ -19,7 +19,7 @@
 
 <script lang="ts">
   import {Component, Vue} from 'vue-property-decorator'
-  import {Form as ElForm} from "element-ui/types/element-ui";
+  import {Form as ElForm} from 'element-ui/types/element-ui'
 
   @Component
   export default class Login extends Vue {

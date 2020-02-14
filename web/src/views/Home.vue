@@ -98,8 +98,7 @@
 
 <script lang="ts">
   import {Component, Vue} from 'vue-property-decorator'
-  import {Form as ElForm} from "element-ui/types/element-ui";
-  import {Input as ElInput} from "element-ui/types/element-ui";
+  import {Form as ElForm, Input as ElInput} from 'element-ui/types/element-ui';
 
   interface DeviceInfo {
     id: string;

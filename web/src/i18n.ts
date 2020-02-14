@@ -3,7 +3,7 @@ import VueI18n, { LocaleMessages } from 'vue-i18n'
 
 Vue.use(VueI18n);
 
-function loadLocaleMessages (): LocaleMessages {
+function loadLocaleMessages(): LocaleMessages {
   const locales = require.context('./locales', true, /[A-Za-z0-9-_,\s]+\.json$/i);
   const messages: LocaleMessages = {};
   locales.keys().forEach(key => {
