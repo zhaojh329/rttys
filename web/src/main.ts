@@ -5,10 +5,13 @@ import i18n from './i18n'
 import './plugins/element.js'
 import axios from 'axios'
 import VueAxios from 'vue-axios'
+import Contextmenu from '@/components/contextmenu'
 
 Vue.config.productionTip = false;
 
 Vue.use(VueAxios, axios);
+
+Vue.component('Contextmenu', Contextmenu);
 
 new Vue({
   router,

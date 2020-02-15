@@ -37,5 +37,10 @@
   "Select file": "Select file",
   "Upload": "Upload",
   "Device offline": "Device offline",
-  "Sessions is full": "Sessions is full"
+  "Sessions is full": "Sessions is full",
+  "Copy - Ctrl+Insert": "Copy - Ctrl+Insert",
+  "Paste - Shift+Insert": "Paste - Shift+Insert",
+  "Clear Scrollback": "Clear Scrollback",
+  "Font Size+": "Font Size+",
+  "Font Size-": "Font Size-"
 }

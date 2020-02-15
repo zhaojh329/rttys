@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div ref="terminal" :style="{height: termHeight + 'px'}"/>
+    <div ref="terminal" :style="{height: termHeight + 'px'}" @contextmenu.prevent="showContextmenu"/>
     <el-dialog ref="dialog" :visible.sync="file.modal" :title="$t('Upload file to device')" width="350px"
                @close="onUploadDialogClosed">
       <el-upload ref="upload" action="" :auto-upload="false" :http-request="doUploadFile">
@@ -9,6 +9,7 @@
         </el-button>
       </el-upload>
     </el-dialog>
+    <contextmenu ref="contextmenu" :menus="contextmenus" @click="onContextmenuClick"/>
   </div>
 </template>
 
@@ -20,6 +21,8 @@
   import {FitAddon} from 'xterm-addon-fit'
   import {OverlayAddon} from '@/plugins/xterm-addon-overlay'
   import 'xterm/css/xterm.css'
+  import {Contextmenu} from '@/components/contextmenu'
+  import ClipboardEx from '@/plugins/clipboard'
 
   const LoginErrorOffline = 0x01;
   const LoginErrorBusy = 0x02;
@@ -44,6 +47,46 @@
     fitAddon: FitAddon | undefined;
     resizeDelay: NodeJS.Timeout | undefined;
     termHeight = 0;
+    contextmenus = [
+      {name: 'copy', caption: this.tr('Copy - Ctrl+Insert')},
+      {name: 'paste', caption: this.tr('Paste - Shift+Insert')},
+      {name: 'Clear Scrollback', caption: this.tr('Clear Scrollback')},
+      {name: 'Font Size+', caption: this.tr('Font Size+')},
+      {name: 'Font Size-', caption: this.tr('Font Size-')}
+    ];
+
+    tr(key: string): string {
+      if (this.$t)
+        return this.$t(key).toString();
+      return '';
+    }
+
+    showContextmenu(e: MouseEvent) {
+      (this.$refs.contextmenu as Contextmenu).show(e);
+    }
+
+    onContextmenuClick(name: string) {
+      if (name === 'copy') {
+        ClipboardEx.write(this.term?.getSelection() || '');
+      } else if (name === 'paste') {
+        ClipboardEx.read().then(text => this.term?.paste(text));
+      } else if (name === 'Clear Scrollback') {
+        this.term?.clear();
+      } else if (name === 'Font Size+') {
+        const size = this.term?.getOption('fontSize');
+        if (size) {
+          this.term?.setOption('fontSize', size + 1);
+          this.fitAddon?.fit();
+        }
+      } else if (name === 'Font Size-') {
+        const size = this.term?.getOption('fontSize');
+        if (size && size > 12) {
+          this.term?.setOption('fontSize', size - 1);
+          this.fitAddon?.fit();
+        }
+      }
+      this.term?.focus();
+    }
 
     onUploadDialogClosed() {
       this.term?.focus();

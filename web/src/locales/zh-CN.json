@@ -38,5 +38,10 @@
   "Select file": "选择文件",
   "Upload": "上传",
   "Device offline": "设备离线",
-  "Sessions is full": "会话已满"
+  "Sessions is full": "会话已满",
+  "Copy - Ctrl+Insert": "复制 - Ctrl+Insert",
+  "Paste - Shift+Insert": "粘贴 - Shift+Insert",
+  "Clear Scrollback": "清除回滚",
+  "Font Size+": "增大字体",
+  "Font Size-": "减小字体"
 }
