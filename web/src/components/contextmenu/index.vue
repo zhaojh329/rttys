@@ -87,5 +87,6 @@
 
   .content a:hover {
     background-color: #90C8F6;
+    cursor: default;
   }
 </style>
