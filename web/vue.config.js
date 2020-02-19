@@ -27,6 +27,9 @@ module.exports = {
       '/ws': {
         ws: true,
         target: 'http://127.0.0.1:5913'
+      },
+      '/fontsize': {
+        target: 'http://127.0.0.1:5913'
       }
     }
   }

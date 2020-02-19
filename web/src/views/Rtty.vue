@@ -74,18 +74,20 @@
         this.term?.clear();
       } else if (name === 'Font Size+') {
         const size = this.term?.getOption('fontSize');
-        if (size) {
-          this.term?.setOption('fontSize', size + 1);
-          this.fitAddon?.fit();
-        }
+        if (size)
+          this.updateFontSize(size + 1);
       } else if (name === 'Font Size-') {
         const size = this.term?.getOption('fontSize');
-        if (size && size > 12) {
-          this.term?.setOption('fontSize', size - 1);
-          this.fitAddon?.fit();
-        }
+        if (size && size > 12)
+          this.updateFontSize(size - 1);
       }
       this.term?.focus();
+    }
+
+    updateFontSize(size: number) {
+      this.term?.setOption('fontSize', size);
+      this.fitAddon?.fit();
+      this.axios.post('/fontsize', 'size=' + size);
     }
 
     onUploadDialogClosed() {
@@ -238,6 +240,13 @@
       socket.binaryType = 'arraybuffer';
       this.socket = socket;
 
+      socket.addEventListener('open', () => {
+        this.axios.get('/fontsize').then(r => {
+          this.term?.setOption('fontSize', parseInt(r.data));
+          this.fitTerm();
+        });
+      });
+
       socket.addEventListener('close', () => this.dispose());
       socket.addEventListener('error', () => this.dispose());
 
@@ -256,8 +265,6 @@
               this.dispose();
               return;
             }
-
-            this.fitTerm();
           } else if (msg.type === 'logout') {
             this.dispose();
           }
@@ -312,6 +319,8 @@
     destroyed() {
       window.removeEventListener('resize', this.fitTerm);
       this.disposables.forEach(d => d.dispose());
+      this.socket = undefined;
+      this.term = undefined;
     }
   }
 </script>

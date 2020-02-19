@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
 	_ "github.com/zhaojh329/rttys/statik"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -70,6 +71,20 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	if cfg.baseURL == "/" {
 		cfg.baseURL = ""
 	}
+
+	http.HandleFunc(cfg.baseURL+"/fontsize", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			fmt.Fprintf(w, "%d", cfg.fontSize)
+			return
+		} else if r.Method == "POST" {
+			r.ParseForm()
+			size, err := strconv.Atoi(r.PostForm.Get("size"))
+			if err == nil {
+				cfg.fontSize = size
+			}
+			io.WriteString(w, "OK")
+		}
+	})
 
 	http.HandleFunc(cfg.baseURL+"/ws", func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := httpSessions.Get(r.URL.Query().Get("sid")); !ok {

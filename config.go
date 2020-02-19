@@ -5,6 +5,7 @@ import (
 	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/rs/zerolog/log"
 	"os"
+	"strconv"
 )
 
 type RttysConfig struct {
@@ -16,14 +17,21 @@ type RttysConfig struct {
 	httpPassword string
 	token        string
 	baseURL      string
+	fontSize     int
 }
 
-func getConfigOpt(yamlCfg *yaml.File, name string, opt *string) {
+func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
 	val, err := yamlCfg.Get(name)
 	if err != nil {
 		return
 	}
-	*opt = val
+
+	switch opt := opt.(type) {
+	case *string:
+		*opt = val
+	case *int:
+		*opt, _ = strconv.Atoi(val)
+	}
 }
 
 func parseConfig() *RttysConfig {
@@ -56,6 +64,15 @@ func parseConfig() *RttysConfig {
 		getConfigOpt(yamlCfg, "http-password", &cfg.httpPassword)
 		getConfigOpt(yamlCfg, "token", &cfg.token)
 		getConfigOpt(yamlCfg, "base-url", &cfg.baseURL)
+		getConfigOpt(yamlCfg, "font-size", &cfg.fontSize)
+	}
+
+	if cfg.fontSize == 0 {
+		cfg.fontSize = 16
+	}
+
+	if cfg.fontSize < 12 {
+		cfg.fontSize = 12
 	}
 
 	if cfg.sslCert != "" && cfg.sslKey != "" {
