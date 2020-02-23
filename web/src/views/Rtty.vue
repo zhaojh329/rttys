@@ -177,7 +177,7 @@
           break;
         case MsgTypeFileData:
           if (msg.length === 0) {
-            const blob = new Blob(this.file.buffer);
+            const blob = new Blob(this.file.buffer, {type : 'application/octet-stream'});
             const url = URL.createObjectURL(blob);
             const el = document.createElement('a');
             el.style.display = 'none';
