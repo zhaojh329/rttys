@@ -35,22 +35,7 @@ rm -rf output
 mkdir output
 
 generate linux amd64
-generate linux 386
-
 generate linux arm64
-generate linux arm
-
-generate linux mips64
-generate linux mips
-
-generate linux mips64le
-generate linux mipsle
-
 generate darwin amd64
-generate darwin 386
-
 generate freebsd amd64
-generate freebsd 386
-
 generate windows amd64
-generate windows 386
