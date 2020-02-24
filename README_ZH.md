@@ -59,6 +59,39 @@
 
     ./rttys -token 34762d07637276694b938d23f10d7164
 
+## 作为Linux服务运行
+移动rttys可执行程序到/usr/local/bin/
+
+    sudo mv rttys /usr/local/bin/
+
+拷贝配置文件到/etc/rttys/
+
+    sudo mkdir /etc/rttys
+    sudo cp rttys.conf /etc/rttys/
+
+创建一个systemd单元文件: /etc/systemd/system/rttys.service
+
+    [Unit]
+    Description=rttys
+    After=network.target
+
+    [Service]
+    ExecStart=/usr/local/bin/rttys -conf /etc/rttys/rttys.conf
+    TimeoutStopSec=5s
+
+    [Install]
+    WantedBy=multi-user.target
+
+要首次启动该服务，请执行通常的systemctl操作:
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable rttys
+    sudo systemctl start rttys
+
+您可以通过以下方式停止服务:
+
+    sudo systemctl stop rttys
+
 # 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
 [CONTRIBUTING_ZH.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING_ZH.md)。

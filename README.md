@@ -59,6 +59,39 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 
     ./rttys -token 34762d07637276694b938d23f10d7164
 
+## Running as a Linux service
+Move the rttys binary into /usr/local/bin/
+
+    sudo mv rttys /usr/local/bin/
+
+Copy the config file to /etc/rttys/
+
+    sudo mkdir /etc/rttys
+    sudo cp rttys.conf /etc/rttys/
+
+Create a systemd unit file: /etc/systemd/system/rttys.service
+
+    [Unit]
+    Description=rttys
+    After=network.target
+
+    [Service]
+    ExecStart=/usr/local/bin/rttys -conf /etc/rttys/rttys.conf
+    TimeoutStopSec=5s
+
+    [Install]
+    WantedBy=multi-user.target
+
+To start the service for the first time, do the usual systemctl dance:
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable rttys
+    sudo systemctl start rttys
+
+You can stop the service with:
+
+    sudo systemctl stop rttys
+
 # Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
 see the [CONTRIBUTING.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING.md) file.
