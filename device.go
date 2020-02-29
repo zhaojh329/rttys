@@ -94,7 +94,7 @@ func (dev *Device) keepAlive() {
 		select {
 		case <-ticker.C:
 			if time.Now().Sub(dev.active) > HeartbeatInterval*3/2 {
-				log.Error().Msgf("Inactive device in long time, now kill it: %s %s", dev.id, time.Now())
+				log.Error().Msgf("Inactive device in long time, now kill it: %s", dev.id)
 				dev.close()
 				return
 			}
