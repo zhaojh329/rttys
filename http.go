@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"strconv"
 	"time"
 )
@@ -189,6 +190,13 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 				return
 			}
 		}
+
+		f, err := statikFS.Open(path.Clean(r.URL.Path))
+		if err != nil {
+			http.Redirect(w, r, cfg.baseURL+"/", http.StatusFound)
+			return
+		}
+		f.Close()
 
 		staticfs.ServeHTTP(w, r)
 	})
