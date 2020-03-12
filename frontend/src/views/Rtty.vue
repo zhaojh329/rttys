@@ -235,7 +235,7 @@
 
       window.addEventListener('resize', this.fitTerm);
 
-      const socket = new WebSocket(protocol + location.host + process.env.BASE_URL + 'ws?devid=' + devid + '&sid=' + sessionStorage.getItem('rtty-sid'));
+      const socket = new WebSocket(protocol + location.host + '/ws?devid=' + devid + '&sid=' + sessionStorage.getItem('rtty-sid'));
       this.disposables.push({dispose: () => socket.close()});
       socket.binaryType = 'arraybuffer';
       this.socket = socket;

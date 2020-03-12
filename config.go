@@ -16,7 +16,6 @@ type RttysConfig struct {
 	httpUsername string
 	httpPassword string
 	token        string
-	baseURL      string
 	fontSize     int
 }
 
@@ -44,7 +43,6 @@ func parseConfig() *RttysConfig {
 	flag.StringVar(&cfg.httpUsername, "http-username", "", "username for http auth")
 	flag.StringVar(&cfg.httpPassword, "http-password", "", "password for http auth")
 	flag.StringVar(&cfg.token, "token", "", "token to use")
-	flag.StringVar(&cfg.baseURL, "base-url", "/", "base url to serve on")
 	conf := flag.String("conf", "./rttys.conf", "config file to load")
 	genToken := flag.Bool("gen-token", false, "generate token")
 
@@ -63,7 +61,6 @@ func parseConfig() *RttysConfig {
 		getConfigOpt(yamlCfg, "http-username", &cfg.httpUsername)
 		getConfigOpt(yamlCfg, "http-password", &cfg.httpPassword)
 		getConfigOpt(yamlCfg, "token", &cfg.token)
-		getConfigOpt(yamlCfg, "base-url", &cfg.baseURL)
 		getConfigOpt(yamlCfg, "font-size", &cfg.fontSize)
 	}
 

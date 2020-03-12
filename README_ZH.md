@@ -32,8 +32,6 @@
             address to listen device (default ":5912")
       -addr-user string
             address to listen user (default ":5913")
-      -base-url string
-            base url to serve on (default "/")
       -conf string
             config file to load (default "./rttys.conf")
       -gen-token

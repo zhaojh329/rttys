@@ -199,7 +199,7 @@
     }
 
     getDevices() {
-      this.axios.get(process.env.BASE_URL + 'devs').then(res => {
+      this.axios.get('/devs').then(res => {
         this.loading = false;
         this.devlists = res.data;
         this.handleSearch();

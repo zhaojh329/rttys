@@ -39,7 +39,7 @@
             username: this.formData.username,
             password: this.formData.password
           };
-          this.axios.post(process.env.BASE_URL + 'signin', params).then(res => {
+          this.axios.post('/signin', params).then(res => {
             sessionStorage.setItem('rtty-sid', res.data);
             this.$router.push('/');
           }).catch(() => {

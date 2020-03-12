@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/dwdcth/consoleEx v0.0.0-20180521133551-f56f6eb78b76
+	github.com/gin-gonic/gin v1.5.0
 	github.com/gorilla/websocket v1.4.1
 	github.com/howeyc/gopass v0.0.0-20190910152052-7cb4b85ec19c
 	github.com/json-iterator/go v1.1.9
