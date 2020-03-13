@@ -94,7 +94,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 			w:    c.Writer,
 		}
 
-		req.token = c.Param("token")
+		req.token = c.Query("token")
 
 		br.cmdReq <- req
 		<-done
