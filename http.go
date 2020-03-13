@@ -27,21 +27,21 @@ func allowOrigin(w http.ResponseWriter) {
 	w.Header().Set("content-type", "application/json")
 }
 
-func httpAuth(w http.ResponseWriter, r *http.Request) bool {
-	c, err := r.Cookie("sid")
+func httpAuth(c *gin.Context) bool {
+	cookie, err := c.Cookie("sid")
 	if err != nil {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		c.Status(http.StatusForbidden)
 		return false
 	}
 
-	if _, ok := httpSessions.Get(c.Value); !ok {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+	if _, ok := httpSessions.Get(cookie); !ok {
+		c.Status(http.StatusForbidden)
 		return false
 	}
 
 	// Update
-	httpSessions.Del(c.Value)
-	httpSessions.Set(c.Value, true, 0)
+	httpSessions.Del(cookie)
+	httpSessions.Set(cookie, true, 0)
 
 	return true
 }
@@ -140,11 +140,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 			sid := genUniqueID("http")
 			httpSessions.Set(sid, true, 0)
 
-			http.SetCookie(c.Writer, &http.Cookie{
-				Name:     "sid",
-				Value:    sid,
-				HttpOnly: true,
-			})
+			c.SetCookie("sid", sid, 0, "", "", false, true)
 			c.String(http.StatusOK, sid)
 			return
 		}
@@ -159,7 +155,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 			Description string `json:"description"`
 		}
 
-		if !httpAuth(c.Writer, c.Request) {
+		if !httpAuth(c) {
 			return
 		}
 
