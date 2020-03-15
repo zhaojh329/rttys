@@ -34,7 +34,6 @@
   @Component
   export default class Rtty extends Vue {
     disposables: IDisposable[] = [];
-    logined = false;
     file = {
       name: '',
       modal: false,
@@ -211,8 +210,6 @@
     }
 
     mounted() {
-      const username = this.$route.query.username as string;
-      const password = this.$route.query.password as string;
       const devid = this.$route.query.devid;
       const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://';
 
@@ -279,21 +276,7 @@
             return;
           }
 
-          const str = data.toString();
-
-          if (!this.logined) {
-            if (str.match('login:') && username) {
-              this.sendTermData(username + '\n');
-              return;
-            }
-
-            if (str.match('Password:') && password) {
-              this.sendTermData(password + '\n');
-              return;
-            }
-          }
-
-          term.write(str);
+          term.write(data.toString());
         }
       });
 
