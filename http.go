@@ -27,25 +27,6 @@ func allowOrigin(w http.ResponseWriter) {
 	w.Header().Set("content-type", "application/json")
 }
 
-func httpAuth(c *gin.Context) bool {
-	cookie, err := c.Cookie("sid")
-	if err != nil {
-		c.Status(http.StatusForbidden)
-		return false
-	}
-
-	if _, ok := httpSessions.Get(cookie); !ok {
-		c.Status(http.StatusForbidden)
-		return false
-	}
-
-	// Update
-	httpSessions.Del(cookie)
-	httpSessions.Set(cookie, true, 0)
-
-	return true
-}
-
 func httpLogin(cfg *RttysConfig, creds *Credentials) bool {
 	if cfg.httpUsername != creds.Username {
 		return false
@@ -65,19 +46,23 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 	r := gin.Default()
 
-	r.GET("/fontsize", func(c *gin.Context) {
-		if !httpAuth(c) {
+	authorized := r.Group("/", func(c *gin.Context) {
+		cookie, err := c.Cookie("sid")
+		if err != nil || !httpSessions.Have(cookie) {
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
+		// Update
+		httpSessions.Del(cookie)
+		httpSessions.Set(cookie, true, 0)
+	})
+
+	authorized.GET("/fontsize", func(c *gin.Context) {
 		c.String(http.StatusOK, "%d", cfg.fontSize)
 	})
 
-	r.POST("/fontsize", func(c *gin.Context) {
-		if !httpAuth(c) {
-			return
-		}
-
+	authorized.POST("/fontsize", func(c *gin.Context) {
 		size, err := strconv.Atoi(c.PostForm("size"))
 		if err == nil {
 			cfg.fontSize = size
@@ -85,12 +70,27 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		c.String(http.StatusOK, "OK")
 	})
 
-	r.GET("/connect/:devid", func(c *gin.Context) {
-		if !httpAuth(c) {
-			return
+	authorized.GET("/connect/:devid", func(c *gin.Context) {
+		serveUser(br, c)
+	})
+
+	authorized.GET("/devs", func(c *gin.Context) {
+		type DeviceInfo struct {
+			ID          string `json:"id"`
+			Uptime      int64  `json:"uptime"`
+			Description string `json:"description"`
 		}
 
-		serveUser(br, c)
+		devs := make([]DeviceInfo, 0)
+
+		for id, dev := range br.devices {
+			dev := DeviceInfo{id, time.Now().Unix() - dev.timestamp, dev.desc}
+			devs = append(devs, dev)
+		}
+
+		allowOrigin(c.Writer)
+
+		c.JSON(http.StatusOK, devs)
 	})
 
 	r.GET("/cmd", func(c *gin.Context) {
@@ -154,29 +154,6 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		}
 
 		c.Status(http.StatusForbidden)
-	})
-
-	r.GET("/devs", func(c *gin.Context) {
-		type DeviceInfo struct {
-			ID          string `json:"id"`
-			Uptime      int64  `json:"uptime"`
-			Description string `json:"description"`
-		}
-
-		if !httpAuth(c) {
-			return
-		}
-
-		devs := make([]DeviceInfo, 0)
-
-		for id, dev := range br.devices {
-			dev := DeviceInfo{id, time.Now().Unix() - dev.timestamp, dev.desc}
-			devs = append(devs, dev)
-		}
-
-		allowOrigin(c.Writer)
-
-		c.JSON(http.StatusOK, devs)
 	})
 
 	statikFS, err := fs.New()

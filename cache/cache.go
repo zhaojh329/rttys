@@ -79,3 +79,8 @@ func (c *Cache) Get(key interface{}) (interface{}, bool) {
 func (c *Cache) Del(key interface{}) {
 	c.items.Delete(key)
 }
+
+func (c *Cache) Have(key string) bool {
+	_, ok := c.items.Load(key)
+	return ok
+}
