@@ -31,16 +31,6 @@ const router = new VueRouter({
 });
 
 router.beforeEach((to, from, next) => {
-  if (to.path === '/rtty' && to.query.devid) {
-    next();
-    return;
-  }
-
-  if (to.path === '/' && to.query.id) {
-    router.push({path: '/rtty', query: {devid: to.query.id, username: to.query.username, password: to.query.password}});
-    return;
-  }
-
   if (to.path !== '/login' && !sessionStorage.getItem('rtty-sid')) {
     router.push('/login');
     return;
