@@ -14,7 +14,7 @@
 </template>
 
 <script lang="ts">
-  import {Component, Vue} from 'vue-property-decorator'
+  import {Component, Prop, Vue} from 'vue-property-decorator'
   import {HttpRequestOptions} from 'element-ui/types/upload'
   import {Upload as ElUpload} from 'element-ui'
   import {Terminal, IDisposable} from 'xterm'
@@ -33,6 +33,7 @@
 
   @Component
   export default class Rtty extends Vue {
+    @Prop(String) devid!: string;
     disposables: IDisposable[] = [];
     file = {
       name: '',
@@ -210,7 +211,6 @@
     }
 
     mounted() {
-      const devid = this.$route.query.devid;
       const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://';
 
       const term = new Terminal({
@@ -232,7 +232,7 @@
 
       window.addEventListener('resize', this.fitTerm);
 
-      const socket = new WebSocket(protocol + location.host + '/ws?devid=' + devid + '&sid=' + sessionStorage.getItem('rtty-sid'));
+      const socket = new WebSocket(protocol + location.host + '/ws?devid=' + this.devid + '&sid=' + sessionStorage.getItem('rtty-sid'));
       this.disposables.push({dispose: () => socket.close()});
       socket.binaryType = 'arraybuffer';
       this.socket = socket;

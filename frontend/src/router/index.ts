@@ -18,9 +18,10 @@ const routes = [
     component: Home
   },
   {
-    path: '/rtty',
+    path: '/rtty/:devid',
     name: 'Rtty',
-    component: Rtty
+    component: Rtty,
+    props: true
   }
 ];
 

@@ -220,7 +220,7 @@
     }
 
     connectDevice(devid: string) {
-      this.$router.push({path: '/rtty', query: {devid: devid}});
+      this.$router.push({path: `/rtty/${devid}`});
     }
 
     showCmdForm() {
