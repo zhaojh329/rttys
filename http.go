@@ -66,10 +66,18 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	r := gin.Default()
 
 	r.GET("/fontsize", func(c *gin.Context) {
+		if !httpAuth(c) {
+			return
+		}
+
 		c.String(http.StatusOK, "%d", cfg.fontSize)
 	})
 
 	r.POST("/fontsize", func(c *gin.Context) {
+		if !httpAuth(c) {
+			return
+		}
+
 		size, err := strconv.Atoi(c.PostForm("size"))
 		if err == nil {
 			cfg.fontSize = size
@@ -77,12 +85,12 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		c.String(http.StatusOK, "OK")
 	})
 
-	r.GET("/ws", func(c *gin.Context) {
-		if _, ok := httpSessions.Get(c.Query("sid")); !ok {
-			c.Status(http.StatusForbidden)
+	r.GET("/connect/:devid", func(c *gin.Context) {
+		if !httpAuth(c) {
 			return
 		}
-		serveUser(br, c.Writer, c.Request)
+
+		serveUser(br, c)
 	})
 
 	r.GET("/cmd", func(c *gin.Context) {

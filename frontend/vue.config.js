@@ -24,7 +24,7 @@ module.exports = {
       '/cmd': {
         target: 'http://127.0.0.1:5913'
       },
-      '/ws': {
+      '/connect/*': {
         ws: true,
         target: 'http://127.0.0.1:5913'
       },

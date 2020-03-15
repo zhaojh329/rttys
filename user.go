@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 	"sync"
@@ -73,16 +74,16 @@ func (u *User) readLoop() {
 	}
 }
 
-func serveUser(br *Broker, w http.ResponseWriter, r *http.Request) {
-	devid := r.URL.Query().Get("devid")
+func serveUser(br *Broker, c *gin.Context) {
+	devid := c.Param("devid")
 	if devid == "" {
-		http.Error(w, "devid required", http.StatusForbidden)
+		c.Status(http.StatusBadRequest)
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		http.Error(w, "Upgrade fail", http.StatusBadRequest)
+		c.Status(http.StatusBadRequest)
 		log.Error().Msg(err.Error())
 		return
 	}
