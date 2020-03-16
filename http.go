@@ -44,7 +44,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 	gin.SetMode(gin.ReleaseMode)
 
-	r := gin.Default()
+	r := gin.New()
 
 	authorized := r.Group("/", func(c *gin.Context) {
 		cookie, err := c.Cookie("sid")
