@@ -93,7 +93,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		c.JSON(http.StatusOK, devs)
 	})
 
-	r.GET("/cmd", func(c *gin.Context) {
+	authorized.GET("/cmd", func(c *gin.Context) {
 		allowOrigin(c.Writer)
 
 		done := make(chan struct{})
@@ -108,7 +108,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		<-done
 	})
 
-	r.POST("/cmd", func(c *gin.Context) {
+	authorized.POST("/cmd", func(c *gin.Context) {
 		allowOrigin(c.Writer)
 
 		done := make(chan struct{})
