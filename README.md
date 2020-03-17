@@ -48,6 +48,8 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
             keyFile Path
       -token string
             token to use
+      -white-list string
+            white list(device IDs separated by spaces or *)
 
 ## Authorization
 

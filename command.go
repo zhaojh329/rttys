@@ -37,7 +37,6 @@ type CommandStatus struct {
 }
 
 type CommandInfo struct {
-	Devid    string `json:"devid"`
 	Cmd      string `json:"cmd"`
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -47,6 +46,7 @@ type CommandReq struct {
 	done    chan struct{}
 	token   string
 	content []byte
+	devid   string
 	w       http.ResponseWriter
 }
 
@@ -87,12 +87,12 @@ func handleCmdReq(br *Broker, req *CommandReq) {
 
 	cmdInfo := CommandInfo{}
 	err := jsoniter.Unmarshal(req.content, &cmdInfo)
-	if err != nil || cmdInfo.Cmd == "" || cmdInfo.Devid == "" {
+	if err != nil || cmdInfo.Cmd == "" {
 		cmdErrReply(RttyCmdErrInvalid, req)
 		return
 	}
 
-	dev, ok := br.devices[cmdInfo.Devid]
+	dev, ok := br.devices[req.devid]
 	if !ok {
 		cmdErrReply(RttyCmdErrOffline, req)
 		return

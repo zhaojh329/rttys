@@ -6,6 +6,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type RttysConfig struct {
@@ -17,6 +18,7 @@ type RttysConfig struct {
 	httpPassword string
 	token        string
 	fontSize     int
+	whiteList    map[string]bool
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
@@ -36,6 +38,8 @@ func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
 func parseConfig() *RttysConfig {
 	cfg := &RttysConfig{}
 
+	cfg.whiteList = make(map[string]bool)
+
 	flag.StringVar(&cfg.addrDev, "addr-dev", ":5912", "address to listen device")
 	flag.StringVar(&cfg.addrUser, "addr-user", ":5913", "address to listen user")
 	flag.StringVar(&cfg.sslCert, "ssl-cert", "", "certFile Path")
@@ -43,8 +47,19 @@ func parseConfig() *RttysConfig {
 	flag.StringVar(&cfg.httpUsername, "http-username", "", "username for http auth")
 	flag.StringVar(&cfg.httpPassword, "http-password", "", "password for http auth")
 	flag.StringVar(&cfg.token, "token", "", "token to use")
+
 	conf := flag.String("conf", "./rttys.conf", "config file to load")
 	genToken := flag.Bool("gen-token", false, "generate token")
+
+	whiteList := flag.String("white-list", "", "white list(device IDs separated by spaces or *)")
+
+	if *whiteList == "*" {
+		cfg.whiteList = nil
+	} else {
+		for _, id := range strings.Fields(*whiteList) {
+			cfg.whiteList[id] = true
+		}
+	}
 
 	flag.Parse()
 
@@ -62,6 +77,17 @@ func parseConfig() *RttysConfig {
 		getConfigOpt(yamlCfg, "http-password", &cfg.httpPassword)
 		getConfigOpt(yamlCfg, "token", &cfg.token)
 		getConfigOpt(yamlCfg, "font-size", &cfg.fontSize)
+
+		val, err := yamlCfg.Get("white-list")
+		if err == nil {
+			if val == "*" || val == "\"*\"" {
+				cfg.whiteList = nil
+			} else {
+				for _, id := range strings.Fields(val) {
+					cfg.whiteList[id] = true
+				}
+			}
+		}
 	}
 
 	if cfg.fontSize == 0 {

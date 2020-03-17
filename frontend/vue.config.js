@@ -21,14 +21,17 @@ module.exports = {
       '/signin': {
         target: 'http://127.0.0.1:5913'
       },
-      '/cmd': {
+      '/cmd/*': {
         target: 'http://127.0.0.1:5913'
       },
       '/connect/*': {
         ws: true,
         target: 'http://127.0.0.1:5913'
       },
-      '/fontsize': {
+      '/fontsize/*': {
+        target: 'http://127.0.0.1:5913'
+      },
+      '/authorized/*': {
         target: 'http://127.0.0.1:5913'
       }
     }

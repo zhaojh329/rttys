@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
-	"strconv"
 	"time"
 )
 
@@ -39,6 +38,15 @@ func httpLogin(cfg *RttysConfig, creds *Credentials) bool {
 	return true
 }
 
+func authorizedDev(devid string, cfg *RttysConfig) bool {
+	if cfg.whiteList == nil {
+		return true
+	}
+
+	_, ok := cfg.whiteList[devid]
+	return ok
+}
+
 func httpStart(br *Broker, cfg *RttysConfig) {
 	httpSessions = cache.New(30*time.Minute, 5*time.Second)
 
@@ -47,6 +55,11 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	r := gin.New()
 
 	authorized := r.Group("/", func(c *gin.Context) {
+		devid := c.Param("devid")
+		if devid != "" && authorizedDev(devid, cfg) {
+			return
+		}
+
 		cookie, err := c.Cookie("sid")
 		if err != nil || !httpSessions.Have(cookie) {
 			c.AbortWithStatus(http.StatusUnauthorized)
@@ -58,19 +71,30 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		httpSessions.Set(cookie, true, 0)
 	})
 
-	authorized.GET("/fontsize", func(c *gin.Context) {
-		c.String(http.StatusOK, "%d", cfg.fontSize)
+	authorized.GET("/fontsize/:devid", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"size": cfg.fontSize})
 	})
 
-	authorized.POST("/fontsize", func(c *gin.Context) {
-		size, err := strconv.Atoi(c.PostForm("size"))
-		if err == nil {
-			cfg.fontSize = size
+	authorized.POST("/fontsize/:devid", func(c *gin.Context) {
+		type Resp struct {
+			Size int `json:"size"`
 		}
+		var r Resp
+		err := c.BindJSON(&r)
+		if err != nil {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		cfg.fontSize = r.Size
 		c.String(http.StatusOK, "OK")
 	})
 
 	authorized.GET("/connect/:devid", func(c *gin.Context) {
+		if c.GetHeader("Upgrade") != "websocket" {
+			c.Redirect(http.StatusFound, "/rtty/"+c.Param("devid"))
+			return
+		}
 		serveUser(br, c)
 	})
 
@@ -93,7 +117,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		c.JSON(http.StatusOK, devs)
 	})
 
-	authorized.GET("/cmd", func(c *gin.Context) {
+	authorized.GET("/cmd/:devid/:token", func(c *gin.Context) {
 		allowOrigin(c.Writer)
 
 		done := make(chan struct{})
@@ -102,19 +126,20 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 			w:    c.Writer,
 		}
 
-		req.token = c.Query("token")
+		req.token = c.Param("token")
 
 		br.cmdReq <- req
 		<-done
 	})
 
-	authorized.POST("/cmd", func(c *gin.Context) {
+	authorized.POST("/cmd/:devid", func(c *gin.Context) {
 		allowOrigin(c.Writer)
 
 		done := make(chan struct{})
 		req := &CommandReq{
-			done: done,
-			w:    c.Writer,
+			done:  done,
+			w:     c.Writer,
+			devid: c.Param("devid"),
 		}
 
 		content, err := ioutil.ReadAll(c.Request.Body)
@@ -133,6 +158,12 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 
 		br.cmdReq <- req
 		<-done
+	})
+
+	r.GET("/authorized/:devid", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"authorized": authorizedDev(c.Param("devid"), cfg),
+		})
 	})
 
 	r.POST("/signin", func(c *gin.Context) {
@@ -164,7 +195,8 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	r.NoRoute(func(c *gin.Context) {
 		f, err := statikFS.Open(path.Clean(c.Request.URL.Path))
 		if err != nil {
-			c.Redirect(http.StatusFound, "/")
+			c.Request.URL.Path = "/"
+			r.HandleContext(c)
 			return
 		}
 		f.Close()

@@ -48,6 +48,8 @@
             keyFile Path
       -token string
             token to use
+      -white-list string
+            white list(device IDs separated by spaces or *)
 
 ## 认证
 

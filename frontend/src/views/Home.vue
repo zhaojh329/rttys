@@ -242,7 +242,7 @@
 
         item.querying = true;
 
-        this.axios.get(process.env.BASE_URL + 'cmd?token=' + token).then(response => {
+        this.axios.get(`/cmd/${item.devid}/${token}`).then(response => {
           const resp = response.data as ResponseInfo;
 
           if (resp.err === 1005) {
@@ -308,7 +308,6 @@
 
           this.selection.forEach(item => {
             const data = {
-              devid: item.id,
               username: this.cmdData.username,
               password: this.cmdData.password,
               sid: sessionStorage.getItem('rtty-sid'),
@@ -316,7 +315,7 @@
               params: this.cmdData.params
             };
 
-            this.axios.post(process.env.BASE_URL + 'cmd', data).then((response) => {
+            this.axios.post(`/cmd/${item.id}`, data).then((response) => {
               const resp = response.data as ResponseInfo;
 
               if (resp.token) {
