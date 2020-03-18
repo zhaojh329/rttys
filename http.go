@@ -47,6 +47,19 @@ func authorizedDev(devid string, cfg *RttysConfig) bool {
 	return ok
 }
 
+func httpAuth(c *gin.Context) bool {
+	cookie, err := c.Cookie("sid")
+	if err != nil || !httpSessions.Have(cookie) {
+		return false
+	}
+
+	// Update
+	httpSessions.Del(cookie)
+	httpSessions.Set(cookie, true, 0)
+
+	return true
+}
+
 func httpStart(br *Broker, cfg *RttysConfig) {
 	httpSessions = cache.New(30*time.Minute, 5*time.Second)
 
@@ -60,15 +73,9 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 			return
 		}
 
-		cookie, err := c.Cookie("sid")
-		if err != nil || !httpSessions.Have(cookie) {
+		if !httpAuth(c) {
 			c.AbortWithStatus(http.StatusUnauthorized)
-			return
 		}
-
-		// Update
-		httpSessions.Del(cookie)
-		httpSessions.Set(cookie, true, 0)
 	})
 
 	authorized.GET("/fontsize/:devid", func(c *gin.Context) {
@@ -161,8 +168,9 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	})
 
 	r.GET("/authorized/:devid", func(c *gin.Context) {
+		authorized := authorizedDev(c.Param("devid"), cfg) || httpAuth(c)
 		c.JSON(http.StatusOK, gin.H{
-			"authorized": authorizedDev(c.Param("devid"), cfg),
+			"authorized": authorized,
 		})
 	})
 
