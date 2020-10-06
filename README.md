@@ -24,6 +24,11 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 
     go get -u github.com/zhaojh329/rttys
 
+## Update statik
+
+	go get github.com/rakyll/statik
+	statik -src=frontend/dist
+
 ## Command Line Parameters
 
     ./rttys -h

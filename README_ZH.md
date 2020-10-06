@@ -24,6 +24,11 @@
 
     go get -u github.com/zhaojh329/rttys
 
+## 更新 statik
+
+	go get github.com/rakyll/statik
+	statik -src=frontend/dist
+
 ## 命令行参数
 
     ./rttys -h
