@@ -90,13 +90,21 @@ func (dev *Device) keepAlive() {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
+	lastHeartbeat := time.Now()
+
 	for {
 		select {
 		case <-ticker.C:
-			if time.Now().Sub(dev.active) > HeartbeatInterval*3/2 {
+			now := time.Now()
+			if now.Sub(dev.active) > HeartbeatInterval*3/2 {
 				log.Error().Msgf("Inactive device in long time, now kill it: %s", dev.id)
 				dev.close()
 				return
+			}
+
+			if now.Sub(lastHeartbeat) > HeartbeatInterval - 1 {
+				lastHeartbeat = now
+				dev.writeMsg(MsgTypeHeartbeat, []byte{})
 			}
 		case <-dev.closeCh:
 			return
@@ -203,7 +211,6 @@ func (dev *Device) readLoop() {
 			dev.br.cmdMessage <- data
 
 		case MsgTypeHeartbeat:
-			dev.writeMsg(MsgTypeHeartbeat, []byte{})
 
 		default:
 			log.Error().Msg("invalid msg type")
