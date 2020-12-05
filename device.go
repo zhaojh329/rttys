@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"crypto/tls"
 	"github.com/rs/zerolog/log"
@@ -102,7 +103,7 @@ func (dev *Device) keepAlive() {
 				return
 			}
 
-			if now.Sub(lastHeartbeat) > HeartbeatInterval - 1 {
+			if now.Sub(lastHeartbeat) > HeartbeatInterval-1 {
 				lastHeartbeat = now
 				dev.writeMsg(MsgTypeHeartbeat, []byte{})
 			}
@@ -135,14 +136,12 @@ func (dev *Device) writeMsg(typ byte, data []byte) {
 	dev.conn.Write(b)
 }
 
-func parseDeviceInfo(br *bufio.Reader) (string, string, string) {
-	id, _ := br.ReadString(0)
-	desc, _ := br.ReadString(0)
-	token, _ := br.ReadString(0)
+func parseDeviceInfo(b []byte) (string, string, string) {
+	fields := bytes.Split(b, []byte{0})
 
-	id = strings.Trim(id, "\000")
-	desc = strings.Trim(desc, "\000")
-	token = strings.Trim(token, "\000")
+	id := string(fields[0])
+	desc := string(fields[1])
+	token := string(fields[2])
 
 	return id, desc, token
 }
@@ -152,72 +151,68 @@ func (dev *Device) readLoop() {
 
 	br := bufio.NewReaderSize(dev.conn, 4096+100)
 
-	msgLen := -1
-
 	for {
-		if msgLen < 0 {
-			b, err := br.Peek(3)
-			if err != nil {
-				if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-					log.Error().Msg(err.Error())
-				}
-				return
+		b, err := br.Peek(3)
+		if err != nil {
+			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
+				log.Error().Msg(err.Error())
 			}
-			msgLen = bytesToIntU(b[1:])
+			return
 		}
 
-		_, err := br.Peek(msgLen + 3)
+		br.Discard(3)
+
+		typ := b[0]
+		msgLen := bytesToIntU(b[1:])
+
+		b, err = br.Peek(msgLen)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			return
 		}
 
-		typ, _ := br.ReadByte()
-		br.Discard(2)
+		br.Discard(msgLen)
 
 		dev.active = time.Now()
 
 		switch typ {
 		case MsgTypeRegister:
-			id, desc, token := parseDeviceInfo(br)
+			id, desc, token := parseDeviceInfo(b)
 			dev.id = id
 			dev.token = token
 			dev.desc = desc
 			dev.br.register <- dev
 
 		case MsgTypeLogin:
-			code, _ := br.ReadByte()
+			code := b[0]
 			sid := byte(0)
 			if code == 0 {
-				sid, _ = br.ReadByte()
+				sid = b[1]
 			}
 			dev.handleLogin(code, sid)
 
 		case MsgTypeLogout:
-			sid, _ := br.ReadByte()
+			sid := b[0]
 			dev.br.logout <- dev.id + string(sid+'0')
 
 		case MsgTypeTermData:
 			fallthrough
 		case MsgTypeFile:
-			sid, _ := br.ReadByte()
-			data := make([]byte, msgLen-1)
-			br.Read(data)
+			sid := b[0]
+			data := make([]byte, len(b[1:]))
+			copy(data, b[1:])
 			dev.br.devMessage <- &DevMessage{dev.id, sid, data, typ == MsgTypeFile}
 
 		case MsgTypeCmd:
-			data := make([]byte, msgLen)
-			br.Read(data)
-			dev.br.cmdMessage <- data
+			data := make([]byte, len(b))
+			copy(data, b)
+			dev.br.cmdMessage <- b
 
 		case MsgTypeHeartbeat:
 
 		default:
 			log.Error().Msg("invalid msg type")
-			br.Discard(msgLen)
 		}
-
-		msgLen = -1
 	}
 }
 
