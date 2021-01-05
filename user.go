@@ -2,22 +2,23 @@ package main
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
-	"sync"
 
 	"net/http"
 )
 
 const (
-	LoginErrorNone    = 0x00
-	LoginErrorOffline = 0x01
-	LoginErrorBusy    = 0x02
+	loginErrorNone    = 0x00
+	loginErrorOffline = 0x01
+	loginErrorBusy    = 0x02
 )
 
-type User struct {
-	br         *Broker
+type user struct {
+	br         *broker
 	sid        string
 	devid      string
 	conn       *websocket.Conn
@@ -25,7 +26,7 @@ type User struct {
 	closed     bool
 }
 
-type UsrMessage struct {
+type usrMessage struct {
 	sid     string
 	msgType int
 	data    []byte
@@ -37,11 +38,11 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func (u *User) writeMessage(messageType int, data []byte) {
+func (u *user) writeMessage(messageType int, data []byte) {
 	u.conn.WriteMessage(messageType, data)
 }
 
-func (u *User) close() {
+func (u *user) close() {
 	defer u.closeMutex.Unlock()
 
 	u.closeMutex.Lock()
@@ -53,12 +54,12 @@ func (u *User) close() {
 	}
 }
 
-func (u *User) loginAck(code int) {
+func (u *user) loginAck(code int) {
 	msg := fmt.Sprintf(`{"type":"login","err":%d}`, code)
 	u.writeMessage(websocket.TextMessage, []byte(msg))
 }
 
-func (u *User) readLoop() {
+func (u *user) readLoop() {
 	defer u.close()
 
 	for {
@@ -70,11 +71,11 @@ func (u *User) readLoop() {
 			break
 		}
 
-		u.br.userMessage <- &UsrMessage{u.sid, msgType, data}
+		u.br.userMessage <- &usrMessage{u.sid, msgType, data}
 	}
 }
 
-func serveUser(br *Broker, c *gin.Context) {
+func serveUser(br *broker, c *gin.Context) {
 	devid := c.Param("devid")
 	if devid == "" {
 		c.Status(http.StatusBadRequest)
@@ -88,13 +89,13 @@ func serveUser(br *Broker, c *gin.Context) {
 		return
 	}
 
-	user := &User{
+	u := &user{
 		br:    br,
 		conn:  conn,
 		devid: devid,
 	}
 
-	go user.readLoop()
+	go u.readLoop()
 
-	br.login <- user
+	br.login <- u
 }

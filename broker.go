@@ -6,49 +6,49 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Session struct {
-	dev    *Device
-	user   *User
+type session struct {
+	dev    *device
+	u      *user
 	devsid byte
 }
 
-type Broker struct {
+type broker struct {
 	token       string
-	login       chan *User
+	login       chan *user
 	logout      chan string
-	register    chan *Device
-	unregister  chan *Device
-	devices     map[string]*Device
-	sessions    map[string]*Session
-	commands    map[string]*CommandStatus
-	newSession  chan *Session
-	cmdReq      chan *CommandReq
-	devMessage  chan *DevMessage
-	userMessage chan *UsrMessage
+	register    chan *device
+	unregister  chan *device
+	devices     map[string]*device
+	sessions    map[string]*session
+	commands    map[string]*commandStatus
+	newSession  chan *session
+	cmdReq      chan *commandReq
+	devMessage  chan *devMessage
+	userMessage chan *usrMessage
 	cmdMessage  chan []byte
 	clearCmd    chan string
 }
 
-func newBroker(token string) *Broker {
-	return &Broker{
+func newBroker(token string) *broker {
+	return &broker{
 		token:       token,
-		login:       make(chan *User, 10),
+		login:       make(chan *user, 10),
 		logout:      make(chan string, 10),
-		register:    make(chan *Device, 1000),
-		unregister:  make(chan *Device, 1000),
-		devices:     make(map[string]*Device),
-		sessions:    make(map[string]*Session),
-		newSession:  make(chan *Session, 10),
-		commands:    make(map[string]*CommandStatus),
-		cmdReq:      make(chan *CommandReq, 1000),
-		devMessage:  make(chan *DevMessage, 1000),
-		userMessage: make(chan *UsrMessage, 1000),
+		register:    make(chan *device, 1000),
+		unregister:  make(chan *device, 1000),
+		devices:     make(map[string]*device),
+		sessions:    make(map[string]*session),
+		newSession:  make(chan *session, 10),
+		commands:    make(map[string]*commandStatus),
+		cmdReq:      make(chan *commandReq, 1000),
+		devMessage:  make(chan *devMessage, 1000),
+		userMessage: make(chan *usrMessage, 1000),
 		cmdMessage:  make(chan []byte, 1000),
 		clearCmd:    make(chan string, 1000),
 	}
 }
 
-func (br *Broker) run() {
+func (br *broker) run() {
 	for {
 		select {
 		case dev := <-br.register:
@@ -68,7 +68,7 @@ func (br *Broker) run() {
 				log.Info().Msg("New device: " + dev.id)
 			}
 
-			dev.writeMsg(MsgTypeRegister, append([]byte{err}, msg...))
+			dev.writeMsg(msgTypeRegister, append([]byte{err}, msg...))
 			if err == 1 {
 				dev.close()
 			}
@@ -80,35 +80,35 @@ func (br *Broker) run() {
 
 			for sid, session := range br.sessions {
 				if session.dev == dev {
-					session.user.close()
+					session.u.close()
 					delete(br.sessions, sid)
 					log.Info().Msg("Delete session: " + sid)
 				}
 			}
 
-		case user := <-br.login:
-			if dev, ok := br.devices[user.devid]; ok {
-				if !dev.login(user) {
-					user.loginAck(LoginErrorBusy)
+		case u := <-br.login:
+			if dev, ok := br.devices[u.devid]; ok {
+				if !dev.login(u) {
+					u.loginAck(loginErrorBusy)
 					log.Error().Msgf("Device '%s' is busy", dev.id)
 				}
 			} else {
-				user.loginAck(LoginErrorOffline)
-				log.Error().Msgf("Not found the device '%s'", user.devid)
+				u.loginAck(loginErrorOffline)
+				log.Error().Msgf("Not found the device '%s'", u.devid)
 			}
 
 		case sid := <-br.logout:
 			if session, ok := br.sessions[sid]; ok {
 				delete(br.sessions, sid)
-				session.user.close()
+				session.u.close()
 				session.dev.logout(sid[len(sid)-1] - '0')
 				log.Info().Msg("Delete session: " + sid)
 			}
 
 		case session := <-br.newSession:
 			sid := session.dev.id + string(session.devsid+'0')
-			session.user.sid = sid
-			session.user.loginAck(LoginErrorNone)
+			session.u.sid = sid
+			session.u.loginAck(loginErrorNone)
 			br.sessions[sid] = session
 			log.Info().Msg("New session: " + sid)
 
@@ -119,7 +119,7 @@ func (br *Broker) run() {
 				if msg.isFileMsg {
 					data[0] = 1
 				}
-				session.user.writeMessage(websocket.BinaryMessage, append(data, msg.data...))
+				session.u.writeMessage(websocket.BinaryMessage, append(data, msg.data...))
 			}
 
 		case msg := <-br.userMessage:
@@ -131,9 +131,9 @@ func (br *Broker) run() {
 					isFileMsg := data[0] == 1
 					data = data[1:]
 					if isFileMsg {
-						session.dev.writeMsg(MsgTypeFile, data)
+						session.dev.writeMsg(msgTypeFile, data)
 					} else {
-						session.dev.writeMsg(MsgTypeTermData, append([]byte{devsid}, data...))
+						session.dev.writeMsg(msgTypeTermData, append([]byte{devsid}, data...))
 					}
 				} else {
 					typ := jsoniter.Get(msg.data, "type").ToString()
@@ -143,7 +143,7 @@ func (br *Broker) run() {
 						rows := jsoniter.Get(msg.data, "rows").ToInt()
 						data = append([]byte{devsid}, intToBytes(cols, 2)...)
 						data = append(data, intToBytes(rows, 2)...)
-						session.dev.writeMsg(MsgTypeWinsize, data)
+						session.dev.writeMsg(msgTypeWinsize, data)
 					}
 				}
 			} else {

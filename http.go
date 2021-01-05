@@ -1,19 +1,20 @@
 package main
 
 import (
+	"io/ioutil"
+	"net/http"
+	"path"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rakyll/statik/fs"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
 	_ "github.com/zhaojh329/rttys/statik"
-	"io/ioutil"
-	"net/http"
-	"path"
-	"time"
 )
 
-type Credentials struct {
+type credentials struct {
 	Password string `json:"password"`
 	Username string `json:"username"`
 }
@@ -26,7 +27,7 @@ func allowOrigin(w http.ResponseWriter) {
 	w.Header().Set("content-type", "application/json")
 }
 
-func httpLogin(cfg *RttysConfig, creds *Credentials) bool {
+func httpLogin(cfg *rttysConfig, creds *credentials) bool {
 	if cfg.httpUsername != creds.Username {
 		return false
 	}
@@ -38,7 +39,7 @@ func httpLogin(cfg *RttysConfig, creds *Credentials) bool {
 	return true
 }
 
-func authorizedDev(devid string, cfg *RttysConfig) bool {
+func authorizedDev(devid string, cfg *rttysConfig) bool {
 	if cfg.whiteList == nil {
 		return true
 	}
@@ -60,7 +61,7 @@ func httpAuth(c *gin.Context) bool {
 	return true
 }
 
-func httpStart(br *Broker, cfg *RttysConfig) {
+func httpStart(br *broker, cfg *rttysConfig) {
 	httpSessions = cache.New(30*time.Minute, 5*time.Second)
 
 	gin.SetMode(gin.ReleaseMode)
@@ -128,7 +129,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		allowOrigin(c.Writer)
 
 		done := make(chan struct{})
-		req := &CommandReq{
+		req := &commandReq{
 			done: done,
 			w:    c.Writer,
 		}
@@ -143,7 +144,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 		allowOrigin(c.Writer)
 
 		done := make(chan struct{})
-		req := &CommandReq{
+		req := &commandReq{
 			done:  done,
 			w:     c.Writer,
 			devid: c.Param("devid"),
@@ -175,7 +176,7 @@ func httpStart(br *Broker, cfg *RttysConfig) {
 	})
 
 	r.POST("/signin", func(c *gin.Context) {
-		var creds Credentials
+		var creds credentials
 
 		err := jsoniter.NewDecoder(c.Request.Body).Decode(&creds)
 		if err != nil {

@@ -2,14 +2,15 @@ package main
 
 import (
 	"flag"
-	"github.com/kylelemons/go-gypsy/yaml"
-	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/kylelemons/go-gypsy/yaml"
+	"github.com/rs/zerolog/log"
 )
 
-type RttysConfig struct {
+type rttysConfig struct {
 	addrDev      string
 	addrUser     string
 	sslCert      string
@@ -35,8 +36,8 @@ func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
 	}
 }
 
-func parseConfig() *RttysConfig {
-	cfg := &RttysConfig{}
+func parseConfig() *rttysConfig {
+	cfg := &rttysConfig{}
 
 	cfg.whiteList = make(map[string]bool)
 

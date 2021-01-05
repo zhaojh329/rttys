@@ -9,40 +9,40 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
-const CommandTimeout = time.Second * 30
+const commandTimeout = time.Second * 30
 
 const (
-	RttyCmdErrInvalid      = 1001
-	RttyCmdErrOffline      = 1002
-	RttyCmdErrBusy         = 1003
-	RttyCmdErrTimeout      = 1004
-	RttyCmdErrPending      = 1005
-	RttyCmdErrInvalidToken = 1006
+	rttyCmdErrInvalid      = 1001
+	rttyCmdErrOffline      = 1002
+	rttyCmdErrBusy         = 1003
+	rttyCmdErrTimeout      = 1004
+	rttyCmdErrPending      = 1005
+	rttyCmdErrInvalidToken = 1006
 )
 
 var cmdErrMsg = map[int]string{
-	RttyCmdErrInvalid:      "invalid format",
-	RttyCmdErrOffline:      "device offline",
-	RttyCmdErrBusy:         "server is busy",
-	RttyCmdErrTimeout:      "timeout",
-	RttyCmdErrPending:      "pending",
-	RttyCmdErrInvalidToken: "invalid token",
+	rttyCmdErrInvalid:      "invalid format",
+	rttyCmdErrOffline:      "device offline",
+	rttyCmdErrBusy:         "server is busy",
+	rttyCmdErrTimeout:      "timeout",
+	rttyCmdErrPending:      "pending",
+	rttyCmdErrInvalidToken: "invalid token",
 }
 
-type CommandStatus struct {
+type commandStatus struct {
 	ts    time.Time
 	token string
 	resp  string
 	tmr   *time.Timer
 }
 
-type CommandInfo struct {
+type commandInfo struct {
 	Cmd      string `json:"cmd"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
-type CommandReq struct {
+type commandReq struct {
 	done    chan struct{}
 	token   string
 	content []byte
@@ -50,7 +50,7 @@ type CommandReq struct {
 	w       http.ResponseWriter
 }
 
-func handleCmdResp(br *Broker, data []byte) {
+func handleCmdResp(br *broker, data []byte) {
 	token := jsoniter.Get(data, "token").ToString()
 
 	if cmd, ok := br.commands[token]; ok {
@@ -58,21 +58,21 @@ func handleCmdResp(br *Broker, data []byte) {
 	}
 }
 
-func cmdErrReply(err int, req *CommandReq) {
+func cmdErrReply(err int, req *commandReq) {
 	fmt.Fprintf(req.w, `{"err": %d, "msg":"%s"}`, err, cmdErrMsg[err])
 	close(req.done)
 }
 
-func handleCmdReq(br *Broker, req *CommandReq) {
+func handleCmdReq(br *broker, req *commandReq) {
 	token := req.token
 
 	if token != "" {
 		if cmd, ok := br.commands[token]; ok {
 			if len(cmd.resp) == 0 {
-				if time.Now().Sub(cmd.ts) > CommandTimeout {
-					cmdErrReply(RttyCmdErrTimeout, req)
+				if time.Now().Sub(cmd.ts) > commandTimeout {
+					cmdErrReply(rttyCmdErrTimeout, req)
 				} else {
-					cmdErrReply(RttyCmdErrPending, req)
+					cmdErrReply(rttyCmdErrPending, req)
 				}
 			} else {
 				io.WriteString(req.w, cmd.resp)
@@ -80,30 +80,30 @@ func handleCmdReq(br *Broker, req *CommandReq) {
 				br.clearCmd <- token
 			}
 		} else {
-			cmdErrReply(RttyCmdErrInvalidToken, req)
+			cmdErrReply(rttyCmdErrInvalidToken, req)
 		}
 		return
 	}
 
-	cmdInfo := CommandInfo{}
+	cmdInfo := commandInfo{}
 	err := jsoniter.Unmarshal(req.content, &cmdInfo)
 	if err != nil || cmdInfo.Cmd == "" {
-		cmdErrReply(RttyCmdErrInvalid, req)
+		cmdErrReply(rttyCmdErrInvalid, req)
 		return
 	}
 
 	dev, ok := br.devices[req.devid]
 	if !ok {
-		cmdErrReply(RttyCmdErrOffline, req)
+		cmdErrReply(rttyCmdErrOffline, req)
 		return
 	}
 
 	token = genUniqueID("cmd")
 
-	cmd := &CommandStatus{
+	cmd := &commandStatus{
 		ts:    time.Now(),
 		token: token,
-		tmr: time.AfterFunc(CommandTimeout+time.Second*2, func() {
+		tmr: time.AfterFunc(commandTimeout+time.Second*2, func() {
 			br.clearCmd <- token
 		}),
 	}
@@ -134,7 +134,7 @@ func handleCmdReq(br *Broker, req *CommandReq) {
 		data = append(data, 0)
 	}
 
-	dev.writeMsg(MsgTypeCmd, data)
+	dev.writeMsg(msgTypeCmd, data)
 
 	fmt.Fprintf(req.w, `{"token":"%s"}`, token)
 	close(req.done)

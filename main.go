@@ -2,28 +2,29 @@ package main
 
 import (
 	"flag"
-	"github.com/dwdcth/consoleEx"
-	"github.com/mattn/go-colorable"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/zhaojh329/rttys/version"
-	"golang.org/x/crypto/ssh/terminal"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dwdcth/consoleEx"
+	"github.com/mattn/go-colorable"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/zhaojh329/rttys/version"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
-type LogFileHook struct {
+type logFileHook struct {
 	err  error
 	path string
 }
 
-var logFile = &LogFileHook{}
+var logFile = &logFileHook{}
 
-func (h *LogFileHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
+func (h *logFileHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 	if h.err != nil {
 		return
 	}
