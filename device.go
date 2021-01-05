@@ -90,6 +90,7 @@ func (dev *Device) logout(sid byte) {
 func (dev *Device) keepAlive() {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	ninactive := 0
 
 	lastHeartbeat := time.Now()
 
@@ -98,9 +99,13 @@ func (dev *Device) keepAlive() {
 		case <-ticker.C:
 			now := time.Now()
 			if now.Sub(dev.active) > HeartbeatInterval*3/2 {
-				log.Error().Msgf("Inactive device in long time, now kill it: %s", dev.id)
-				dev.close()
-				return
+				log.Error().Msgf("Inactive device in long time: %s", dev.id)
+				if ninactive > 1 {
+					log.Error().Msgf("Inactive 3 times, now kill it: %s", dev.id)
+					dev.close()
+					return
+				}
+				ninactive = ninactive + 1
 			}
 
 			if now.Sub(lastHeartbeat) > HeartbeatInterval-1 {
