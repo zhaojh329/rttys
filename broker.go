@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/binary"
+
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
@@ -13,7 +15,7 @@ type session struct {
 }
 
 type broker struct {
-	token       string
+	cfg         *rttysConfig
 	login       chan *user
 	logout      chan string
 	register    chan *device
@@ -23,15 +25,18 @@ type broker struct {
 	commands    map[string]*commandStatus
 	newSession  chan *session
 	cmdReq      chan *commandReq
+	webCon      chan *webNewCon
+	webReq      chan *webReq
 	devMessage  chan *devMessage
 	userMessage chan *usrMessage
 	cmdMessage  chan []byte
+	webMessage  chan *webResp
 	clearCmd    chan string
 }
 
-func newBroker(token string) *broker {
+func newBroker(cfg *rttysConfig) *broker {
 	return &broker{
-		token:       token,
+		cfg:         cfg,
 		login:       make(chan *user, 10),
 		logout:      make(chan string, 10),
 		register:    make(chan *device, 1000),
@@ -41,9 +46,12 @@ func newBroker(token string) *broker {
 		newSession:  make(chan *session, 10),
 		commands:    make(map[string]*commandStatus),
 		cmdReq:      make(chan *commandReq, 1000),
+		webCon:      make(chan *webNewCon, 1000),
+		webReq:      make(chan *webReq, 1000),
 		devMessage:  make(chan *devMessage, 1000),
 		userMessage: make(chan *usrMessage, 1000),
 		cmdMessage:  make(chan []byte, 1000),
+		webMessage:  make(chan *webResp, 1000),
 		clearCmd:    make(chan string, 1000),
 	}
 }
@@ -59,7 +67,7 @@ func (br *broker) run() {
 				log.Error().Msg("Device ID conflicting: " + dev.id)
 				msg = "ID conflicting"
 				err = 1
-			} else if dev.token != br.token {
+			} else if dev.token != br.cfg.token {
 				log.Error().Msg("Invalid token from terminal device")
 				msg = "Invalid token"
 				err = 1
@@ -139,11 +147,14 @@ func (br *broker) run() {
 					typ := jsoniter.Get(msg.data, "type").ToString()
 					switch typ {
 					case "winsize":
-						cols := jsoniter.Get(msg.data, "cols").ToInt()
-						rows := jsoniter.Get(msg.data, "rows").ToInt()
-						data = append([]byte{devsid}, intToBytes(cols, 2)...)
-						data = append(data, intToBytes(rows, 2)...)
-						session.dev.writeMsg(msgTypeWinsize, data)
+						cols := jsoniter.Get(msg.data, "cols").ToUint()
+						rows := jsoniter.Get(msg.data, "rows").ToUint()
+
+						b := make([]byte, 4)
+						binary.BigEndian.PutUint16(b, uint16(cols))
+						binary.BigEndian.PutUint16(b[2:], uint16(rows))
+
+						session.dev.writeMsg(msgTypeWinsize, append([]byte{devsid}, b...))
 					}
 				}
 			} else {
@@ -153,8 +164,17 @@ func (br *broker) run() {
 		case cmdReq := <-br.cmdReq:
 			handleCmdReq(br, cmdReq)
 
+		case c := <-br.webCon:
+			handleWebCon(br, c)
+
+		case req := <-br.webReq:
+			handleWebReq(req)
+
 		case data := <-br.cmdMessage:
 			handleCmdResp(br, data)
+
+		case resp := <-br.webMessage:
+			handleWebResp(resp)
 
 		case token := <-br.clearCmd:
 			if cmd, ok := br.commands[token]; ok {

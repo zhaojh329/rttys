@@ -22,7 +22,7 @@ class ClipboardEx {
       return this.clipboard.readText();
 
     if (this.clipboardData)
-      return new Promise<string>(resolve => resolve(this.clipboardData?.getData('Text')));
+      return new Promise<string>(resolve => resolve(this.clipboardData?.getData('Text') || ''));
 
     return new Promise<string>(resolve => resolve(''));
   }

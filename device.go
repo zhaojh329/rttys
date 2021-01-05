@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/binary"
 	"io"
 	"net"
 	"strings"
@@ -23,6 +24,7 @@ const (
 	msgTypeCmd       = 0x05
 	msgTypeHeartbeat = 0x06
 	msgTypeFile      = 0x07
+	msgTypeWeb       = 0x08
 )
 
 const heartbeatInterval = time.Second * 5
@@ -136,10 +138,11 @@ func (dev *device) close() {
 }
 
 func (dev *device) writeMsg(typ byte, data []byte) {
-	b := []byte{typ}
-	b = append(b, intToBytes(len(data), 2)...)
-	b = append(b, data...)
-	dev.conn.Write(b)
+	b := []byte{typ, 0, 0}
+
+	binary.BigEndian.PutUint16(b[1:], uint16(len(data)))
+
+	dev.conn.Write(append(b, data...))
 }
 
 func parseDeviceInfo(b []byte) (string, string, string) {
@@ -155,7 +158,7 @@ func parseDeviceInfo(b []byte) (string, string, string) {
 func (dev *device) readLoop() {
 	defer dev.close()
 
-	br := bufio.NewReaderSize(dev.conn, 4096+100)
+	br := bufio.NewReader(dev.conn)
 
 	for {
 		b, err := br.Peek(3)
@@ -169,15 +172,14 @@ func (dev *device) readLoop() {
 		br.Discard(3)
 
 		typ := b[0]
-		msgLen := bytesToIntU(b[1:])
+		msgLen := binary.BigEndian.Uint16(b[1:])
 
-		b, err = br.Peek(msgLen)
+		b = make([]byte, msgLen)
+		_, err = io.ReadFull(br, b)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			return
 		}
-
-		br.Discard(msgLen)
 
 		dev.active = time.Now()
 
@@ -205,24 +207,25 @@ func (dev *device) readLoop() {
 			fallthrough
 		case msgTypeFile:
 			sid := b[0]
-			data := make([]byte, len(b[1:]))
-			copy(data, b[1:])
-			dev.br.devMessage <- &devMessage{dev.id, sid, data, typ == msgTypeFile}
+			dev.br.devMessage <- &devMessage{dev.id, sid, b[1:], typ == msgTypeFile}
 
 		case msgTypeCmd:
-			data := make([]byte, len(b))
-			copy(data, b)
 			dev.br.cmdMessage <- b
+
+		case msgTypeWeb:
+			dev.br.webMessage <- &webResp{b, dev}
 
 		case msgTypeHeartbeat:
 
 		default:
-			log.Error().Msg("invalid msg type")
+			log.Error().Msgf("invalid msg type: %d", typ)
 		}
 	}
 }
 
-func listenDevice(br *broker, cfg *rttysConfig) {
+func listenDevice(br *broker) {
+	cfg := br.cfg
+
 	ln, err := net.Listen("tcp", cfg.addrDev)
 	if err != nil {
 		log.Fatal().Msg(err.Error())

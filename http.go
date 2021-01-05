@@ -54,14 +54,14 @@ func httpAuth(c *gin.Context) bool {
 		return false
 	}
 
-	// Update
-	httpSessions.Del(cookie)
-	httpSessions.Set(cookie, true, 0)
+	httpSessions.Active(cookie, 0)
 
 	return true
 }
 
-func httpStart(br *broker, cfg *rttysConfig) {
+func httpStart(br *broker) {
+	cfg := br.cfg
+
 	httpSessions = cache.New(30*time.Minute, 5*time.Second)
 
 	gin.SetMode(gin.ReleaseMode)
@@ -166,6 +166,10 @@ func httpStart(br *broker, cfg *rttysConfig) {
 
 		br.cmdReq <- req
 		<-done
+	})
+
+	r.Any("/web/:devid/:addr/*path", func(c *gin.Context) {
+		webReqRedirect(br, cfg, c)
 	})
 
 	r.GET("/authorized/:devid", func(c *gin.Context) {

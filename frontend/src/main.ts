@@ -6,6 +6,7 @@ import './plugins/element.js'
 import axios from 'axios'
 import VueAxios from 'vue-axios'
 import Contextmenu from '@/components/contextmenu'
+import './assets/iconfont/iconfont.css'
 
 Vue.config.productionTip = false;
 

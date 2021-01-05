@@ -16,7 +16,6 @@
   "Device ID": "设备ID",
   "Uptime": "在线时长",
   "Description": "描述",
-  "Connect": "连接",
   "Please select the devices you want to operate": "请选择您要操作的设备",
   "Command": "命令",
   "OK": "确定",
@@ -43,5 +42,8 @@
   "Paste - Shift+Insert": "粘贴 - Shift+Insert",
   "Clear Scrollback": "清除回滚",
   "Font Size+": "增大字体",
-  "Font Size-": "减小字体"
+  "Font Size-": "减小字体",
+  "Access your device's Shell": "访问您的设备的 Shell",
+  "Access your devices's Web": "访问您的设备的 Web",
+  "Please enter the address you want to access": "请输入您要访问的地址"
 }

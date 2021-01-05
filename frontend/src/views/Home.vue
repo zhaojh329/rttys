@@ -17,9 +17,14 @@
         <template v-slot="{ row }">{{ row.uptime | formatTime }}</template>
       </el-table-column>
       <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip/>
-      <el-table-column label="#" width="150">
+      <el-table-column label="#" width="200">
         <template v-slot="{ row }">
-          <el-button type="primary" @click="connectDevice(row.id)">{{ $t('Connect') }}</el-button>
+          <el-tooltip placement="top" :content="$t('Access your device\'s Shell')">
+            <el-button @click="connectDevice(row.id)" style="padding: 0"><i class="iconfont icon-shell" style="font-size: 40px; color: black"/></el-button>
+          </el-tooltip>
+          <el-tooltip placement="top" :content="$t('Access your devices\'s Web')">
+            <el-button @click="connectDeviceWeb(row.id)" style="padding: 0"><i class="iconfont icon-web" style="font-size: 40px; color: #409EFF"/></el-button>
+          </el-tooltip>
         </template>
       </el-table-column>
     </el-table>
@@ -221,6 +226,31 @@
 
     connectDevice(devid: string) {
       this.$router.push({path: `/rtty/${devid}`});
+    }
+
+    connectDeviceWeb(devid: string) {
+      this.$prompt(this.$t('Please enter the address you want to access').toString() + ':', this.$t('Access your devices\'s Web').toString(), {
+        inputValue: '127.0.0.1:80',
+        inputValidator: (value: string): boolean => {
+          const ipreg = /^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$/
+          const portreg = /^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):\d{1,5}$/
+
+          if (ipreg.test(value))
+            return true;
+
+          if (portreg.test(value)) {
+            const port = Number(value.substr(value.lastIndexOf(':') + 1));
+            return port > 0 && port <= 65535;
+          }
+
+          return false;
+        }
+      }).then((r => {
+        const addr = encodeURIComponent((r as any).value)
+        setTimeout(() => {
+          window.open(`/web/${devid}/${addr}/`);
+        }, 100)
+      }));
     }
 
     showCmdForm() {

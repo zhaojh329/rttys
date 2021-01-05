@@ -16,7 +16,6 @@
   "Device ID": "Device ID",
   "Uptime": "Uptime",
   "Description": "Description",
-  "Connect": "Connect",
   "Please select the devices you want to operate": "Please select the devices you want to operate",
   "Command": "Command",
   "OK": "OK",
@@ -42,5 +41,8 @@
   "Paste - Shift+Insert": "Paste - Shift+Insert",
   "Clear Scrollback": "Clear Scrollback",
   "Font Size+": "Font Size+",
-  "Font Size-": "Font Size-"
+  "Font Size-": "Font Size-",
+  "Access your device's Shell": "Access your device's Shell",
+  "Access your devices's Web": "Access your devices's Web",
+  "Please enter the address you want to access": "Please enter the address you want to access"
 }

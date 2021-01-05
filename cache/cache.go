@@ -58,6 +58,25 @@ func New(defaultExpiration, gcInterval time.Duration) *Cache {
 	return c
 }
 
+func (c *Cache) Active(key interface{}, d time.Duration) {
+	v, ok := c.items.Load(key)
+	if ok {
+		v := v.(*Item)
+
+		var e int64
+
+		if d == 0 {
+			d = c.defaultExpiration
+		}
+
+		if d > 0 {
+			e = time.Now().Add(d).UnixNano()
+		}
+
+		v.expiration = e
+	}
+}
+
 func (c *Cache) Set(key, value interface{}, d time.Duration) {
 	var e int64
 
@@ -73,7 +92,13 @@ func (c *Cache) Set(key, value interface{}, d time.Duration) {
 }
 
 func (c *Cache) Get(key interface{}) (interface{}, bool) {
-	return c.items.Load(key)
+	v, ok := c.items.Load(key)
+	if ok {
+		v := v.(*Item)
+		return v.value, true
+	}
+
+	return nil, false
 }
 
 func (c *Cache) Del(key interface{}) {

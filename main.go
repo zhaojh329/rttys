@@ -93,11 +93,12 @@ func main() {
 		log.Info().Msg("Build Time: " + version.BuildTime())
 	}
 
-	br := newBroker(cfg.token)
+	br := newBroker(cfg)
 	go br.run()
 
-	go listenDevice(br, cfg)
-	go httpStart(br, cfg)
+	go listenDevice(br)
+	go listenDeviceWeb(br)
+	go httpStart(br)
 
 	for {
 		time.Sleep(time.Second)
