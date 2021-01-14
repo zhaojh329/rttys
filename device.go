@@ -34,6 +34,7 @@ type device struct {
 	id         string
 	desc       string /* description of the device */
 	timestamp  int64  /* Connection time */
+	uptime     uint32
 	token      string
 	conn       net.Conn
 	loginMutex sync.Mutex
@@ -155,6 +156,10 @@ func parseDeviceInfo(b []byte) (string, string, string) {
 	return id, desc, token
 }
 
+func parseHeartbeat(dev *device, b []byte) {
+	dev.uptime = binary.BigEndian.Uint32(b[:4])
+}
+
 func (dev *device) readLoop() {
 	defer dev.close()
 
@@ -216,7 +221,7 @@ func (dev *device) readLoop() {
 			dev.br.webMessage <- &webResp{b, dev}
 
 		case msgTypeHeartbeat:
-
+			parseHeartbeat(dev, b)
 		default:
 			log.Error().Msgf("invalid msg type: %d", typ)
 		}
