@@ -12,8 +12,11 @@
               @selection-change='handleSelection'>
       <el-table-column type="index" label="#" width="100"/>
       <el-table-column type="selection"/>
-      <el-table-column prop="id" :label="$t('Device ID')" sortable width="300"/>
-      <el-table-column prop="uptime" :label="$t('Uptime')" sortable width="150">
+      <el-table-column prop="id" :label="$t('Device ID')" sortable width="200"/>
+      <el-table-column prop="connected" :label="$t('Connected time')" sortable width="200">
+        <template v-slot="{ row }">{{ row.connected | formatTime }}</template>
+      </el-table-column>
+      <el-table-column prop="uptime" :label="$t('Uptime')" sortable width="200">
         <template v-slot="{ row }">{{ row.uptime | formatTime }}</template>
       </el-table-column>
       <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip/>

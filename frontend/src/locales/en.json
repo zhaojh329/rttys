@@ -14,6 +14,7 @@
   "device-count": "Online Device: {count}",
   "No devices connected": "No devices connected",
   "Device ID": "Device ID",
+  "Connected time": "Connected time",
   "Uptime": "Uptime",
   "Description": "Description",
   "Please select the devices you want to operate": "Please select the devices you want to operate",

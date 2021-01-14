@@ -109,6 +109,7 @@ func httpStart(br *broker) {
 	authorized.GET("/devs", func(c *gin.Context) {
 		type DeviceInfo struct {
 			ID          string `json:"id"`
+			Connected   uint32 `json:"connected"`
 			Uptime      uint32 `json:"uptime"`
 			Description string `json:"description"`
 		}
@@ -116,7 +117,7 @@ func httpStart(br *broker) {
 		devs := make([]DeviceInfo, 0)
 
 		for id, dev := range br.devices {
-			dev := DeviceInfo{id, dev.uptime, dev.desc}
+			dev := DeviceInfo{id, uint32(time.Now().Unix() - dev.timestamp), dev.uptime, dev.desc}
 			devs = append(devs, dev)
 		}
 
