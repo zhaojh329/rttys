@@ -128,13 +128,13 @@ func makeWebReqMsg(br *broker, dev *device, id uint16, c net.Conn, r *http.Reque
 }
 
 func genDestAddr(addr string) []byte {
-	destIp, destPort, err := webReqVaildAddr(addr)
+	destIP, destPort, err := webReqVaildAddr(addr)
 	if err != nil {
 		return nil
 	}
 
 	b := make([]byte, 6)
-	copy(b, destIp)
+	copy(b, destIP)
 
 	binary.BigEndian.PutUint16(b[4:], destPort)
 
