@@ -258,14 +258,17 @@ func listenDeviceWeb(br *broker) error {
 			continue
 		}
 
-		b := bufio.NewReader(c)
+		go func() {
+			b := bufio.NewReader(c)
 
-		r, err := http.ReadRequest(b)
-		if err != nil {
-			continue
-		}
+			r, err := http.ReadRequest(b)
+			if err != nil {
+				c.Close()
+				return
+			}
 
-		br.webCon <- &webNewCon{r, b, c}
+			br.webCon <- &webNewCon{r, b, c}
+		}()
 	}
 }
 
