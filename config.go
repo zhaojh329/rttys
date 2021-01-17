@@ -14,6 +14,7 @@ type rttysConfig struct {
 	addrDev      string
 	addrUser     string
 	addrWeb      string
+	webRedirUrl  string
 	webPort      int
 	sslCert      string
 	sslKey       string
@@ -46,6 +47,7 @@ func parseConfig() *rttysConfig {
 	flag.StringVar(&cfg.addrDev, "addr-dev", ":5912", "address to listen device")
 	flag.StringVar(&cfg.addrUser, "addr-user", ":5913", "address to listen user")
 	flag.StringVar(&cfg.addrWeb, "addr-web", ":5914", "address to listen for access device's web")
+	flag.StringVar(&cfg.webRedirUrl, "web-redir-url", "", "url to redirect for access device's web")
 	flag.StringVar(&cfg.sslCert, "ssl-cert", "", "certFile Path")
 	flag.StringVar(&cfg.sslKey, "ssl-key", "", "keyFile Path")
 	flag.StringVar(&cfg.httpUsername, "http-username", "", "username for http auth")
@@ -76,6 +78,7 @@ func parseConfig() *rttysConfig {
 		getConfigOpt(yamlCfg, "addr-dev", &cfg.addrDev)
 		getConfigOpt(yamlCfg, "addr-user", &cfg.addrUser)
 		getConfigOpt(yamlCfg, "addr-web", &cfg.addrWeb)
+		getConfigOpt(yamlCfg, "web-redir-url", &cfg.webRedirUrl)
 		getConfigOpt(yamlCfg, "ssl-cert", &cfg.sslCert)
 		getConfigOpt(yamlCfg, "ssl-key", &cfg.sslKey)
 		getConfigOpt(yamlCfg, "http-username", &cfg.httpUsername)

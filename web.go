@@ -308,15 +308,17 @@ func webReqRedirect(br *broker, cfg *rttysConfig, c *gin.Context) {
 		return
 	}
 
-	host, _, err := net.SplitHostPort(c.Request.Host)
-	if err != nil {
-		host = c.Request.Host
-	}
+	location := cfg.webRedirUrl
 
-	location := "http://" + host
-
-	if cfg.webPort != 80 {
-		location += fmt.Sprintf(":%d", cfg.webPort)
+	if location == "" {
+		host, _, err := net.SplitHostPort(c.Request.Host)
+		if err != nil {
+			host = c.Request.Host
+		}
+		location = "http://" + host
+		if cfg.webPort != 80 {
+			location += fmt.Sprintf(":%d", cfg.webPort)
+		}
 	}
 
 	location += path
