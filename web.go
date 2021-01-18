@@ -29,7 +29,7 @@ type webCon struct {
 }
 
 type webReq struct {
-	port int
+	addr []byte
 	data []byte
 	dev  *device
 }
@@ -39,19 +39,14 @@ type webResp struct {
 	dev  *device
 }
 
-var webCons = make(map[string]map[int]*webCon)
+var webCons = make(map[string]map[string]*webCon)
 var webSessions *cache.Cache
 
 func handleWebReq(req *webReq) {
 	dev := req.dev
 
-	if req.port == 0 {
-		dev.writeMsg(msgTypeWeb, []byte{})
-		return
-	}
-
 	if req.data == nil {
-		delete(webCons[dev.id], req.port)
+		delete(webCons[dev.id], string(req.addr))
 		return
 	}
 
@@ -60,8 +55,8 @@ func handleWebReq(req *webReq) {
 
 func handleWebResp(resp *webResp) {
 	data := resp.data
-	port := binary.BigEndian.Uint16(data[:2])
-	data = data[2:]
+	addr := data[:18]
+	data = data[18:]
 
 	if len(data) == 0 {
 		return
@@ -72,7 +67,7 @@ func handleWebResp(resp *webResp) {
 		return
 	}
 
-	wc, ok := devcons[int(port)]
+	wc, ok := devcons[string(addr)]
 	if !ok {
 		return
 	}
@@ -82,12 +77,8 @@ func handleWebResp(resp *webResp) {
 	c.Write(data)
 }
 
-func makeWebReqMsg(br *broker, dev *device, c net.Conn, r *http.Request, hostHeaderRewrite string, destAddr []byte) {
-	port := c.RemoteAddr().(*net.TCPAddr).Port
-
-	req := make([]byte, 2)
-	binary.BigEndian.PutUint16(req, uint16(port))
-
+func makeWebReqMsg(br *broker, dev *device, srcAddr []byte, r *http.Request, hostHeaderRewrite string, destAddr []byte) {
+	req := append([]byte{}, srcAddr...)
 	req = append(req, destAddr...)
 	req = append(req, r.Method...)
 	req = append(req, ' ')
@@ -114,17 +105,15 @@ func makeWebReqMsg(br *broker, dev *device, c net.Conn, r *http.Request, hostHea
 		req = append(req, b[:n]...)
 	}
 
-	br.webReq <- &webReq{port, req, dev}
+	br.webReq <- &webReq{srcAddr, req, dev}
 
 	for {
 		n, err := r.Body.Read(b)
 		if n > 0 {
-			req := make([]byte, 2)
-			binary.BigEndian.PutUint16(req, uint16(port))
-
+			req := append([]byte{}, srcAddr...)
 			req = append(req, destAddr...)
 			req = append(req, b[:n]...)
-			br.webReq <- &webReq{port, req, dev}
+			br.webReq <- &webReq{srcAddr, req, dev}
 		}
 
 		if err != nil {
@@ -143,6 +132,16 @@ func genDestAddr(addr string) []byte {
 	copy(b, destIP)
 
 	binary.BigEndian.PutUint16(b[4:], destPort)
+
+	return b
+}
+
+func tcpAddr2Bytes(addr *net.TCPAddr) []byte {
+	b := make([]byte, 18)
+
+	binary.BigEndian.PutUint16(b[:2], uint16(addr.Port))
+
+	copy(b[2:], addr.IP)
 
 	return b
 }
@@ -189,30 +188,30 @@ func handleWebCon(br *broker, wc *webNewCon) {
 	destAddr := genDestAddr(hostHeaderRewrite)
 
 	if _, ok := webCons[devid]; !ok {
-		webCons[devid] = make(map[int]*webCon)
+		webCons[devid] = make(map[string]*webCon)
 	}
 
-	port := c.RemoteAddr().(*net.TCPAddr).Port
+	srcAddr := tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr))
 
-	webCons[devid][port] = &webCon{dev, c}
+	webCons[devid][string(srcAddr)] = &webCon{dev, c}
 
 	readEnd := make(chan struct{})
 
 	go func() {
 		defer func() {
-			br.webReq <- &webReq{port, nil, dev}
+			br.webReq <- &webReq{srcAddr, nil, dev}
 			c.Close()
 			close(readEnd)
 		}()
 
-		makeWebReqMsg(br, dev, c, r, hostHeaderRewrite, destAddr)
+		makeWebReqMsg(br, dev, srcAddr, r, hostHeaderRewrite, destAddr)
 
 		for {
 			r, err := http.ReadRequest(wc.b)
 			if err != nil {
 				return
 			}
-			makeWebReqMsg(br, dev, c, r, hostHeaderRewrite, destAddr)
+			makeWebReqMsg(br, dev, srcAddr, r, hostHeaderRewrite, destAddr)
 		}
 	}()
 
@@ -298,7 +297,7 @@ func webReqRedirect(br *broker, cfg *rttysConfig, c *gin.Context) {
 		return
 	}
 
-	dev, ok := br.devices[devid]
+	_, ok := br.devices[devid]
 	if !ok {
 		c.Status(http.StatusNotFound)
 		return
@@ -333,8 +332,6 @@ func webReqRedirect(br *broker, cfg *rttysConfig, c *gin.Context) {
 	sid = genUniqueID("web")
 
 	webSessions.Set(sid, make(chan struct{}), 0)
-
-	br.webReq <- &webReq{0, nil, dev}
 
 	c.SetCookie("rtty-web-sid", sid, 0, "", "", false, true)
 	c.SetCookie("rtty-web-devid", devid, 0, "", "", false, true)
