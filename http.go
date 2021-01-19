@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/ioutil"
+	"net"
 	"net/http"
 	"path"
 	"time"
@@ -49,6 +50,11 @@ func authorizedDev(devid string, cfg *rttysConfig) bool {
 }
 
 func httpAuth(c *gin.Context) bool {
+	addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
+	if addr.IP.IsLoopback() {
+		return true
+	}
+
 	cookie, err := c.Cookie("sid")
 	if err != nil || !httpSessions.Have(cookie) {
 		return false
