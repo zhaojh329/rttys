@@ -157,6 +157,10 @@ func parseDeviceInfo(b []byte) (string, string, string) {
 }
 
 func parseHeartbeat(dev *device, b []byte) {
+	// Old rtty not support this
+	if len(b) < 4 {
+		return
+	}
 	dev.uptime = binary.BigEndian.Uint32(b[:4])
 }
 
