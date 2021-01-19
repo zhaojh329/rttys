@@ -157,6 +157,11 @@ func parseDeviceInfo(b []byte) (string, string, string) {
 }
 
 func parseHeartbeat(dev *device, b []byte) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Debug().Msgf("invalid heartbeat packet size: %d", len(b))
+		}
+	}()
 	dev.uptime = binary.BigEndian.Uint32(b[:4])
 }
 
