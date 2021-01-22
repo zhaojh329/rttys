@@ -1,39 +1,33 @@
 package main
 
 import (
-	"fmt"
-	"io"
+	"context"
+	"io/ioutil"
 	"net/http"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/zhaojh329/rttys/client"
+	"github.com/zhaojh329/rttys/utils"
 
 	jsoniter "github.com/json-iterator/go"
 )
 
-const commandTimeout = time.Second * 30
+const commandTimeout = 30 // second
 
 const (
-	rttyCmdErrInvalid      = 1001
-	rttyCmdErrOffline      = 1002
-	rttyCmdErrBusy         = 1003
-	rttyCmdErrTimeout      = 1004
-	rttyCmdErrPending      = 1005
-	rttyCmdErrInvalidToken = 1006
+	rttyCmdErrInvalid = 1001
+	rttyCmdErrOffline = 1002
+	rttyCmdErrTimeout = 1003
 )
 
 var cmdErrMsg = map[int]string{
-	rttyCmdErrInvalid:      "invalid format",
-	rttyCmdErrOffline:      "device offline",
-	rttyCmdErrBusy:         "server is busy",
-	rttyCmdErrTimeout:      "timeout",
-	rttyCmdErrPending:      "pending",
-	rttyCmdErrInvalidToken: "invalid token",
-}
-
-type commandStatus struct {
-	ts    time.Time
-	token string
-	resp  string
-	tmr   *time.Timer
+	rttyCmdErrInvalid: "invalid format",
+	rttyCmdErrOffline: "device offline",
+	rttyCmdErrTimeout: "timeout",
 }
 
 type commandInfo struct {
@@ -43,99 +37,108 @@ type commandInfo struct {
 }
 
 type commandReq struct {
-	done    chan struct{}
-	token   string
-	content []byte
-	devid   string
-	w       http.ResponseWriter
+	cancel context.CancelFunc
+	dev    client.Client
+	c      *gin.Context
+	data   []byte
 }
+
+var commands sync.Map
 
 func handleCmdResp(br *broker, data []byte) {
 	token := jsoniter.Get(data, "token").ToString()
 
-	if cmd, ok := br.commands[token]; ok {
-		cmd.resp = jsoniter.Get(data, "attrs").ToString()
+	if req, ok := commands.Load(token); ok {
+		req := req.(*commandReq)
+		req.c.String(http.StatusOK, jsoniter.Get(data, "attrs").ToString())
+		req.cancel()
 	}
 }
 
 func cmdErrReply(err int, req *commandReq) {
-	fmt.Fprintf(req.w, `{"err": %d, "msg":"%s"}`, err, cmdErrMsg[err])
-	close(req.done)
+	req.c.JSON(http.StatusOK, gin.H{
+		"err": err,
+		"msg": cmdErrMsg[err],
+	})
+	req.cancel()
 }
 
-func handleCmdReq(br *broker, req *commandReq) {
-	token := req.token
+func handleCmdReq(br *broker, c *gin.Context) {
+	devid := c.Param("devid")
 
-	if token != "" {
-		if cmd, ok := br.commands[token]; ok {
-			if len(cmd.resp) == 0 {
-				if time.Now().Sub(cmd.ts) > commandTimeout {
-					cmdErrReply(rttyCmdErrTimeout, req)
-				} else {
-					cmdErrReply(rttyCmdErrPending, req)
-				}
-			} else {
-				io.WriteString(req.w, cmd.resp)
-				close(req.done)
-				br.clearCmd <- token
-			}
-		} else {
-			cmdErrReply(rttyCmdErrInvalidToken, req)
-		}
-		return
+	ctx, cancel := context.WithCancel(context.Background())
+
+	req := &commandReq{
+		cancel: cancel,
+		c:      c,
 	}
 
-	cmdInfo := commandInfo{}
-	err := jsoniter.Unmarshal(req.content, &cmdInfo)
-	if err != nil || cmdInfo.Cmd == "" {
-		cmdErrReply(rttyCmdErrInvalid, req)
-		return
-	}
-
-	dev, ok := br.devices[req.devid]
+	dev, ok := br.devices[devid]
 	if !ok {
 		cmdErrReply(rttyCmdErrOffline, req)
 		return
 	}
 
-	token = genUniqueID("cmd")
+	req.dev = dev
 
-	cmd := &commandStatus{
-		ts:    time.Now(),
-		token: token,
-		tmr: time.AfterFunc(commandTimeout+time.Second*2, func() {
-			br.clearCmd <- token
-		}),
+	content, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		c.Status(http.StatusBadRequest)
+		return
 	}
 
-	br.commands[token] = cmd
+	cmdInfo := commandInfo{}
+	err = jsoniter.Unmarshal(content, &cmdInfo)
+	if err != nil || cmdInfo.Cmd == "" {
+		cmdErrReply(rttyCmdErrInvalid, req)
+		return
+	}
 
-	username := jsoniter.Get(req.content, "username").ToString()
-	password := jsoniter.Get(req.content, "password").ToString()
-	cmdName := jsoniter.Get(req.content, "cmd").ToString()
-	params := jsoniter.Get(req.content, "params")
+	token := utils.GenUniqueID("cmd")
 
-	var data []byte
-	data = append(data, username...)
-	data = append(data, 0)
+	params := jsoniter.Get(content, "params")
 
-	data = append(data, password...)
-	data = append(data, 0)
+	data := make([]string, 5)
 
-	data = append(data, cmdName...)
-	data = append(data, 0)
+	data[0] = jsoniter.Get(content, "username").ToString()
+	data[1] = jsoniter.Get(content, "password").ToString()
+	data[2] = jsoniter.Get(content, "cmd").ToString()
+	data[3] = token
+	data[4] = string(byte(params.Size()))
 
-	data = append(data, token...)
-	data = append(data, 0)
+	req.data = []byte(strings.Join(data, string(byte(0))))
 
-	data = append(data, byte(params.Size()))
 	for i := 0; i < params.Size(); i++ {
-		data = append(data, params.Get(i).ToString()...)
-		data = append(data, 0)
+		req.data = append(req.data, params.Get(i).ToString()...)
+		req.data = append(req.data, 0)
 	}
 
-	dev.writeMsg(msgTypeCmd, data)
+	br.cmdReq <- req
 
-	fmt.Fprintf(req.w, `{"token":"%s"}`, token)
-	close(req.done)
+	waitTime := commandTimeout
+
+	wait := c.Query("wait")
+	if wait != "" {
+		waitTime, _ = strconv.Atoi(wait)
+	}
+
+	if waitTime == 0 {
+		c.Status(http.StatusOK)
+		return
+	}
+
+	commands.Store(token, req)
+
+	if waitTime < 0 || waitTime > commandTimeout {
+		waitTime = commandTimeout
+	}
+
+	tmr := time.NewTimer(time.Second * time.Duration(waitTime))
+
+	select {
+	case <-tmr.C:
+		cmdErrReply(rttyCmdErrTimeout, req)
+		commands.Delete(token)
+	case <-ctx.Done():
+	}
 }

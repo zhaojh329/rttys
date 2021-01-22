@@ -1,80 +1,26 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
-	"strconv"
-	"strings"
-	"time"
 
-	"github.com/dwdcth/consoleEx"
-	"github.com/mattn/go-colorable"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/urfave/cli/v2"
+	"github.com/zhaojh329/rttys/config"
+	rlog "github.com/zhaojh329/rttys/log"
+	"github.com/zhaojh329/rttys/utils"
 	"github.com/zhaojh329/rttys/version"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
-type logFileHook struct {
-	err  error
-	path string
-}
+func runRttys(c *cli.Context) {
+	rlog.SetPath(c.String("log"))
 
-var logFile = &logFileHook{}
+	cfg := config.Parse(c)
 
-func (h *logFileHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
-	if h.err != nil {
-		return
-	}
-
-	f, err := os.OpenFile(h.path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		h.err = err
-		log.Fatal().Msg(err.Error())
-		return
-	}
-	defer f.Close()
-
-	f.WriteString(zerolog.TimestampFunc().Format(zerolog.TimeFieldFormat) + " |")
-	f.WriteString(strings.ToUpper(level.String()) + "| ")
-
-	_, file, line, ok := runtime.Caller(3)
-	if ok {
-		f.WriteString(zerolog.CallerMarshalFunc(file, line) + " |")
-	}
-
-	f.WriteString(msg)
-	f.WriteString("\n")
-}
-
-func init() {
-	zerolog.CallerMarshalFunc = func(file string, line int) string {
-		return filepath.Base(file) + ":" + strconv.Itoa(line)
-	}
-
-	out := consoleEx.ConsoleWriterEx{Out: colorable.NewColorableStdout()}
-	logger := zerolog.New(out).With().Caller().Timestamp().Logger()
-
-	if !terminal.IsTerminal(int(os.Stdout.Fd())) {
-		logger = logger.Hook(logFile)
-	}
-
-	log.Logger = logger
-}
-
-func main() {
-	if runtime.GOOS == "windows" {
-		flag.StringVar(&logFile.path, "log", "rttys.log", "log file path")
-	} else {
-		flag.StringVar(&logFile.path, "log", "/var/log/rttys.log", "log file path")
-	}
-
-	cfg := parseConfig()
-
-	if cfg.httpUsername == "" {
-		log.Fatal().Msg("You must configure the http username by commandline or config file")
+	if cfg.HTTPUsername == "" {
+		fmt.Println("You must configure the http username by commandline or config file")
+		os.Exit(1)
 	}
 
 	log.Info().Msg("Go Version: " + runtime.Version())
@@ -96,11 +42,114 @@ func main() {
 	br := newBroker(cfg)
 	go br.run()
 
-	go listenDevice(br)
-	go listenDeviceWeb(br)
-	go httpStart(br)
+	listenDevice(br)
+	listenDeviceWeb(br)
+	httpStart(br)
 
-	for {
-		time.Sleep(time.Second)
+	select {}
+}
+
+func main() {
+	defaultLogPath := "/var/log/rttys.log"
+	if runtime.GOOS == "windows" {
+		defaultLogPath = "rttys.log"
+	}
+
+	app := &cli.App{
+		Name:    "rttys",
+		Usage:   "The server side for rtty",
+		Version: version.Version(),
+		Commands: []*cli.Command{
+			{
+				Name:  "run",
+				Usage: "Run rttys",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "log",
+						Value: defaultLogPath,
+						Usage: "log file path",
+					},
+					&cli.StringFlag{
+						Name:    "conf",
+						Aliases: []string{"c"},
+						Value:   "./rttys.conf",
+						Usage:   "config file to load",
+					},
+					&cli.StringFlag{
+						Name:  "addr-dev",
+						Value: ":5912",
+						Usage: "address to listen device",
+					},
+					&cli.StringFlag{
+						Name:  "addr-user",
+						Value: ":5913",
+						Usage: "address to listen user",
+					},
+					&cli.StringFlag{
+						Name:  "addr-web",
+						Value: ":5914",
+						Usage: "address to listen for access device's web",
+					},
+					&cli.StringFlag{
+						Name:  "web-redir-url",
+						Value: "",
+						Usage: "url to redirect for access device's web",
+					},
+					&cli.StringFlag{
+						Name:  "ssl-cert",
+						Value: "",
+						Usage: "ssl cert file Path",
+					},
+					&cli.StringFlag{
+						Name:  "ssl-key",
+						Value: "",
+						Usage: "ssl key file Path",
+					},
+					&cli.StringFlag{
+						Name:  "http-username",
+						Value: "",
+						Usage: "username for http auth",
+					},
+					&cli.StringFlag{
+						Name:  "http-password",
+						Value: "",
+						Usage: "password for http auth",
+					},
+					&cli.StringFlag{
+						Name:    "token",
+						Aliases: []string{"t"},
+						Value:   "",
+						Usage:   "token to use",
+					},
+					&cli.StringFlag{
+						Name:  "white-list",
+						Value: "",
+						Usage: "white list(device IDs separated by spaces or *)",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					runRttys(c)
+					return nil
+				},
+			},
+			{
+				Name:  "token",
+				Usage: "Generate a token",
+				Action: func(c *cli.Context) error {
+					utils.GenToken()
+					return nil
+				},
+			},
+		},
+		Action: func(c *cli.Context) error {
+			c.App.Command("run").Run(c)
+			return nil
+		},
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }

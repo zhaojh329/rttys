@@ -40,7 +40,7 @@
           <el-input v-model="cmdData.password" show-password/>
         </el-form-item>
         <el-form-item :label="$t('Command')" prop="cmd">
-          <el-input v-model="cmdData.cmd"/>
+          <el-input v-model.trim="cmdData.cmd"/>
         </el-form-item>
         <el-form-item :label="$t('Parameter')" prop="params">
           <el-tag :key="tag" v-for="tag in cmdData.params" closable @close="delCmdParam(tag)">{{tag}}</el-tag>
@@ -49,6 +49,11 @@
                     @blur="handleInputParamConfirm"/>
           <el-button v-else style="width: 40px; margin-left: 10px;" size="small" icon="el-icon-plus" type="primary"
                      @click="showInputParam"/>
+        </el-form-item>
+        <el-form-item :label="$t('Wait Time')" prop="wait">
+          <el-input v-model.number="cmdData.wait" placeholder="30">
+            <template slot="append">s</template>
+          </el-input>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" style="width: 70%" @click="doCmd">{{ $t('OK') }}</el-button>
@@ -70,7 +75,6 @@
       <el-table :data="cmdStatus.responses" height="300" :empty-text="$t('No Response')">
         <el-table-column type="index" label="#"/>
         <el-table-column prop="id" :label="$t('Device ID')"/>
-        <el-table-column prop="cmd" :label="$t('Command')"/>
         <el-table-column prop="err" :label="$t('Error Code')"/>
         <el-table-column prop="msg" :label="$t('Error Message')" show-overflow-tooltip/>
         <el-table-column prop="code" :label="$t('Status Code')"/>
@@ -114,16 +118,8 @@
     description: string;
   }
 
-  interface CmdStatusInfo {
-    querying: boolean;
-    devid: string;
-    cmd: string;
-  }
-
   interface ResponseInfo {
-    token: string;
-    devid: string;
-    cmd: string;
+    id: string;
     code: number;
     err: number;
     msg: string;
@@ -177,7 +173,6 @@
       modal: false,
       execing: 0,
       fail: 0,
-      running: {} as { [key: string]: CmdStatusInfo },
       respModal: false,
       responses: [] as ResponseInfo[]
     };
@@ -186,11 +181,24 @@
       password: '',
       cmd: '',
       params: [] as string[],
-      currentParam: ''
+      currentParam: '',
+      wait: 30
     };
     cmdRuleValidate = {
-      username: [{required: true, trigger: 'blur', message: this.tr('username is required')}],
-      cmd: [{required: true, trigger: 'blur', message: this.tr('command is required')}]
+      username: [{required: true, message: this.tr('username is required')}],
+      cmd: [{required: true, message: this.tr('command is required')}],
+      wait: [{validator: (rule, value, callback) => {
+        if (!value) {
+          callback()
+          return;
+        }
+
+        if (!Number.isInteger(value) || value < 0 || value > 30) {
+          callback(new Error(this.tr('must be an integer between 0 and 30')));
+        }
+
+        callback()
+      }}]
     };
 
     tr(key: string): string {
@@ -264,50 +272,6 @@
       this.cmdModal = true;
     }
 
-    queryCmdResp() {
-      let count = 0;
-
-      for (const token in this.cmdStatus.running) {
-        const item = this.cmdStatus.running[token];
-
-        if (item.querying)
-          continue;
-
-        item.querying = true;
-
-        this.axios.get(`/cmd/${item.devid}/${token}`).then(response => {
-          const resp = response.data as ResponseInfo;
-
-          if (resp.err === 1005) {
-            item.querying = false;
-            return;
-          }
-
-          if (resp.err && resp.err !== 0)
-            this.cmdStatus.fail++;
-
-          this.cmdStatus.execing--;
-
-          resp.devid = item.devid;
-          resp.cmd = item.cmd;
-          resp.stdout = window.atob(resp.stdout || '');
-          resp.stderr = window.atob(resp.stderr || '');
-
-          this.cmdStatus.responses.push(resp);
-
-          delete this.cmdStatus.running[token];
-        });
-
-        count++;
-
-        if (count > 10)
-          break;
-      }
-
-      if (this.cmdStatus.execing > 0)
-        setTimeout(this.queryCmdResp, 500);
-    }
-
     delCmdParam(tag: string) {
       this.cmdData.params.splice(this.cmdData.params.indexOf(tag), 1);
     }
@@ -336,41 +300,44 @@
           this.cmdStatus.total = this.selection.length;
           this.cmdStatus.execing = this.selection.length;
           this.cmdStatus.fail = 0;
-          this.cmdStatus.running = {};
           this.cmdStatus.responses = [];
 
           this.selection.forEach(item => {
             const data = {
               username: this.cmdData.username,
               password: this.cmdData.password,
-              sid: sessionStorage.getItem('rtty-sid'),
-              cmd: this.cmdData.cmd.trim(),
+              cmd: this.cmdData.cmd,
               params: this.cmdData.params
             };
 
-            this.axios.post(`/cmd/${item.id}`, data).then((response) => {
-              const resp = response.data as ResponseInfo;
+            this.axios.post(`/cmd/${item.id}?wait=${this.cmdData.wait}`, data).then((response) => {
+              if (this.cmdData.wait === 0) {
+                this.cmdStatus.responses.push({
+                  err: 0,
+                  msg: '',
+                  id: item.id,
+                  code: 0,
+                  stdout: '',
+                  stderr: ''
+                });
+              } else {
+                const resp = response.data as ResponseInfo;
 
-              if (resp.token) {
-                this.cmdStatus.running[resp.token] = {
-                  devid: item.id,
-                  cmd: data.cmd,
-                  querying: false
-                };
-                return;
+                if (resp.err && resp.err !== 0) {
+                    this.cmdStatus.fail++;
+                    resp.stdout = '';
+                    resp.stderr = '';
+                } else {
+                  resp.stdout = window.atob(resp.stdout || '');
+                  resp.stderr = window.atob(resp.stderr || '');
+                }
+
+                resp.id = item.id;
+                this.cmdStatus.responses.push(resp);
               }
-
               this.cmdStatus.execing--;
-              this.cmdStatus.fail++;
-
-              resp.devid = item.id;
-              resp.cmd = data.cmd;
-
-              this.cmdStatus.responses.push(resp);
             });
           });
-
-          setTimeout(this.queryCmdResp, 100);
         }
       });
     }
@@ -381,8 +348,6 @@
 
     ignoreCmdResp() {
       this.cmdStatus.execing = 0;
-      this.cmdStatus.running = {};
-
       this.cmdStatus.respModal = true;
       this.cmdStatus.modal = false;
     }

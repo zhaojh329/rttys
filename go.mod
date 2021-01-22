@@ -12,5 +12,6 @@ require (
 	github.com/mattn/go-colorable v0.1.4
 	github.com/rakyll/statik v0.1.7
 	github.com/rs/zerolog v1.18.0
+	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
 )

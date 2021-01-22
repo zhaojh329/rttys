@@ -29,40 +29,16 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 	go get github.com/rakyll/statik
 	statik -src=frontend/dist
 
-## Command Line Parameters
-
-    ./rttys -h
-    Usage of rttys:
-      -addr-dev string
-            address to listen device (default ":5912")
-      -addr-user string
-            address to listen user (default ":5913")
-      -conf string
-            config file to load (default "./rttys.conf")
-      -gen-token
-            generate token
-      -http-password string
-            password for http auth
-      -http-username string
-            username for http auth
-      -log string
-            log file path (default "/var/log/rttys.log")
-      -ssl-cert string
-            certFile Path
-      -ssl-key string
-            keyFile Path
-      -token string
-            token to use
-      -white-list string
-            white list(device IDs separated by spaces or *)
-
 ## Authorization
+Generate a token
 
-    ./rttys -gen-token
+    $ rttys token
     Please set a password:******
     Your token is: 34762d07637276694b938d23f10d7164
 
-    ./rttys -token 34762d07637276694b938d23f10d7164
+Use token
+
+    $ rttys run -t 34762d07637276694b938d23f10d7164
 
 ## Running as a Linux service
 Move the rttys binary into /usr/local/bin/
@@ -81,7 +57,7 @@ Create a systemd unit file: /etc/systemd/system/rttys.service
     After=network.target
 
     [Service]
-    ExecStart=/usr/local/bin/rttys -conf /etc/rttys/rttys.conf
+    ExecStart=/usr/local/bin/rttys run -c /etc/rttys/rttys.conf
     TimeoutStopSec=5s
 
     [Install]

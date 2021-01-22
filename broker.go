@@ -6,163 +6,193 @@ import (
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
+	"github.com/zhaojh329/rttys/client"
+	"github.com/zhaojh329/rttys/config"
 )
 
 type session struct {
-	dev    *device
-	u      *user
+	devid  string
 	devsid byte
+	u      client.Client
 }
 
 type broker struct {
-	cfg         *rttysConfig
-	login       chan *user
-	logout      chan string
-	register    chan *device
-	unregister  chan *device
-	devices     map[string]*device
-	sessions    map[string]*session
-	commands    map[string]*commandStatus
-	newSession  chan *session
-	cmdReq      chan *commandReq
-	webCon      chan *webNewCon
-	webReq      chan *webReq
-	devMessage  chan *devMessage
-	userMessage chan *usrMessage
-	cmdMessage  chan []byte
-	webMessage  chan *webResp
-	clearCmd    chan string
+	cfg            *config.Config
+	devices        map[string]client.Client
+	loginAck       chan *loginAckMsg
+	logout         chan string
+	register       chan client.Client
+	unregister     chan client.Client
+	waitLoginUsers map[string]client.Client
+	sessions       map[string]*session
+	cmdReq         chan *commandReq
+	webCon         chan *webNewCon
+	webReq         chan *webReq
+	termMessage    chan *termMessage
+	userMessage    chan *usrMessage
+	cmdMessage     chan []byte
+	webMessage     chan *webResp
 }
 
-func newBroker(cfg *rttysConfig) *broker {
+func newBroker(cfg *config.Config) *broker {
 	return &broker{
-		cfg:         cfg,
-		login:       make(chan *user, 10),
-		logout:      make(chan string, 10),
-		register:    make(chan *device, 1000),
-		unregister:  make(chan *device, 1000),
-		devices:     make(map[string]*device),
-		sessions:    make(map[string]*session),
-		newSession:  make(chan *session, 10),
-		commands:    make(map[string]*commandStatus),
-		cmdReq:      make(chan *commandReq, 1000),
-		webCon:      make(chan *webNewCon, 1000),
-		webReq:      make(chan *webReq, 1000),
-		devMessage:  make(chan *devMessage, 1000),
-		userMessage: make(chan *usrMessage, 1000),
-		cmdMessage:  make(chan []byte, 1000),
-		webMessage:  make(chan *webResp, 1000),
-		clearCmd:    make(chan string, 1000),
+		cfg:            cfg,
+		loginAck:       make(chan *loginAckMsg, 1000),
+		logout:         make(chan string, 1000),
+		register:       make(chan client.Client, 1000),
+		unregister:     make(chan client.Client, 1000),
+		devices:        make(map[string]client.Client),
+		waitLoginUsers: make(map[string]client.Client),
+		sessions:       make(map[string]*session),
+		cmdReq:         make(chan *commandReq, 1000),
+		webCon:         make(chan *webNewCon, 1000),
+		webReq:         make(chan *webReq, 1000),
+		termMessage:    make(chan *termMessage, 1000),
+		userMessage:    make(chan *usrMessage, 1000),
+		cmdMessage:     make(chan []byte, 1000),
+		webMessage:     make(chan *webResp, 1000),
 	}
 }
 
 func (br *broker) run() {
 	for {
 		select {
-		case dev := <-br.register:
-			err := byte(0)
-			msg := "OK"
+		case c := <-br.register:
+			devid := c.DeviceID()
 
-			if _, ok := br.devices[dev.id]; ok {
-				log.Error().Msg("Device ID conflicting: " + dev.id)
-				msg = "ID conflicting"
-				err = 1
-			} else if dev.token != br.cfg.token {
-				log.Error().Msg("Invalid token from terminal device")
-				msg = "Invalid token"
-				err = 1
+			if c.IsDevice() {
+				err := byte(0)
+				msg := "OK"
+
+				if _, ok := br.devices[devid]; ok {
+					log.Error().Msg("Device ID conflicting: " + devid)
+					msg = "ID conflicting"
+					err = 1
+				} else if c.(*device).token != br.cfg.Token {
+					log.Error().Msg("Invalid token from terminal device")
+					msg = "Invalid token"
+					err = 1
+				} else {
+					br.devices[devid] = c
+					log.Info().Msg("New device: " + devid)
+				}
+
+				c.WriteMsg(msgTypeRegister, append([]byte{err}, msg...))
 			} else {
-				br.devices[dev.id] = dev
-				log.Info().Msg("New device: " + dev.id)
+				if dev, ok := br.devices[devid]; ok {
+					if _, ok := br.waitLoginUsers[devid]; ok {
+						userLoginAck(loginErrorBusy, c)
+						log.Error().Msg("login fail, device busy")
+					} else {
+						br.waitLoginUsers[devid] = c
+						dev.WriteMsg(msgTypeLogin, []byte{})
+					}
+				} else {
+					userLoginAck(loginErrorOffline, c)
+					log.Error().Msgf("Not found the device '%s'", devid)
+				}
 			}
 
-			dev.writeMsg(msgTypeRegister, append([]byte{err}, msg...))
-			if err == 1 {
-				dev.close()
-			}
+		case c := <-br.unregister:
+			id := c.DeviceID()
 
-		case dev := <-br.unregister:
-			if _, ok := br.devices[dev.id]; ok {
-				delete(br.devices, dev.id)
-			}
+			if c.IsDevice() {
+				if _, ok := br.devices[id]; ok {
+					delete(br.devices, id)
+				}
 
-			for sid, session := range br.sessions {
-				if session.dev == dev {
-					session.u.close()
+				for sid, s := range br.sessions {
+					if s.devid == id {
+						s.u.Close()
+						delete(br.sessions, sid)
+						log.Info().Msg("Delete session: " + sid)
+					}
+				}
+			} else {
+				sid := c.(*user).sid
+
+				if s, ok := br.sessions[sid]; ok {
 					delete(br.sessions, sid)
+					c.Close()
+
+					if dev, ok := br.devices[s.devid]; ok {
+						dev.WriteMsg(msgTypeLogout, []byte{sid[len(sid)-1] - '0'})
+					}
+
 					log.Info().Msg("Delete session: " + sid)
 				}
 			}
 
-		case u := <-br.login:
-			if dev, ok := br.devices[u.devid]; ok {
-				if !dev.login(u) {
-					u.loginAck(loginErrorBusy)
-					log.Error().Msgf("Device '%s' is busy", dev.id)
+		case msg := <-br.loginAck:
+			if c, ok := br.waitLoginUsers[msg.devid]; ok {
+				if msg.isBusy {
+					userLoginAck(loginErrorBusy, c)
+					log.Error().Msg("login fail, device busy")
+				} else {
+					sid := msg.devid + string(msg.sid+'0')
+					br.sessions[sid] = &session{msg.devid, msg.sid, c}
+
+					u := c.(*user)
+					u.sid = sid
+
+					userLoginAck(loginErrorNone, c)
+
+					log.Info().Msg("New session: " + sid)
 				}
-			} else {
-				u.loginAck(loginErrorOffline)
-				log.Error().Msgf("Not found the device '%s'", u.devid)
+				delete(br.waitLoginUsers, msg.devid)
 			}
 
+		// device active logout
+		// typically, executing the exit command at the terminal will case this
 		case sid := <-br.logout:
-			if session, ok := br.sessions[sid]; ok {
+			if s, ok := br.sessions[sid]; ok {
 				delete(br.sessions, sid)
-				session.u.close()
-				session.dev.logout(sid[len(sid)-1] - '0')
+				s.u.Close()
+
 				log.Info().Msg("Delete session: " + sid)
 			}
 
-		case session := <-br.newSession:
-			sid := session.dev.id + string(session.devsid+'0')
-			session.u.sid = sid
-			session.u.loginAck(loginErrorNone)
-			br.sessions[sid] = session
-			log.Info().Msg("New session: " + sid)
-
-		case msg := <-br.devMessage:
-			sid := msg.devid + string(msg.sid+'0')
-			if session, ok := br.sessions[sid]; ok {
-				data := []byte{0}
-				if msg.isFileMsg {
-					data[0] = 1
-				}
-				session.u.writeMessage(websocket.BinaryMessage, append(data, msg.data...))
+		// from device, includes terminal data and file data
+		case msg := <-br.termMessage:
+			if s, ok := br.sessions[msg.sid]; ok {
+				s.u.WriteMsg(websocket.BinaryMessage, msg.data)
 			}
 
 		case msg := <-br.userMessage:
-			msgType := msg.msgType
-			data := msg.data
-			if session, ok := br.sessions[msg.sid]; ok {
-				devsid := msg.sid[len(msg.sid)-1] - '0'
-				if msgType == websocket.BinaryMessage {
-					isFileMsg := data[0] == 1
-					data = data[1:]
-					if isFileMsg {
-						session.dev.writeMsg(msgTypeFile, data)
+			if s, ok := br.sessions[msg.sid]; ok {
+				if dev, ok := br.devices[s.devid]; ok {
+					devsid := msg.sid[len(msg.sid)-1] - '0'
+					data := msg.data
+
+					if msg.typ == websocket.BinaryMessage {
+						if data[0] == 1 {
+							dev.WriteMsg(msgTypeFile, data[1:])
+						} else {
+							dev.WriteMsg(msgTypeTermData, append([]byte{devsid}, data[1:]...))
+						}
 					} else {
-						session.dev.writeMsg(msgTypeTermData, append([]byte{devsid}, data...))
-					}
-				} else {
-					typ := jsoniter.Get(msg.data, "type").ToString()
-					switch typ {
-					case "winsize":
-						cols := jsoniter.Get(msg.data, "cols").ToUint()
-						rows := jsoniter.Get(msg.data, "rows").ToUint()
+						typ := jsoniter.Get(data, "type").ToString()
 
-						b := make([]byte, 4)
-						binary.BigEndian.PutUint16(b, uint16(cols))
-						binary.BigEndian.PutUint16(b[2:], uint16(rows))
+						switch typ {
+						case "winsize":
+							b := [5]byte{devsid}
 
-						session.dev.writeMsg(msgTypeWinsize, append([]byte{devsid}, b...))
+							cols := jsoniter.Get(data, "cols").ToUint()
+							rows := jsoniter.Get(data, "rows").ToUint()
+
+							binary.BigEndian.PutUint16(b[1:], uint16(cols))
+							binary.BigEndian.PutUint16(b[3:], uint16(rows))
+
+							dev.WriteMsg(msgTypeWinsize, b[:])
+						}
 					}
 				}
 			} else {
 				log.Error().Msg("Not found sid: " + msg.sid)
 			}
 
-		case cmdReq := <-br.cmdReq:
-			handleCmdReq(br, cmdReq)
+		case req := <-br.cmdReq:
+			req.dev.WriteMsg(msgTypeCmd, req.data)
 
 		case c := <-br.webCon:
 			handleWebCon(br, c)
@@ -175,12 +205,6 @@ func (br *broker) run() {
 
 		case resp := <-br.webMessage:
 			handleWebResp(resp)
-
-		case token := <-br.clearCmd:
-			if cmd, ok := br.commands[token]; ok {
-				delete(br.commands, token)
-				cmd.tmr.Stop()
-			}
 		}
 	}
 }

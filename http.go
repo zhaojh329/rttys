@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"net"
 	"net/http"
 	"path"
@@ -12,7 +11,9 @@ import (
 	"github.com/rakyll/statik/fs"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
+	"github.com/zhaojh329/rttys/config"
 	_ "github.com/zhaojh329/rttys/statik"
+	"github.com/zhaojh329/rttys/utils"
 )
 
 type credentials struct {
@@ -28,24 +29,24 @@ func allowOrigin(w http.ResponseWriter) {
 	w.Header().Set("content-type", "application/json")
 }
 
-func httpLogin(cfg *rttysConfig, creds *credentials) bool {
-	if cfg.httpUsername != creds.Username {
+func httpLogin(cfg *config.Config, creds *credentials) bool {
+	if cfg.HTTPUsername != creds.Username {
 		return false
 	}
 
-	if cfg.httpPassword != "" {
-		return cfg.httpPassword == creds.Password
+	if cfg.HTTPPassword != "" {
+		return cfg.HTTPPassword == creds.Password
 	}
 
 	return true
 }
 
-func authorizedDev(devid string, cfg *rttysConfig) bool {
-	if cfg.whiteList == nil {
+func authorizedDev(devid string, cfg *config.Config) bool {
+	if cfg.WhiteList == nil {
 		return true
 	}
 
-	_, ok := cfg.whiteList[devid]
+	_, ok := cfg.WhiteList[devid]
 	return ok
 }
 
@@ -86,7 +87,7 @@ func httpStart(br *broker) {
 	})
 
 	authorized.GET("/fontsize/:devid", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"size": cfg.fontSize})
+		c.JSON(http.StatusOK, gin.H{"size": cfg.FontSize})
 	})
 
 	authorized.POST("/fontsize/:devid", func(c *gin.Context) {
@@ -100,7 +101,7 @@ func httpStart(br *broker) {
 			return
 		}
 
-		cfg.fontSize = r.Size
+		cfg.FontSize = r.Size
 		c.String(http.StatusOK, "OK")
 	})
 
@@ -123,8 +124,8 @@ func httpStart(br *broker) {
 		devs := make([]DeviceInfo, 0)
 
 		for id, dev := range br.devices {
-			dev := DeviceInfo{id, uint32(time.Now().Unix() - dev.timestamp), dev.uptime, dev.desc}
-			devs = append(devs, dev)
+			dev := dev.(*device)
+			devs = append(devs, DeviceInfo{id, uint32(time.Now().Unix() - dev.timestamp), dev.uptime, dev.desc})
 		}
 
 		allowOrigin(c.Writer)
@@ -132,51 +133,14 @@ func httpStart(br *broker) {
 		c.JSON(http.StatusOK, devs)
 	})
 
-	authorized.GET("/cmd/:devid/:token", func(c *gin.Context) {
-		allowOrigin(c.Writer)
-
-		done := make(chan struct{})
-		req := &commandReq{
-			done: done,
-			w:    c.Writer,
-		}
-
-		req.token = c.Param("token")
-
-		br.cmdReq <- req
-		<-done
-	})
-
 	authorized.POST("/cmd/:devid", func(c *gin.Context) {
 		allowOrigin(c.Writer)
 
-		done := make(chan struct{})
-		req := &commandReq{
-			done:  done,
-			w:     c.Writer,
-			devid: c.Param("devid"),
-		}
-
-		content, err := ioutil.ReadAll(c.Request.Body)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		sid := jsoniter.Get(content, "sid").ToString()
-		if _, ok := httpSessions.Get(sid); !ok {
-			c.Status(http.StatusForbidden)
-			return
-		}
-
-		req.content = content
-
-		br.cmdReq <- req
-		<-done
+		handleCmdReq(br, c)
 	})
 
 	r.Any("/web/:devid/:addr/*path", func(c *gin.Context) {
-		webReqRedirect(br, cfg, c)
+		webReqRedirect(br, c)
 	})
 
 	r.GET("/authorized/:devid", func(c *gin.Context) {
@@ -196,7 +160,7 @@ func httpStart(br *broker) {
 		}
 
 		if httpLogin(cfg, &creds) {
-			sid := genUniqueID("http")
+			sid := utils.GenUniqueID("http")
 			httpSessions.Set(sid, true, 0)
 
 			c.SetCookie("sid", sid, 0, "", "", false, true)
@@ -223,13 +187,15 @@ func httpStart(br *broker) {
 		http.FileServer(statikFS).ServeHTTP(c.Writer, c.Request)
 	})
 
-	if cfg.sslCert != "" && cfg.sslKey != "" {
-		log.Info().Msgf("Listen user on: %s SSL on", cfg.addrUser)
-		err = r.RunTLS(cfg.addrUser, cfg.sslCert, cfg.sslKey)
-	} else {
-		log.Info().Msgf("Listen user on: %s SSL off", cfg.addrUser)
-		err = r.Run(cfg.addrUser)
-	}
+	go func() {
+		if cfg.SslCert != "" && cfg.SslKey != "" {
+			log.Info().Msgf("Listen user on: %s SSL on", cfg.AddrUser)
+			err = r.RunTLS(cfg.AddrUser, cfg.SslCert, cfg.SslKey)
+		} else {
+			log.Info().Msgf("Listen user on: %s SSL off", cfg.AddrUser)
+			err = r.Run(cfg.AddrUser)
+		}
 
-	log.Fatal().Err(err)
+		log.Fatal().Err(err)
+	}()
 }

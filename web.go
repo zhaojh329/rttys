@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -15,7 +16,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
+	"github.com/zhaojh329/rttys/client"
+	"github.com/zhaojh329/rttys/utils"
 )
+
+type webSession struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+}
 
 type webNewCon struct {
 	r *http.Request // First request
@@ -24,19 +32,19 @@ type webNewCon struct {
 }
 
 type webCon struct {
-	dev *device
+	dev client.Client
 	c   net.Conn
 }
 
 type webReq struct {
 	addr []byte
 	data []byte
-	dev  *device
+	dev  client.Client
 }
 
 type webResp struct {
 	data []byte
-	dev  *device
+	dev  client.Client
 }
 
 var webCons = make(map[string]map[string]*webCon)
@@ -46,11 +54,11 @@ func handleWebReq(req *webReq) {
 	dev := req.dev
 
 	if req.data == nil {
-		delete(webCons[dev.id], string(req.addr))
+		delete(webCons[dev.DeviceID()], string(req.addr))
 		return
 	}
 
-	dev.writeMsg(msgTypeWeb, req.data)
+	dev.WriteMsg(msgTypeWeb, req.data)
 }
 
 func handleWebResp(resp *webResp) {
@@ -62,7 +70,7 @@ func handleWebResp(resp *webResp) {
 		return
 	}
 
-	devcons, ok := webCons[resp.dev.id]
+	devcons, ok := webCons[resp.dev.DeviceID()]
 	if !ok {
 		return
 	}
@@ -77,7 +85,7 @@ func handleWebResp(resp *webResp) {
 	c.Write(data)
 }
 
-func makeWebReqMsg(br *broker, dev *device, srcAddr []byte, r *http.Request, hostHeaderRewrite string, destAddr []byte) {
+func makeWebReqMsg(br *broker, dev client.Client, srcAddr []byte, r *http.Request, hostHeaderRewrite string, destAddr []byte) {
 	req := append([]byte{}, srcAddr...)
 	req = append(req, destAddr...)
 	req = append(req, r.Method...)
@@ -150,23 +158,7 @@ func handleWebCon(br *broker, wc *webNewCon) {
 	c := wc.c
 	r := wc.r
 
-	cookie, err := r.Cookie("rtty-web-sid")
-	if err != nil {
-		c.Close()
-		return
-	}
-	sid := cookie.Value
-
-	var done chan struct{}
-	if v, ok := webSessions.Get(sid); ok {
-		webSessions.Active(sid, 0)
-		done = v.(chan struct{})
-	} else {
-		c.Close()
-		return
-	}
-
-	cookie, err = r.Cookie("rtty-web-devid")
+	cookie, err := r.Cookie("rtty-web-devid")
 	if err != nil {
 		c.Close()
 		return
@@ -175,6 +167,24 @@ func handleWebCon(br *broker, wc *webNewCon) {
 
 	dev, ok := br.devices[devid]
 	if !ok {
+		c.Close()
+		return
+	}
+
+	cookie, err = r.Cookie("rtty-web-sid")
+	if err != nil {
+		c.Close()
+		return
+	}
+	sid := cookie.Value
+
+	var ctx context.Context
+	var cancel context.CancelFunc
+
+	if v, ok := webSessions.Get(sid); ok {
+		webSessions.Active(sid, 0)
+		ctx, cancel = context.WithCancel(v.(*webSession).ctx)
+	} else {
 		c.Close()
 		return
 	}
@@ -195,13 +205,10 @@ func handleWebCon(br *broker, wc *webNewCon) {
 
 	webCons[devid][string(srcAddr)] = &webCon{dev, c}
 
-	readEnd := make(chan struct{})
-
 	go func() {
 		defer func() {
 			br.webReq <- &webReq{srcAddr, nil, dev}
-			c.Close()
-			close(readEnd)
+			cancel()
 		}()
 
 		makeWebReqMsg(br, dev, srcAddr, r, hostHeaderRewrite, destAddr)
@@ -217,51 +224,53 @@ func handleWebCon(br *broker, wc *webNewCon) {
 
 	go func() {
 		select {
-		case <-done:
+		case <-ctx.Done():
 			c.Close()
-		case <-readEnd:
 		}
 	}()
 }
 
-func listenDeviceWeb(br *broker) error {
+func listenDeviceWeb(br *broker) {
 	cfg := br.cfg
 
-	addr, err := net.ResolveTCPAddr("tcp", cfg.addrWeb)
+	addr, err := net.ResolveTCPAddr("tcp", cfg.AddrWeb)
 	if err != nil {
-		return err
+		log.Fatal().Msg(err.Error())
 	}
-	cfg.webPort = addr.Port
+	cfg.WebPort = addr.Port
 
 	webSessions = cache.New(30*time.Minute, 5*time.Second)
 
-	log.Info().Msgf("Listen dev web on: %s", cfg.addrWeb)
+	log.Info().Msgf("Listen dev web on: %s", cfg.AddrWeb)
 
-	ln, err := net.Listen("tcp", cfg.addrWeb)
+	ln, err := net.Listen("tcp", cfg.AddrWeb)
 	if err != nil {
-		return err
+		log.Fatal().Msg(err.Error())
 	}
-	defer ln.Close()
 
-	for {
-		c, err := ln.Accept()
-		if err != nil {
-			log.Error().Msg(err.Error())
-			continue
-		}
+	go func() {
+		defer ln.Close()
 
-		go func() {
-			b := bufio.NewReader(c)
-
-			r, err := http.ReadRequest(b)
+		for {
+			c, err := ln.Accept()
 			if err != nil {
-				c.Close()
-				return
+				log.Error().Msg(err.Error())
+				continue
 			}
 
-			br.webCon <- &webNewCon{r, b, c}
-		}()
-	}
+			go func() {
+				b := bufio.NewReader(c)
+
+				r, err := http.ReadRequest(b)
+				if err != nil {
+					c.Close()
+					return
+				}
+
+				br.webCon <- &webNewCon{r, b, c}
+			}()
+		}
+	}()
 }
 
 func webReqVaildAddr(addr string) (net.IP, uint16, error) {
@@ -286,7 +295,8 @@ func webReqVaildAddr(addr string) (net.IP, uint16, error) {
 	return ip, uint16(port), nil
 }
 
-func webReqRedirect(br *broker, cfg *rttysConfig, c *gin.Context) {
+func webReqRedirect(br *broker, c *gin.Context) {
+	cfg := br.cfg
 	devid := c.Param("devid")
 	addr := c.Param("addr")
 	path := c.Param("path")
@@ -303,7 +313,7 @@ func webReqRedirect(br *broker, cfg *rttysConfig, c *gin.Context) {
 		return
 	}
 
-	location := cfg.webRedirUrl
+	location := cfg.WebRedirURL
 
 	if location == "" {
 		host, _, err := net.SplitHostPort(c.Request.Host)
@@ -311,8 +321,8 @@ func webReqRedirect(br *broker, cfg *rttysConfig, c *gin.Context) {
 			host = c.Request.Host
 		}
 		location = "http://" + host
-		if cfg.webPort != 80 {
-			location += fmt.Sprintf(":%d", cfg.webPort)
+		if cfg.WebPort != 80 {
+			location += fmt.Sprintf(":%d", cfg.WebPort)
 		}
 	}
 
@@ -323,15 +333,15 @@ func webReqRedirect(br *broker, cfg *rttysConfig, c *gin.Context) {
 	sid, err := c.Cookie("rtty-web-sid")
 	if err == nil {
 		if v, ok := webSessions.Get(sid); ok {
-			ch := v.(chan struct{})
+			v.(*webSession).cancel()
 			webSessions.Del(sid)
-			close(ch)
 		}
 	}
 
-	sid = genUniqueID("web")
+	sid = utils.GenUniqueID("web")
 
-	webSessions.Set(sid, make(chan struct{}), 0)
+	ctx, cancel := context.WithCancel(context.Background())
+	webSessions.Set(sid, &webSession{ctx, cancel}, 0)
 
 	c.SetCookie("rtty-web-sid", sid, 0, "", "", false, true)
 	c.SetCookie("rtty-web-devid", devid, 0, "", "", false, true)

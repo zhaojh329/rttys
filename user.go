@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
+	"github.com/zhaojh329/rttys/client"
 
 	"net/http"
 )
@@ -27,9 +28,9 @@ type user struct {
 }
 
 type usrMessage struct {
-	sid     string
-	msgType int
-	data    []byte
+	sid  string
+	typ  int
+	data []byte
 }
 
 var upgrader = websocket.Upgrader{
@@ -38,11 +39,19 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func (u *user) writeMessage(messageType int, data []byte) {
-	u.conn.WriteMessage(messageType, data)
+func (u *user) IsDevice() bool {
+	return false
 }
 
-func (u *user) close() {
+func (u *user) DeviceID() string {
+	return u.devid
+}
+
+func (u *user) WriteMsg(typ int, data []byte) {
+	u.conn.WriteMessage(typ, data)
+}
+
+func (u *user) Close() {
 	defer u.closeMutex.Unlock()
 
 	u.closeMutex.Lock()
@@ -50,20 +59,20 @@ func (u *user) close() {
 	if !u.closed {
 		u.closed = true
 		u.conn.Close()
-		u.br.logout <- u.sid
+		u.br.unregister <- u
 	}
 }
 
-func (u *user) loginAck(code int) {
+func userLoginAck(code int, c client.Client) {
 	msg := fmt.Sprintf(`{"type":"login","err":%d}`, code)
-	u.writeMessage(websocket.TextMessage, []byte(msg))
+	c.WriteMsg(websocket.TextMessage, []byte(msg))
 }
 
 func (u *user) readLoop() {
-	defer u.close()
+	defer u.Close()
 
 	for {
-		msgType, data, err := u.conn.ReadMessage()
+		typ, data, err := u.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Error().Msg(err.Error())
@@ -71,7 +80,7 @@ func (u *user) readLoop() {
 			break
 		}
 
-		u.br.userMessage <- &usrMessage{u.sid, msgType, data}
+		u.br.userMessage <- &usrMessage{u.sid, typ, data}
 	}
 }
 
@@ -97,5 +106,5 @@ func serveUser(br *broker, c *gin.Context) {
 
 	go u.readLoop()
 
-	br.login <- u
+	br.register <- u
 }

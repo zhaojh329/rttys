@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/binary"
@@ -37,65 +38,36 @@ type device struct {
 	uptime     uint32
 	token      string
 	conn       net.Conn
-	loginMutex sync.Mutex
-	u          *user /* User who is wait login */
 	active     time.Time
 	closeMutex sync.Mutex
 	closed     bool
-	closeCh    chan struct{}
+	cancel     context.CancelFunc
 }
 
-type devMessage struct {
-	devid     string
-	sid       uint8
-	data      []byte
-	isFileMsg bool
+type termMessage struct {
+	sid  string
+	data []byte
 }
 
-func (dev *device) login(u *user) bool {
-	defer dev.loginMutex.Unlock()
+type loginAckMsg struct {
+	devid  string
+	sid    byte
+	isBusy bool
+}
 
-	dev.loginMutex.Lock()
-
-	if dev.u != nil {
-		return false
-	}
-
-	dev.u = u
-	dev.writeMsg(msgTypeLogin, []byte{})
+func (dev *device) IsDevice() bool {
 	return true
 }
 
-func (dev *device) handleLogin(code byte, sid byte) {
-	defer dev.loginMutex.Unlock()
-
-	dev.loginMutex.Lock()
-
-	if dev.u == nil {
-		return
-	}
-
-	u := dev.u
-	dev.u = nil
-
-	if code == 1 {
-		log.Error().Msg("login fail, device busy")
-		u.loginAck(loginErrorBusy)
-		return
-	}
-
-	dev.br.newSession <- &session{dev, u, sid}
+func (dev *device) DeviceID() string {
+	return dev.id
 }
 
-func (dev *device) logout(sid byte) {
-	dev.writeMsg(msgTypeLogout, []byte{sid})
-}
-
-func (dev *device) keepAlive() {
+func (dev *device) keepAlive(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	ninactive := 0
 
+	ninactive := 0
 	lastHeartbeat := time.Now()
 
 	for {
@@ -106,7 +78,7 @@ func (dev *device) keepAlive() {
 				log.Error().Msgf("Inactive device in long time: %s", dev.id)
 				if ninactive > 1 {
 					log.Error().Msgf("Inactive 3 times, now kill it: %s", dev.id)
-					dev.close()
+					dev.Close()
 					return
 				}
 				ninactive = ninactive + 1
@@ -114,32 +86,34 @@ func (dev *device) keepAlive() {
 
 			if now.Sub(lastHeartbeat) > heartbeatInterval-1 {
 				lastHeartbeat = now
-				dev.writeMsg(msgTypeHeartbeat, []byte{})
+				dev.WriteMsg(msgTypeHeartbeat, []byte{})
 			}
-		case <-dev.closeCh:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (dev *device) close() {
+func (dev *device) Close() {
 	defer dev.closeMutex.Unlock()
 
 	dev.closeMutex.Lock()
 
 	if !dev.closed {
 		dev.closed = true
-		time.AfterFunc(time.Second, func() {
-			dev.br.unregister <- dev
-			close(dev.closeCh)
-			dev.conn.Close()
-			log.Info().Msgf("Device '%s' closed", dev.id)
-		})
+
+		dev.conn.Close()
+
+		dev.cancel()
+
+		dev.br.unregister <- dev
+
+		log.Info().Msgf("Device '%s' closed", dev.id)
 	}
 }
 
-func (dev *device) writeMsg(typ byte, data []byte) {
-	b := []byte{typ, 0, 0}
+func (dev *device) WriteMsg(typ int, data []byte) {
+	b := []byte{byte(typ), 0, 0}
 
 	binary.BigEndian.PutUint16(b[1:], uint16(len(data)))
 
@@ -165,7 +139,7 @@ func parseHeartbeat(dev *device, b []byte) {
 }
 
 func (dev *device) readLoop() {
-	defer dev.close()
+	defer dev.Close()
 
 	br := bufio.NewReader(dev.conn)
 
@@ -206,17 +180,23 @@ func (dev *device) readLoop() {
 			if code == 0 {
 				sid = b[1]
 			}
-			dev.handleLogin(code, sid)
+			dev.br.loginAck <- &loginAckMsg{dev.id, sid, code == 1}
 
 		case msgTypeLogout:
-			sid := b[0]
-			dev.br.logout <- dev.id + string(sid+'0')
+			dev.br.logout <- dev.id + string(b[0]+'0')
 
 		case msgTypeTermData:
 			fallthrough
 		case msgTypeFile:
-			sid := b[0]
-			dev.br.devMessage <- &devMessage{dev.id, sid, b[1:], typ == msgTypeFile}
+			sid := dev.id + string(b[0]+'0')
+
+			if typ == msgTypeFile {
+				b[0] = 1
+			} else {
+				b[0] = 0
+			}
+
+			dev.br.termMessage <- &termMessage{sid, b}
 
 		case msgTypeCmd:
 			dev.br.cmdMessage <- b
@@ -226,6 +206,7 @@ func (dev *device) readLoop() {
 
 		case msgTypeHeartbeat:
 			parseHeartbeat(dev, b)
+
 		default:
 			log.Error().Msgf("invalid msg type: %d", typ)
 		}
@@ -235,14 +216,13 @@ func (dev *device) readLoop() {
 func listenDevice(br *broker) {
 	cfg := br.cfg
 
-	ln, err := net.Listen("tcp", cfg.addrDev)
+	ln, err := net.Listen("tcp", cfg.AddrDev)
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
-	defer ln.Close()
 
-	if cfg.sslCert != "" && cfg.sslKey != "" {
-		crt, err := tls.LoadX509KeyPair(cfg.sslCert, cfg.sslKey)
+	if cfg.SslCert != "" && cfg.SslKey != "" {
+		crt, err := tls.LoadX509KeyPair(cfg.SslCert, cfg.SslKey)
 		if err != nil {
 			log.Fatal().Msg(err.Error())
 		}
@@ -253,27 +233,33 @@ func listenDevice(br *broker) {
 		tlsConfig.Rand = rand.Reader
 
 		ln = tls.NewListener(ln, tlsConfig)
-		log.Info().Msgf("Listen device on: %s SSL on", cfg.addrDev)
+		log.Info().Msgf("Listen device on: %s SSL on", cfg.AddrDev)
 	} else {
-		log.Info().Msgf("Listen device on: %s SSL off", cfg.addrDev)
+		log.Info().Msgf("Listen device on: %s SSL off", cfg.AddrDev)
 	}
 
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Error().Msg(err.Error())
-			continue
-		}
+	go func() {
+		defer ln.Close()
 
-		dev := &device{
-			br:        br,
-			conn:      conn,
-			closeCh:   make(chan struct{}),
-			active:    time.Now(),
-			timestamp: time.Now().Unix(),
-		}
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				log.Error().Msg(err.Error())
+				continue
+			}
 
-		go dev.readLoop()
-		go dev.keepAlive()
-	}
+			ctx, cancel := context.WithCancel(context.Background())
+
+			dev := &device{
+				br:        br,
+				conn:      conn,
+				cancel:    cancel,
+				active:    time.Now(),
+				timestamp: time.Now().Unix(),
+			}
+
+			go dev.readLoop()
+			go dev.keepAlive(ctx)
+		}
+	}()
 }
