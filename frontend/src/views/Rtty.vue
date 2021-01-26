@@ -119,6 +119,11 @@
 
       this.sendFileInfo(options.file);
 
+      if (options.file.size === 0) {
+        this.sendFileData(MsgTypeFileData, null);
+        return;
+      }
+
       const fr = new FileReader();
       let offset = 0;
 
