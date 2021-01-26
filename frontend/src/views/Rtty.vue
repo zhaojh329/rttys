@@ -31,6 +31,8 @@
   const MsgTypeFileData = 0x02;
   const MsgTypeFileCanceled = 0x03;
 
+  const ReadFileBlkSize = 16 * 1024;
+
   @Component
   export default class Rtty extends Vue {
     @Prop(String) devid!: string;
@@ -141,12 +143,12 @@
         this.sendFileData(MsgTypeFileData, Buffer.from(fr.result as ArrayBuffer));
 
         if (offset < options.file.size) {
-          this.readFileBlob(fr, options.file, offset, 4096);
+          this.readFileBlob(fr, options.file, offset, ReadFileBlkSize);
           return;
         }
         this.sendFileData(MsgTypeFileData, null);
       };
-      this.readFileBlob(fr, options.file, offset, 4096);
+      this.readFileBlob(fr, options.file, offset, ReadFileBlkSize);
     }
 
     sendTermData(data: string): void {
