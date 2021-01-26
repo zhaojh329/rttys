@@ -3,7 +3,7 @@
     <div ref="terminal" :style="{height: termHeight + 'px'}" @contextmenu.prevent="showContextmenu"/>
     <el-dialog ref="dialog" :visible.sync="file.modal" :title="$t('Upload file to device')" width="350px"
                @close="onUploadDialogClosed">
-      <el-upload ref="upload" action="" :auto-upload="false" :http-request="doUploadFile">
+      <el-upload ref="upload" action="" :auto-upload="false" :file-list="file.list" :on-change="handleFileChange" :http-request="doUploadFile">
         <el-button slot="trigger" size="small" type="primary">{{ $t("Select file") }}</el-button>
         <el-button style="margin-left: 10px;" size="small" type="success" @click="submitUploadFile">{{ $t('Upload') }}
         </el-button>
@@ -37,6 +37,7 @@
     disposables: IDisposable[] = [];
     file = {
       name: '',
+      list: [],
       modal: false,
       recving: false,
       accepted: false,
@@ -92,9 +93,14 @@
 
     onUploadDialogClosed() {
       this.term?.focus();
+      this.file.list = [];
       if (this.file.accepted)
         return;
       this.sendFileData(MsgTypeFileCanceled, null);
+    }
+
+    handleFileChange(file, fileList) {
+      this.file.list = fileList.slice(-1);
     }
 
     submitUploadFile() {
