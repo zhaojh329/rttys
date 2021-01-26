@@ -143,7 +143,7 @@
     }
 
     sendFileData(type: number, data: Uint8Array | null): void {
-      const buf = [];
+      const buf: Array<Buffer> = new Array<Buffer>();
       buf.push(Buffer.from([1, type]));
       if (data !== null)
         buf.push(Buffer.from(data));
