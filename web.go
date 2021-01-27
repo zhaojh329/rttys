@@ -346,5 +346,6 @@ func webReqRedirect(br *broker, c *gin.Context) {
 	c.SetCookie("rtty-web-sid", sid, 0, "", "", false, true)
 	c.SetCookie("rtty-web-devid", devid, 0, "", "", false, true)
 	c.SetCookie("rtty-web-destaddr", addr, 0, "", "", false, true)
+
 	c.Redirect(http.StatusFound, location)
 }
