@@ -3,9 +3,9 @@
     <div ref="terminal" :style="{height: termHeight + 'px'}" @contextmenu.prevent="showContextmenu"/>
     <el-dialog ref="dialog" :visible.sync="file.modal" :title="$t('Upload file to device')" width="350px"
                @close="onUploadDialogClosed">
-      <el-upload ref="upload" action="" :auto-upload="false" :file-list="file.list" :on-change="handleFileChange" :http-request="doUploadFile">
+      <el-upload ref="upload" action="" :auto-upload="false" :file-list="file.list" :on-remove="onFileRemove" :on-change="onFileChange" :http-request="doUploadFile">
         <el-button slot="trigger" size="small" type="primary">{{ $t("Select file") }}</el-button>
-        <el-button style="margin-left: 10px;" size="small" type="success" @click="submitUploadFile">{{ $t('Upload') }}
+        <el-button style="margin-left: 10px;" size="small" type="success" :disabled="file.list.length < 1" @click="submitUploadFile">{{ $t('Upload') }}
         </el-button>
       </el-upload>
     </el-dialog>
@@ -39,7 +39,7 @@
     disposables: IDisposable[] = [];
     file = {
       name: '',
-      list: [],
+      list: [] as File[],
       modal: false,
       recving: false,
       accepted: false,
@@ -101,8 +101,12 @@
       this.sendFileData(MsgTypeFileCanceled, null);
     }
 
-    handleFileChange(file, fileList) {
-      this.file.list = fileList.slice(-1);
+    onFileRemove() {
+      this.file.list = [];
+    }
+
+    onFileChange(file: File) {
+      this.file.list = [file];
     }
 
     submitUploadFile() {
