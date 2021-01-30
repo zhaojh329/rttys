@@ -126,6 +126,11 @@
     }
 
     doUploadFile(options: HttpRequestOptions) {
+      if (options.file.size > 0xffffffff) {
+        this.$message.error(this.$t('The file you will upload is too large(> 4294967295 Byte)').toString());
+        return;
+      }
+
       this.file.accepted = true;
       this.file.modal = false;
 

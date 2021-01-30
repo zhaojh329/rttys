@@ -48,5 +48,6 @@
   "Font Size-": "减小字体",
   "Access your device's Shell": "访问您的设备的 Shell",
   "Access your devices's Web": "访问您的设备的 Web",
-  "Please enter the address you want to access": "请输入您要访问的地址"
+  "Please enter the address you want to access": "请输入您要访问的地址",
+  "The file you will upload is too large(> 4294967295 Byte)": "您要上传的文件太大了(> 4294967295 Byte)"
 }
