@@ -68,7 +68,7 @@ func (br *broker) run() {
 					log.Error().Msg("Device ID conflicting: " + devid)
 					msg = "ID conflicting"
 					err = 1
-				} else if c.(*device).token != br.cfg.Token {
+				} else if br.cfg.Token != "" && c.(*device).token != br.cfg.Token {
 					log.Error().Msg("Invalid token from terminal device")
 					msg = "Invalid token"
 					err = 1
