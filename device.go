@@ -112,12 +112,14 @@ func (dev *device) Close() {
 	}
 }
 
-func (dev *device) WriteMsg(typ int, data []byte) {
+func (dev *device) WriteMsg(typ int, data []byte) error {
 	b := []byte{byte(typ), 0, 0}
 
 	binary.BigEndian.PutUint16(b[1:], uint16(len(data)))
 
-	dev.conn.Write(append(b, data...))
+	_, err := dev.conn.Write(append(b, data...))
+
+	return err
 }
 
 func parseDeviceInfo(b []byte) (string, string, string) {

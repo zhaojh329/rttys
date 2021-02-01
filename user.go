@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -47,8 +48,8 @@ func (u *user) DeviceID() string {
 	return u.devid
 }
 
-func (u *user) WriteMsg(typ int, data []byte) {
-	u.conn.WriteMessage(typ, data)
+func (u *user) WriteMsg(typ int, data []byte) error {
+	return u.conn.WriteMessage(typ, data)
 }
 
 func (u *user) Close() {
@@ -66,6 +67,17 @@ func (u *user) Close() {
 func userLoginAck(code int, c client.Client) {
 	msg := fmt.Sprintf(`{"type":"login","err":%d}`, code)
 	c.WriteMsg(websocket.TextMessage, []byte(msg))
+}
+
+func (u *user) keepAlive() {
+	for {
+		err := u.WriteMsg(websocket.PingMessage, []byte{})
+		if err != nil {
+			return
+		}
+
+		time.Sleep(time.Second * 5)
+	}
 }
 
 func (u *user) readLoop() {
@@ -104,6 +116,7 @@ func serveUser(br *broker, c *gin.Context) {
 		devid: devid,
 	}
 
+	go u.keepAlive()
 	go u.readLoop()
 
 	br.register <- u
