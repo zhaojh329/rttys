@@ -114,10 +114,15 @@
     }
 
     sendFileInfo(file: File) {
-      const b = Buffer.alloc(4 + file.name.length);
-      b.writeUInt32BE(file.size, 0);
-      b.write(file.name, 4);
-      this.sendFileData(MsgTypeFileInfo, b);
+      const buf: Array<Buffer> = new Array<Buffer>();
+
+      const b = Buffer.alloc(4);
+      b.writeUInt32BE(file.size)
+      buf.push(b);
+
+      buf.push(Buffer.from(file.name));
+
+      this.sendFileData(MsgTypeFileInfo, Buffer.concat(buf));
     }
 
     readFileBlob(fr: FileReader, file: File, offset: number, size: number) {
