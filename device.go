@@ -63,6 +63,50 @@ func (dev *device) DeviceID() string {
 	return dev.id
 }
 
+func (dev *device) WriteMsg(typ int, data []byte) {
+	b := []byte{byte(typ), 0, 0}
+
+	binary.BigEndian.PutUint16(b[1:], uint16(len(data)))
+
+	dev.conn.Write(append(b, data...))
+}
+
+func (dev *device) Close() {
+	defer dev.closeMutex.Unlock()
+
+	dev.closeMutex.Lock()
+
+	if !dev.closed {
+		dev.closed = true
+
+		dev.conn.Close()
+
+		dev.cancel()
+
+		dev.br.unregister <- dev
+
+		log.Info().Msgf("Device '%s' closed", dev.id)
+	}
+}
+
+func parseDeviceInfo(b []byte) (string, string, string) {
+	fields := bytes.Split(b, []byte{0})
+
+	id := string(fields[0])
+	desc := string(fields[1])
+	token := string(fields[2])
+
+	return id, desc, token
+}
+
+func parseHeartbeat(dev *device, b []byte) {
+	// Old rtty not support this
+	if len(b) < 4 {
+		return
+	}
+	dev.uptime = binary.BigEndian.Uint32(b[:4])
+}
+
 func (dev *device) keepAlive(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -92,52 +136,6 @@ func (dev *device) keepAlive(ctx context.Context) {
 			return
 		}
 	}
-}
-
-func (dev *device) Close() {
-	defer dev.closeMutex.Unlock()
-
-	dev.closeMutex.Lock()
-
-	if !dev.closed {
-		dev.closed = true
-
-		dev.conn.Close()
-
-		dev.cancel()
-
-		dev.br.unregister <- dev
-
-		log.Info().Msgf("Device '%s' closed", dev.id)
-	}
-}
-
-func (dev *device) WriteMsg(typ int, data []byte) error {
-	b := []byte{byte(typ), 0, 0}
-
-	binary.BigEndian.PutUint16(b[1:], uint16(len(data)))
-
-	_, err := dev.conn.Write(append(b, data...))
-
-	return err
-}
-
-func parseDeviceInfo(b []byte) (string, string, string) {
-	fields := bytes.Split(b, []byte{0})
-
-	id := string(fields[0])
-	desc := string(fields[1])
-	token := string(fields[2])
-
-	return id, desc, token
-}
-
-func parseHeartbeat(dev *device, b []byte) {
-	// Old rtty not support this
-	if len(b) < 4 {
-		return
-	}
-	dev.uptime = binary.BigEndian.Uint32(b[:4])
 }
 
 func (dev *device) readLoop() {

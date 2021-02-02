@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -26,6 +27,8 @@ type user struct {
 	conn       *websocket.Conn
 	closeMutex sync.Mutex
 	closed     bool
+	cancel     context.CancelFunc
+	send       chan *usrMessage // Buffered channel of outbound messages.
 }
 
 type usrMessage struct {
@@ -48,8 +51,11 @@ func (u *user) DeviceID() string {
 	return u.devid
 }
 
-func (u *user) WriteMsg(typ int, data []byte) error {
-	return u.conn.WriteMessage(typ, data)
+func (u *user) WriteMsg(typ int, data []byte) {
+	u.send <- &usrMessage{
+		typ:  typ,
+		data: data,
+	}
 }
 
 func (u *user) Close() {
@@ -59,6 +65,7 @@ func (u *user) Close() {
 
 	if !u.closed {
 		u.closed = true
+		u.cancel()
 		u.conn.Close()
 		u.br.unregister <- u
 	}
@@ -69,14 +76,17 @@ func userLoginAck(code int, c client.Client) {
 	c.WriteMsg(websocket.TextMessage, []byte(msg))
 }
 
-func (u *user) keepAlive() {
+func (u *user) keepAlive(ctx context.Context) {
+	ticker := time.NewTicker(time.Second * 5)
+	defer ticker.Stop()
+
 	for {
-		err := u.WriteMsg(websocket.PingMessage, []byte{})
-		if err != nil {
+		select {
+		case <-ticker.C:
+			u.WriteMsg(websocket.PingMessage, []byte{})
+		case <-ctx.Done():
 			return
 		}
-
-		time.Sleep(time.Second * 5)
 	}
 }
 
@@ -96,6 +106,23 @@ func (u *user) readLoop() {
 	}
 }
 
+func (u *user) writeLoop(ctx context.Context) {
+	defer u.Close()
+
+	for {
+		select {
+		case msg := <-u.send:
+			err := u.conn.WriteMessage(msg.typ, msg.data)
+			if err != nil {
+				log.Error().Msg(err.Error())
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func serveUser(br *broker, c *gin.Context) {
 	devid := c.Param("devid")
 	if devid == "" {
@@ -110,14 +137,19 @@ func serveUser(br *broker, c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	u := &user{
-		br:    br,
-		conn:  conn,
-		devid: devid,
+		br:     br,
+		conn:   conn,
+		devid:  devid,
+		cancel: cancel,
+		send:   make(chan *usrMessage, 256),
 	}
 
-	go u.keepAlive()
 	go u.readLoop()
+	go u.keepAlive(ctx)
+	go u.writeLoop(ctx)
 
 	br.register <- u
 }
