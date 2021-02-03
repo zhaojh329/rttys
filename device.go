@@ -89,14 +89,18 @@ func (dev *device) Close() {
 	}
 }
 
-func parseDeviceInfo(b []byte) (string, string, string) {
+func parseDeviceInfo(b []byte) (string, string, string, bool) {
 	fields := bytes.Split(b, []byte{0})
+
+	if len(fields) < 3 {
+		return "", "", "", false
+	}
 
 	id := string(fields[0])
 	desc := string(fields[1])
 	token := string(fields[2])
 
-	return id, desc, token
+	return id, desc, token, true
 }
 
 func parseHeartbeat(dev *device, b []byte) {
@@ -168,26 +172,52 @@ func (dev *device) readLoop() {
 
 		switch typ {
 		case msgTypeRegister:
-			id, desc, token := parseDeviceInfo(b)
+			id, desc, token, ok := parseDeviceInfo(b)
+			if !ok {
+				log.Error().Msg("msgTypeRegister: invalid")
+				return
+			}
+
 			dev.id = id
 			dev.token = token
 			dev.desc = desc
 			dev.br.register <- dev
 
 		case msgTypeLogin:
+			if msgLen < 1 {
+				log.Error().Msg("msgTypeLogin: invalid")
+				return
+			}
+
 			code := b[0]
 			sid := byte(0)
+
 			if code == 0 {
+				if msgLen < 2 {
+					log.Error().Msg("msgTypeLogin: invalid")
+					return
+				}
+
 				sid = b[1]
 			}
 			dev.br.loginAck <- &loginAckMsg{dev.id, sid, code == 1}
 
 		case msgTypeLogout:
+			if msgLen < 1 {
+				log.Error().Msg("msgTypeLogout: invalid")
+				return
+			}
+
 			dev.br.logout <- dev.id + string(b[0]+'0')
 
 		case msgTypeTermData:
 			fallthrough
 		case msgTypeFile:
+			if msgLen < 1 {
+				log.Error().Msg("msgTypeTermData|msgTypeFile: invalid")
+				return
+			}
+
 			sid := dev.id + string(b[0]+'0')
 
 			if typ == msgTypeFile {
@@ -199,9 +229,19 @@ func (dev *device) readLoop() {
 			dev.br.termMessage <- &termMessage{sid, b}
 
 		case msgTypeCmd:
+			if msgLen < 1 {
+				log.Error().Msg("msgTypeCmd: invalid")
+				return
+			}
+
 			dev.br.cmdMessage <- b
 
 		case msgTypeWeb:
+			if msgLen < 18 {
+				log.Error().Msg("msgTypeWeb: invalid")
+				return
+			}
+
 			dev.br.webMessage <- &webResp{b, dev}
 
 		case msgTypeHeartbeat:
