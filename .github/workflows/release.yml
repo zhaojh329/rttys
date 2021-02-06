@@ -10,7 +10,7 @@ jobs:
       upload_url: ${{ steps.release.outputs.upload_url }} 
     steps:
       - id: changelog
-        uses: ardalanamini/auto-changelog@v1.1.0
+        uses: zhaojh329/auto-changelog@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - id: release
