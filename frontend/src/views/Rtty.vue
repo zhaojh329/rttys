@@ -26,24 +26,41 @@
 
   const LoginErrorOffline = 0x01;
   const LoginErrorBusy = 0x02;
+
   const MsgTypeFileStartDownload = 0x00;
   const MsgTypeFileInfo = 0x01;
   const MsgTypeFileData = 0x02;
-  const MsgTypeFileCanceled = 0x03;
+  const MsgTypeFileDataAck = 0x03;
+  const MsgTypeFileCanceled = 0x04;
 
   const ReadFileBlkSize = 16 * 1024;
+
+  interface FileContext {
+    name: string;
+    list: Array<File>;
+    modal: boolean;
+    recving: boolean;
+    accepted: boolean;
+    file: File | null;
+    offset: number;
+    readonly fr: FileReader;
+    buffer: Array<Uint8Array>;
+  }
 
   @Component
   export default class Rtty extends Vue {
     @Prop(String) devid!: string;
     disposables: IDisposable[] = [];
-    file = {
+    file: FileContext = {
       name: '',
-      list: [] as File[],
+      list: [],
       modal: false,
       recving: false,
       accepted: false,
-      buffer: [] as Uint8Array[]
+      file: null,
+      offset: 0,
+      fr: new FileReader(),
+      buffer: []
     };
     socket: WebSocket | undefined;
     term: Terminal | undefined;
@@ -146,23 +163,19 @@
         return;
       }
 
-      const fr = new FileReader();
-      let offset = 0;
+      this.file.file = options.file;
+      this.file.offset = 0;
+
+      const fr = this.file.fr;
 
       fr.onload = e => {
         if (!this.file.recving)
           return;
-        offset += e.loaded;
+        this.file.offset += e.loaded;
 
         this.sendFileData(MsgTypeFileData, Buffer.from(fr.result as ArrayBuffer));
-
-        if (offset < options.file.size) {
-          this.readFileBlob(fr, options.file, offset, ReadFileBlkSize);
-          return;
-        }
-        this.sendFileData(MsgTypeFileData, null);
       };
-      this.readFileBlob(fr, options.file, offset, ReadFileBlkSize);
+      this.readFileBlob(fr, options.file, this.file.offset, ReadFileBlkSize);
     }
 
     sendTermData(data: string): void {
@@ -201,6 +214,7 @@
         case MsgTypeFileInfo:
           this.file.name = msg.toString();
           this.file.buffer = [];
+          this.sendFileData(MsgTypeFileDataAck, null);
           break;
         case MsgTypeFileData:
           if (msg.length === 0) {
@@ -216,7 +230,12 @@
             this.file.buffer = [];
           } else {
             this.file.buffer.push(msg);
+            this.sendFileData(MsgTypeFileDataAck, null);
           }
+          break;
+        case MsgTypeFileDataAck:
+          if (this.file.file && this.file.offset < this.file.file.size)
+              this.readFileBlob(this.file.fr, this.file.file, this.file.offset, ReadFileBlkSize);
           break;
         case MsgTypeFileCanceled:
           this.file.buffer = [];
