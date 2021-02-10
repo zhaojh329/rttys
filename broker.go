@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"crypto/x509"
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
@@ -32,6 +33,7 @@ type broker struct {
 	userMessage    chan *usrMessage
 	cmdMessage     chan []byte
 	webMessage     chan *webResp
+	devCertPool    *x509.CertPool
 }
 
 func newBroker(cfg *config.Config) *broker {

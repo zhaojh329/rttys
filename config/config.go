@@ -19,6 +19,7 @@ type Config struct {
 	WebPort      int
 	SslCert      string
 	SslKey       string
+	SslDevices   string
 	HTTPUsername string
 	HTTPPassword string
 	Token        string
@@ -49,6 +50,7 @@ func Parse(c *cli.Context) *Config {
 		WebRedirURL:  c.String("web-redir-url"),
 		SslCert:      c.String("ssl-cert"),
 		SslKey:       c.String("ssl-key"),
+		SslDevices:   c.String("ssl-devs"),
 		HTTPUsername: c.String("http-username"),
 		HTTPPassword: c.String("http-password"),
 		Token:        c.String("token"),
@@ -74,6 +76,7 @@ func Parse(c *cli.Context) *Config {
 		getConfigOpt(yamlCfg, "web-redir-url", &cfg.WebRedirURL)
 		getConfigOpt(yamlCfg, "ssl-cert", &cfg.SslCert)
 		getConfigOpt(yamlCfg, "ssl-key", &cfg.SslKey)
+		getConfigOpt(yamlCfg, "ssl-devs", &cfg.SslDevices)
 		getConfigOpt(yamlCfg, "http-username", &cfg.HTTPUsername)
 		getConfigOpt(yamlCfg, "http-password", &cfg.HTTPPassword)
 		getConfigOpt(yamlCfg, "token", &cfg.Token)
