@@ -276,7 +276,7 @@ func listenDevice(br *broker) {
 
 		caCert, err := ioutil.ReadFile(cfg.SslDevices)
 		if err != nil {
-			log.Info().Msgf("mTLS not used: %s", err.Error())
+			log.Warn().Msgf("mTLS not used: %s", err.Error())
 		} else {
 			br.devCertPool = x509.NewCertPool()
 			br.devCertPool.AppendCertsFromPEM(caCert)

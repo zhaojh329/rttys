@@ -56,12 +56,16 @@ func runRttys(c *cli.Context) {
 			s := <-sigs
 			switch s {
 			case syscall.SIGUSR1:
-				log.Info().Msg("Reload certs for mTLS")
-				caCert, err := ioutil.ReadFile(cfg.SslDevices)
-				if err != nil {
-					log.Info().Msgf("mTLS update faled: %s", err.Error())
+				if br.devCertPool != nil {
+					log.Info().Msg("Reload certs for mTLS")
+					caCert, err := ioutil.ReadFile(cfg.SslDevices)
+					if err != nil {
+						log.Info().Msgf("mTLS update faled: %s", err.Error())
+					} else {
+						br.devCertPool.AppendCertsFromPEM(caCert)
+					}
 				} else {
-					br.devCertPool.AppendCertsFromPEM(caCert)
+					log.Warn().Msg("Reload certs failed: mTLS not used")
 				}
 			}
 		}
