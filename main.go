@@ -131,6 +131,11 @@ func main() {
 						Usage: "ssl key file Path",
 					},
 					&cli.StringFlag{
+						Name:  "ssl-devs",
+						Value: "",
+						Usage: "mtls CA storage in PEM file Path",
+					},
+					&cli.StringFlag{
 						Name:  "http-username",
 						Value: "",
 						Usage: "username for http auth",
