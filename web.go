@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -241,11 +243,26 @@ func listenDeviceWeb(br *broker) {
 
 	webSessions = cache.New(30*time.Minute, 5*time.Second)
 
-	log.Info().Msgf("Listen dev web on: %s", cfg.AddrWeb)
-
 	ln, err := net.Listen("tcp", cfg.AddrWeb)
 	if err != nil {
 		log.Fatal().Msg(err.Error())
+	}
+
+	if cfg.SslCert != "" && cfg.SslKey != "" {
+		crt, err := tls.LoadX509KeyPair(cfg.SslCert, cfg.SslKey)
+		if err != nil {
+			log.Fatal().Msg(err.Error())
+		}
+
+		tlsConfig := &tls.Config{}
+		tlsConfig.Certificates = []tls.Certificate{crt}
+		tlsConfig.Time = time.Now
+		tlsConfig.Rand = rand.Reader
+
+		ln = tls.NewListener(ln, tlsConfig)
+		log.Info().Msgf("Listen dev web on: %s SSL on", cfg.AddrWeb)
+	} else {
+		log.Info().Msgf("Listen dev web on: %s SSL off", cfg.AddrWeb)
 	}
 
 	go func() {
@@ -320,7 +337,12 @@ func webReqRedirect(br *broker, c *gin.Context) {
 		if err != nil {
 			host = c.Request.Host
 		}
-		location = "http://" + host
+		if cfg.SslCert != "" && cfg.SslKey != "" {
+			location = "https://" + host
+		} else {
+			location = "http://" + host
+		}
+
 		if cfg.WebPort != 80 {
 			location += fmt.Sprintf(":%d", cfg.WebPort)
 		}
