@@ -6,8 +6,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/binary"
 	"io"
+	"io/ioutil"
 	"net"
 	"strings"
 	"sync"
@@ -271,6 +273,18 @@ func listenDevice(br *broker) {
 		tlsConfig.Certificates = []tls.Certificate{crt}
 		tlsConfig.Time = time.Now
 		tlsConfig.Rand = rand.Reader
+
+		caCert, err := ioutil.ReadFile(cfg.SslDevices)
+		if err != nil {
+			log.Warn().Msgf("mTLS not used: %s", err.Error())
+		} else {
+			br.devCertPool = x509.NewCertPool()
+			br.devCertPool.AppendCertsFromPEM(caCert)
+
+			// Create the TLS Config with the CA pool and enable Client certificate validation
+			tlsConfig.ClientCAs = br.devCertPool
+			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		}
 
 		ln = tls.NewListener(ln, tlsConfig)
 		log.Info().Msgf("Listen device on: %s SSL on", cfg.AddrDev)

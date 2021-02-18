@@ -5,7 +5,7 @@ GitCommit=$(git log --pretty=format:"%h" -1)
 BuildTime=$(date +%FT%T%z)
 
 [ $# -lt 2 ] && {
-	echo "Usage: $0 linux amb64"
+	echo "Usage: $0 linux amd64"
 	exit 1
 }
 
