@@ -42,7 +42,7 @@ Use token
     $ rttys run -t 34762d07637276694b938d23f10d7164
 
 ### mTLS
-You can enable mTLS by specifying device CA storage (valid file) in config file or from CLI (variable ssl-devs).
+You can enable mTLS by specifying device CA storage (valid file) in config file or from CLI (variable ssl-cacert).
 Appending to CA storage is possible on-the-fly, you can reload CA certs by sendig SIGUSR1 signal.
 Device(s) without valid CA in storage will be disconnected in TLS handshake.
 
