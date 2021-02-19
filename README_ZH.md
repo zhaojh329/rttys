@@ -43,7 +43,7 @@
 
 ### SSL 双向认证(mTLS)
 您可以在配置文件中指定设备 CA 存储(有效文件)或在 CLI 中指定设备 CA 存储(参数 ssl-cacert) 来启用 mTLS。
-您可以通过发送 SIGUSR1 信号重新加载 CA 证书。存储中没有有效 CA 的设备将在 TLS 握手中断开连接。
+存储中没有有效 CA 的设备将在 TLS 握手中断开连接。
 
 ## 作为Linux服务运行
 移动rttys可执行程序到/usr/local/bin/

@@ -2,11 +2,8 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
-	"os/signal"
 	"runtime"
-	"syscall"
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -20,8 +17,6 @@ func runRttys(c *cli.Context) {
 	rlog.SetPath(c.String("log"))
 
 	cfg := config.Parse(c)
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGUSR1)
 
 	if cfg.HTTPUsername == "" {
 		fmt.Println("You must configure the http username by commandline or config file")
@@ -50,26 +45,6 @@ func runRttys(c *cli.Context) {
 	listenDevice(br)
 	listenDeviceWeb(br)
 	httpStart(br)
-
-	go func() {
-		for {
-			s := <-sigs
-			switch s {
-			case syscall.SIGUSR1:
-				if br.devCertPool != nil {
-					log.Info().Msg("Reload certs for mTLS")
-					caCert, err := ioutil.ReadFile(cfg.SslCacert)
-					if err != nil {
-						log.Info().Msgf("mTLS update faled: %s", err.Error())
-					} else {
-						br.devCertPool.AppendCertsFromPEM(caCert)
-					}
-				} else {
-					log.Warn().Msg("Reload certs failed: mTLS not used")
-				}
-			}
-		}
-	}()
 
 	select {}
 }
