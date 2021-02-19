@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
-	"syscall"
 	"runtime"
-	"io/ioutil"
+	"syscall"
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
@@ -58,7 +58,7 @@ func runRttys(c *cli.Context) {
 			case syscall.SIGUSR1:
 				if br.devCertPool != nil {
 					log.Info().Msg("Reload certs for mTLS")
-					caCert, err := ioutil.ReadFile(cfg.SslDevices)
+					caCert, err := ioutil.ReadFile(cfg.SslCacert)
 					if err != nil {
 						log.Info().Msgf("mTLS update faled: %s", err.Error())
 					} else {
@@ -131,7 +131,7 @@ func main() {
 						Usage: "ssl key file Path",
 					},
 					&cli.StringFlag{
-						Name:  "ssl-devs",
+						Name:  "ssl-cacert",
 						Value: "",
 						Usage: "mtls CA storage in PEM file Path",
 					},

@@ -274,10 +274,10 @@ func listenDevice(br *broker) {
 		tlsConfig.Time = time.Now
 		tlsConfig.Rand = rand.Reader
 
-		if cfg.SslDevices == "" {
+		if cfg.SslCacert == "" {
 			log.Warn().Msgf("mTLS not enabled")
 		} else {
-			caCert, err := ioutil.ReadFile(cfg.SslDevices)
+			caCert, err := ioutil.ReadFile(cfg.SslCacert)
 			if err != nil {
 				log.Error().Msgf("mTLS not enabled: %s", err.Error())
 			} else {
