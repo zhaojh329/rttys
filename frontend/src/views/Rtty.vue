@@ -134,7 +134,7 @@
       const buf: Array<Buffer> = new Array<Buffer>();
 
       const b = Buffer.alloc(4);
-      b.writeUInt32BE(file.size)
+      b.writeUInt32BE(file.size, 0)
       buf.push(b);
 
       buf.push(Buffer.from(file.name));
