@@ -8,14 +8,13 @@
 [6]: https://github.com/zhaojh329/rttys/issues/new
 [7]: https://img.shields.io/badge/release-3.4.0-blue.svg?style=plastic
 [8]: https://github.com/zhaojh329/rttys/releases
-[9]: https://travis-ci.org/zhaojh329/rttys.svg?branch=master
-[10]: https://travis-ci.org/zhaojh329/rttys
+[9]: https://github.com/zhaojh329/rttys/workflows/build/badge.svg
 
 [![license][1]][2]
 [![PRs Welcome][3]][4]
 [![Issue Welcome][5]][6]
 [![Release Version][7]][8]
-[![Build Status][9]][10]
+![Build Status][9]
 
 This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 
