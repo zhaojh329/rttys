@@ -13,6 +13,15 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: 1.16.0
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '12'
+      - name: frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          cd ..
       - name: build
         env:
           target: ${{ matrix.target }}

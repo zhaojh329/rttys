@@ -21,12 +21,14 @@
 # 如何使用
 ## 从[Release](https://github.com/zhaojh329/rttys/releases)页面下载编译好的二进制文件或者自己编译
 
-    go get -u github.com/zhaojh329/rttys
+    git clone https://github.com/zhaojh329/rttys
 
-## 更新 statik
+    cd frontend
+    npm install
+    npm run build
+    cd ..
 
-	go get github.com/rakyll/statik
-	statik -src=frontend/dist
+    ./build.sh linux amd64
 
 ## 认证
 ### Token

@@ -1,18 +1,18 @@
 package main
 
 import (
+	"embed"
 	"net"
 	"net/http"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/rakyll/statik/fs"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
 	"github.com/zhaojh329/rttys/config"
-	_ "github.com/zhaojh329/rttys/statik"
 	"github.com/zhaojh329/rttys/utils"
 )
 
@@ -22,6 +22,9 @@ type credentials struct {
 }
 
 var httpSessions *cache.Cache
+
+//go:embed frontend/dist
+var static embed.FS
 
 func allowOrigin(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -171,23 +174,31 @@ func httpStart(br *broker) {
 		c.Status(http.StatusForbidden)
 	})
 
-	statikFS, err := fs.New()
-	if err != nil {
-		log.Fatal().Msg(err.Error())
-	}
-
 	r.NoRoute(func(c *gin.Context) {
-		f, err := statikFS.Open(path.Clean(c.Request.URL.Path))
-		if err != nil {
-			c.Request.URL.Path = "/"
+		if !strings.HasPrefix(c.Request.URL.Path, "/frontend/dist/") {
+			c.Request.URL.Path = "/frontend/dist" + c.Request.URL.Path
 			r.HandleContext(c)
 			return
 		}
-		f.Close()
-		http.FileServer(statikFS).ServeHTTP(c.Writer, c.Request)
+
+		p := path.Clean(c.Request.URL.Path)
+
+		if p != "/frontend/dist/" {
+			f, err := static.Open(p[1:])
+			if err != nil {
+				c.Request.URL.Path = "/frontend/dist/"
+				r.HandleContext(c)
+				return
+			}
+			f.Close()
+		}
+
+		http.FileServer(http.FS(static)).ServeHTTP(c.Writer, c.Request)
 	})
 
 	go func() {
+		var err error
+
 		if cfg.SslCert != "" && cfg.SslKey != "" {
 			log.Info().Msgf("Listen user on: %s SSL on", cfg.AddrUser)
 			err = r.RunTLS(cfg.AddrUser, cfg.SslCert, cfg.SslKey)

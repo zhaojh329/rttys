@@ -21,12 +21,14 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 # Usage
 ## download the pre-built release binary from [Release](https://github.com/zhaojh329/rttys/releases) page according to your os and arch or compile it by yourself.
 
-    go get -u github.com/zhaojh329/rttys
+    git clone https://github.com/zhaojh329/rttys
 
-## Update statik
+    cd frontend
+    npm install
+    npm run build
+    cd ..
 
-	go get github.com/rakyll/statik
-	statik -src=frontend/dist
+    ./build.sh linux amd64
 
 ## Authorization
 ### Token
