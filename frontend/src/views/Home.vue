@@ -236,7 +236,7 @@
     }
 
     connectDevice(devid: string) {
-      this.$router.push({path: `/rtty/${devid}`});
+      window.open('/rtty/' + devid);
     }
 
     connectDeviceWeb(devid: string) {
