@@ -342,7 +342,7 @@
     }
 
     dispose() {
-      this.$router.push('/');
+      this.term?.write('\n\n\r\x1B[1;3;31mConnection is closed.\x1B[0m');
     }
 
     destroyed() {
