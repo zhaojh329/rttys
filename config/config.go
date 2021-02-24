@@ -12,19 +12,18 @@ import (
 
 // Config struct
 type Config struct {
-	AddrDev      string
-	AddrUser     string
-	AddrWeb      string
-	WebRedirURL  string
-	WebPort      int
-	SslCert      string
-	SslKey       string
-	SslCacert    string // mTLS for device
-	HTTPUsername string
-	HTTPPassword string
-	Token        string
-	FontSize     int
-	WhiteList    map[string]bool
+	AddrDev     string
+	AddrUser    string
+	AddrWeb     string
+	WebRedirURL string
+	WebPort     int
+	SslCert     string
+	SslKey      string
+	SslCacert   string // mTLS for device
+	Token       string
+	FontSize    int
+	WhiteList   map[string]bool
+	DB          string
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
@@ -44,16 +43,15 @@ func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
 // Parse config
 func Parse(c *cli.Context) *Config {
 	cfg := &Config{
-		AddrDev:      c.String("addr-dev"),
-		AddrUser:     c.String("addr-user"),
-		AddrWeb:      c.String("addr-web"),
-		WebRedirURL:  c.String("web-redir-url"),
-		SslCert:      c.String("ssl-cert"),
-		SslKey:       c.String("ssl-key"),
-		SslCacert:    c.String("ssl-cacert"),
-		HTTPUsername: c.String("http-username"),
-		HTTPPassword: c.String("http-password"),
-		Token:        c.String("token"),
+		AddrDev:     c.String("addr-dev"),
+		AddrUser:    c.String("addr-user"),
+		AddrWeb:     c.String("addr-web"),
+		WebRedirURL: c.String("web-redir-url"),
+		SslCert:     c.String("ssl-cert"),
+		SslKey:      c.String("ssl-key"),
+		SslCacert:   c.String("ssl-cacert"),
+		Token:       c.String("token"),
+		DB:          c.String("db"),
 	}
 
 	cfg.WhiteList = make(map[string]bool)
@@ -77,9 +75,8 @@ func Parse(c *cli.Context) *Config {
 		getConfigOpt(yamlCfg, "ssl-cert", &cfg.SslCert)
 		getConfigOpt(yamlCfg, "ssl-key", &cfg.SslKey)
 		getConfigOpt(yamlCfg, "ssl-cacert", &cfg.SslCacert)
-		getConfigOpt(yamlCfg, "http-username", &cfg.HTTPUsername)
-		getConfigOpt(yamlCfg, "http-password", &cfg.HTTPPassword)
 		getConfigOpt(yamlCfg, "token", &cfg.Token)
+		getConfigOpt(yamlCfg, "db", &cfg.DB)
 		getConfigOpt(yamlCfg, "font-size", &cfg.FontSize)
 
 		val, err := yamlCfg.Get("white-list")

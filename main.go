@@ -18,11 +18,6 @@ func runRttys(c *cli.Context) {
 
 	cfg := config.Parse(c)
 
-	if cfg.HTTPUsername == "" {
-		fmt.Println("You must configure the http username by commandline or config file")
-		os.Exit(1)
-	}
-
 	log.Info().Msg("Go Version: " + runtime.Version())
 	log.Info().Msgf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
 
@@ -130,6 +125,11 @@ func main() {
 						Name:  "white-list",
 						Value: "",
 						Usage: "white list(device IDs separated by spaces or *)",
+					},
+					&cli.StringFlag{
+						Name:  "db",
+						Value: "rttys.db",
+						Usage: "sqlite3 database path",
 					},
 				},
 				Action: func(c *cli.Context) error {

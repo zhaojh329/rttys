@@ -6,7 +6,18 @@
     <el-button style="margin-right: 4px;" @click="showCmdForm" type="primary" :disabled="cmdStatus.execing > 0">
       {{$t('Execute command')}}
     </el-button>
-    <div style="float: right; color: #3399ff; font-size: 16px">{{ $t('device-count', {count: devlists.length}) }}</div>
+    <div style="float: right; margin-right: 10px">
+      <span style="margin-right: 20px; color: #3399ff; font-size: 24px">{{ $t('device-count', {count: devlists.length}) }}</span>
+      <el-dropdown @command="handleUserCommand">
+        <span class="el-dropdown-link">
+          <span style="color: #3399ff; font-size: 24px">{{ username }}</span>
+          <i class="el-icon-arrow-down el-icon--right" style="color: #3399ff; font-size: 24px"/>
+        </span>
+        <el-dropdown-menu slot="dropdown">
+          <el-dropdown-item command="logout">{{ $t('Sign out') }}</el-dropdown-item>
+        </el-dropdown-menu>
+        </el-dropdown>
+      </div>
     <el-table v-loading="loading" :data="filtered"
               style="margin-top: 10px; width: 100%" :empty-text="$t('No devices connected')"
               @selection-change='handleSelection'>
@@ -160,6 +171,7 @@
     }
   })
   export default class Home extends Vue {
+    username = '';
     filterString = '';
     loading = true;
     devlists = [];
@@ -205,6 +217,12 @@
       if (this.$t)
         return this.$t(key).toString();
       return '';
+    }
+
+    handleUserCommand(command: string) {
+      if (command === 'logout') {
+        this.$router.push('/login');
+      }
     }
 
     handleSearch() {
@@ -365,6 +383,8 @@
     }
 
     mounted() {
+      this.username = sessionStorage.getItem('rttys-username') || '';
+
       this.getDevices();
     }
   }

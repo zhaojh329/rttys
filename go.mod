@@ -10,6 +10,7 @@ require (
 	github.com/json-iterator/go v1.1.9
 	github.com/kylelemons/go-gypsy v0.0.0-20160905020020-08cad365cd28
 	github.com/mattn/go-colorable v0.1.4
+	github.com/mattn/go-sqlite3 v1.14.6
 	github.com/rs/zerolog v1.18.0
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d

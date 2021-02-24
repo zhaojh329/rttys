@@ -21,6 +21,9 @@ module.exports = {
       '/signin': {
         target: 'http://127.0.0.1:5913'
       },
+      '/signup': {
+        target: 'http://127.0.0.1:5913'
+      },
       '/cmd/*': {
         target: 'http://127.0.0.1:5913'
       },

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"embed"
 	"net"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
 	"github.com/zhaojh329/rttys/config"
@@ -33,12 +35,22 @@ func allowOrigin(w http.ResponseWriter) {
 }
 
 func httpLogin(cfg *config.Config, creds *credentials) bool {
-	if cfg.HTTPUsername != creds.Username {
+	if creds.Username == "" || creds.Password == "" {
 		return false
 	}
 
-	if cfg.HTTPPassword != "" {
-		return cfg.HTTPPassword == creds.Password
+	db, err := sql.Open("sqlite3", cfg.DB)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return false
+	}
+	defer db.Close()
+
+	cnt := 0
+
+	db.QueryRow("SELECT COUNT(*) FROM account WHERE username = ? AND password = ?", creds.Username, creds.Password).Scan(&cnt)
+	if cnt == 0 {
+		return false
 	}
 
 	return true
@@ -69,8 +81,21 @@ func httpAuth(c *gin.Context) bool {
 	return true
 }
 
+func initDb(cfg *config.Config) {
+	db, err := sql.Open("sqlite3", cfg.DB)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return
+	}
+	defer db.Close()
+
+	db.Exec("CREATE TABLE IF NOT EXISTS account(username TEXT PRIMARY KEY NOT NULL, password TEXT NOT NULL)")
+}
+
 func httpStart(br *broker) {
 	cfg := br.cfg
+
+	initDb(cfg)
 
 	httpSessions = cache.New(30*time.Minute, 5*time.Second)
 
@@ -167,11 +192,48 @@ func httpStart(br *broker) {
 			httpSessions.Set(sid, true, 0)
 
 			c.SetCookie("sid", sid, 0, "", "", false, true)
-			c.String(http.StatusOK, sid)
+
+			c.JSON(http.StatusOK, gin.H{
+				"sid":      sid,
+				"username": creds.Username,
+			})
 			return
 		}
 
 		c.Status(http.StatusForbidden)
+	})
+
+	r.POST("/signup", func(c *gin.Context) {
+		var creds credentials
+
+		err := jsoniter.NewDecoder(c.Request.Body).Decode(&creds)
+		if err != nil {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		db, err := sql.Open("sqlite3", cfg.DB)
+		if err != nil {
+			log.Error().Msg(err.Error())
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		defer db.Close()
+
+		_, err = db.Exec("INSERT INTO account values(?,?)", creds.Username, creds.Password)
+		if err != nil {
+			log.Error().Msg(err.Error())
+
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				c.Status(http.StatusForbidden)
+			} else {
+				c.Status(http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		c.Status(http.StatusOK)
 	})
 
 	r.NoRoute(func(c *gin.Context) {

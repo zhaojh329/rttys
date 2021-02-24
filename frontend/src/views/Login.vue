@@ -10,10 +10,12 @@
                   show-password @keyup.enter.native="handleSubmit"/>
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" style="width: 70%" @click="handleSubmit">{{ $t('Login') }}</el-button>
+        <el-button type="primary" style="width: 70%" @click="handleSubmit">{{ signup ? $t('Sign up') : $t('Sign in') }}</el-button>
         <el-button type="warning" @click="reset">{{ $t('Reset') }}</el-button>
       </el-form-item>
     </el-form>
+    <p v-if="signup" style="text-align: center">{{ $t('Already have an account?') }}<a href="/login" style="text-decoration: none; color: #1c7cd6">{{ $t('Sign in') }}</a></p>
+    <p v-else style="text-align: center">{{ $t('New to Rttys?') }}<a href="/login?signup=1" style="text-decoration: none; color: #1c7cd6">{{ $t('Sign up') }}</a></p>
   </el-card>
 </template>
 
@@ -23,13 +25,16 @@
 
   @Component
   export default class Login extends Vue {
+    signup = false;
+
     formData = {
       username: '',
       password: ''
     };
 
     ruleValidate = {
-      username: [{required: true, trigger: 'blur', message: ''}]
+      username: [{required: true, trigger: 'blur', message: ''}],
+      password: [{required: true, trigger: 'blur', message: ''}]
     };
 
     handleSubmit() {
@@ -39,12 +44,26 @@
             username: this.formData.username,
             password: this.formData.password
           };
-          this.axios.post('/signin', params).then(res => {
-            sessionStorage.setItem('rtty-sid', res.data);
-            this.$router.push('/');
-          }).catch(() => {
-            this.$message.error(this.$t('Signin Fail! username or password wrong.').toString());
-          });
+
+          if (this.signup) {
+            this.axios.post('/signup', params).then(() => {
+              this.reset();
+              this.signup = false;
+              this.$router.push('/login');
+            }).catch(() => {
+              this.reset();
+              this.$message.error(this.$t('Sign up Fail.').toString());
+            });
+          } else {
+            this.axios.post('/signin', params).then(res => {
+              sessionStorage.setItem('rttys-sid', res.data.sid);
+              sessionStorage.setItem('rttys-username', res.data.username);
+              sessionStorage.setItem('rttys-admin', res.data.admin);
+              this.$router.push('/');
+            }).catch(() => {
+              this.$message.error(this.$t('Signin Fail! username or password wrong.').toString());
+            });
+          }
         }
       });
     }
@@ -55,6 +74,12 @@
 
     mounted() {
       this.ruleValidate['username'][0].message = this.$t('username is required').toString();
+      this.ruleValidate['password'][0].message = this.$t('password is required').toString();
+    }
+
+    created() {
+      this.signup = this.$route.query.signup === '1';
+      sessionStorage.removeItem('rttys-sid');
     }
   }
 </script>

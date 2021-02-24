@@ -42,7 +42,7 @@ router.beforeEach((to, from, next) => {
     return;
   }
 
-  if (to.path !== '/login' && !sessionStorage.getItem('rtty-sid')) {
+  if (to.path !== '/login' && !sessionStorage.getItem('rttys-sid')) {
     router.push('/login');
     return;
   }
