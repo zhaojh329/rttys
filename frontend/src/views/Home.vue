@@ -221,7 +221,9 @@
 
     handleUserCommand(command: string) {
       if (command === 'logout') {
-        this.$router.push('/login');
+        this.axios.get('/signout').then(() => {
+          this.$router.push('/login');
+        });
       }
     }
 

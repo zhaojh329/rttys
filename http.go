@@ -203,6 +203,25 @@ func httpStart(br *broker) {
 		c.Status(http.StatusForbidden)
 	})
 
+	r.GET("/alive", func(c *gin.Context) {
+		if !httpAuth(c) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+		} else {
+			c.Status(http.StatusOK)
+		}
+	})
+
+	r.GET("/signout", func(c *gin.Context) {
+		cookie, err := c.Cookie("sid")
+		if err != nil || !httpSessions.Have(cookie) {
+			return
+		}
+
+		httpSessions.Del(cookie)
+
+		c.Status(http.StatusOK)
+	})
+
 	r.POST("/signup", func(c *gin.Context) {
 		var creds credentials
 
