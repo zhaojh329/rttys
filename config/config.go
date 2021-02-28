@@ -21,7 +21,6 @@ type Config struct {
 	SslKey      string
 	SslCacert   string // mTLS for device
 	Token       string
-	FontSize    int
 	WhiteList   map[string]bool
 	DB          string
 }
@@ -77,7 +76,6 @@ func Parse(c *cli.Context) *Config {
 		getConfigOpt(yamlCfg, "ssl-cacert", &cfg.SslCacert)
 		getConfigOpt(yamlCfg, "token", &cfg.Token)
 		getConfigOpt(yamlCfg, "db", &cfg.DB)
-		getConfigOpt(yamlCfg, "font-size", &cfg.FontSize)
 
 		val, err := yamlCfg.Get("white-list")
 		if err == nil {
@@ -89,14 +87,6 @@ func Parse(c *cli.Context) *Config {
 				}
 			}
 		}
-	}
-
-	if cfg.FontSize == 0 {
-		cfg.FontSize = 16
-	}
-
-	if cfg.FontSize < 12 {
-		cfg.FontSize = 12
 	}
 
 	if cfg.SslCert != "" && cfg.SslKey != "" {

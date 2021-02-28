@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"runtime"
@@ -12,6 +13,19 @@ import (
 	"github.com/zhaojh329/rttys/utils"
 	"github.com/zhaojh329/rttys/version"
 )
+
+func initDb(cfg *config.Config) {
+	db, err := sql.Open("sqlite3", cfg.DB)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return
+	}
+	defer db.Close()
+
+	db.Exec("CREATE TABLE IF NOT EXISTS config(name TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)")
+
+	db.Exec("CREATE TABLE IF NOT EXISTS account(username TEXT PRIMARY KEY NOT NULL, password TEXT NOT NULL)")
+}
 
 func runRttys(c *cli.Context) {
 	rlog.SetPath(c.String("log"))
@@ -33,6 +47,8 @@ func runRttys(c *cli.Context) {
 	if buildTime != "" {
 		log.Info().Msg("Build Time: " + version.BuildTime())
 	}
+
+	initDb(cfg)
 
 	br := newBroker(cfg)
 	go br.run()

@@ -3,9 +3,11 @@ package main
 import (
 	"database/sql"
 	"embed"
+	"fmt"
 	"net"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -81,21 +83,8 @@ func httpAuth(c *gin.Context) bool {
 	return true
 }
 
-func initDb(cfg *config.Config) {
-	db, err := sql.Open("sqlite3", cfg.DB)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return
-	}
-	defer db.Close()
-
-	db.Exec("CREATE TABLE IF NOT EXISTS account(username TEXT PRIMARY KEY NOT NULL, password TEXT NOT NULL)")
-}
-
 func httpStart(br *broker) {
 	cfg := br.cfg
-
-	initDb(cfg)
 
 	httpSessions = cache.New(30*time.Minute, 5*time.Second)
 
@@ -115,22 +104,54 @@ func httpStart(br *broker) {
 	})
 
 	authorized.GET("/fontsize", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"size": cfg.FontSize})
+		db, err := sql.Open("sqlite3", cfg.DB)
+		if err != nil {
+			log.Error().Msg(err.Error())
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		defer db.Close()
+
+		value := "16"
+
+		db.QueryRow("SELECT value FROM config WHERE name = 'FontSize'").Scan(&value)
+
+		FontSize, _ := strconv.Atoi(value)
+
+		c.JSON(http.StatusOK, gin.H{"size": FontSize})
 	})
 
 	authorized.POST("/fontsize", func(c *gin.Context) {
-		type Resp struct {
-			Size int `json:"size"`
-		}
-		var r Resp
-		err := c.BindJSON(&r)
+		data := make(map[string]int)
+
+		err := c.BindJSON(&data)
 		if err != nil {
 			c.Status(http.StatusBadRequest)
 			return
 		}
 
-		cfg.FontSize = r.Size
-		c.String(http.StatusOK, "OK")
+		size, ok := data["size"]
+		if !ok {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		db, err := sql.Open("sqlite3", cfg.DB)
+		if err != nil {
+			log.Error().Msg(err.Error())
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		defer db.Close()
+
+		if size < 12 {
+			size = 12
+		}
+
+		db.Exec("DELETE FROM config WHERE name = 'FontSize'")
+		db.Exec("INSERT INTO config values('FontSize',?)", fmt.Sprintf("%d", size))
+
+		c.Status(http.StatusOK)
 	})
 
 	authorized.GET("/connect/:devid", func(c *gin.Context) {
