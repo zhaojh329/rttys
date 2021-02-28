@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/binary"
 	"crypto/x509"
+	"encoding/binary"
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
@@ -63,6 +63,7 @@ func (br *broker) run() {
 			devid := c.DeviceID()
 
 			if c.IsDevice() {
+				dev := c.(*device)
 				err := byte(0)
 				msg := "OK"
 
@@ -70,12 +71,13 @@ func (br *broker) run() {
 					log.Error().Msg("Device ID conflicting: " + devid)
 					msg = "ID conflicting"
 					err = 1
-				} else if br.cfg.Token != "" && c.(*device).token != br.cfg.Token {
+				} else if br.cfg.Token != "" && dev.token != br.cfg.Token {
 					log.Error().Msg("Invalid token from terminal device")
 					msg = "Invalid token"
 					err = 1
 				} else {
 					br.devices[devid] = c
+					dev.UpdateDb()
 					log.Info().Msg("New device: " + devid)
 				}
 
@@ -99,9 +101,7 @@ func (br *broker) run() {
 			id := c.DeviceID()
 
 			if c.IsDevice() {
-				if _, ok := br.devices[id]; ok {
-					delete(br.devices, id)
-				}
+				delete(br.devices, id)
 
 				for sid, s := range br.sessions {
 					if s.devid == id {

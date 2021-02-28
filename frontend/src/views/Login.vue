@@ -1,5 +1,5 @@
 <template>
-  <el-card :header="$t('Authorization Required')" class="login-container">
+  <el-card :header="signup ? $t('Sign up') : $t('Authorization Required')" class="login-container">
     <el-form ref="login" :model="formData" :rules="ruleValidate" label-width="100px" label-position="left">
       <el-form-item :label="$t('Username')" prop="username">
         <el-input v-model="formData.username" prefix-icon="el-icon-user-solid" :placeholder="$t('Enter username...')"

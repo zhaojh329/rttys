@@ -1,8 +1,7 @@
 <template>
   <div>
     <div ref="terminal" :style="{height: termHeight + 'px'}" @contextmenu.prevent="showContextmenu"/>
-    <el-dialog ref="dialog" :visible.sync="file.modal" :title="$t('Upload file to device')" width="350px"
-               @close="onUploadDialogClosed">
+    <el-dialog ref="dialog" :visible.sync="file.modal" :title="$t('Upload file to device')" width="350px" @close="onUploadDialogClosed">
       <el-upload ref="upload" action="" :auto-upload="false" :file-list="file.list" :on-remove="onFileRemove" :on-change="onFileChange" :http-request="doUploadFile">
         <el-button slot="trigger" size="small" type="primary">{{ $t("Select file") }}</el-button>
         <el-button style="margin-left: 10px;" size="small" type="success" :disabled="file.list.length < 1" @click="submitUploadFile">{{ $t('Upload') }}

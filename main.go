@@ -12,19 +12,30 @@ import (
 	rlog "github.com/zhaojh329/rttys/log"
 	"github.com/zhaojh329/rttys/utils"
 	"github.com/zhaojh329/rttys/version"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
-func initDb(cfg *config.Config) {
-	db, err := sql.Open("sqlite3", cfg.DB)
+func initDb(cfg *config.Config) error {
+	db, err := sql.Open("mysql", cfg.DB)
 	if err != nil {
-		log.Error().Msg(err.Error())
-		return
+		return err
 	}
 	defer db.Close()
 
-	db.Exec("CREATE TABLE IF NOT EXISTS config(name TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS config(name VARCHAR(512) PRIMARY KEY NOT NULL, value TEXT NOT NULL)")
+	if err != nil {
+		return err
+	}
 
-	db.Exec("CREATE TABLE IF NOT EXISTS account(username TEXT PRIMARY KEY NOT NULL, password TEXT NOT NULL)")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS account(username VARCHAR(512) PRIMARY KEY NOT NULL, password TEXT NOT NULL, admin INT NOT NULL)")
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS device(id VARCHAR(512) PRIMARY KEY NOT NULL, description TEXT NOT NULL, online DATETIME NOT NULL, username TEXT NOT NULL)")
+
+	return err
 }
 
 func runRttys(c *cli.Context) {
@@ -48,7 +59,11 @@ func runRttys(c *cli.Context) {
 		log.Info().Msg("Build Time: " + version.BuildTime())
 	}
 
-	initDb(cfg)
+	err := initDb(cfg)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return
+	}
 
 	br := newBroker(cfg)
 	go br.run()
@@ -144,8 +159,8 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "db",
-						Value: "rttys.db",
-						Usage: "sqlite3 database path",
+						Value: "rttys:rttys@tcp(localhost)/rttys",
+						Usage: "mysql database source",
 					},
 					&cli.BoolFlag{
 						Name:  "local-auth",
