@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	jsoniter "github.com/json-iterator/go"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
@@ -21,8 +20,8 @@ import (
 )
 
 type credentials struct {
-	Password string `json:"password"`
 	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 var httpSessions *cache.Cache
@@ -204,7 +203,7 @@ func httpStart(br *broker) {
 	r.POST("/signin", func(c *gin.Context) {
 		var creds credentials
 
-		err := jsoniter.NewDecoder(c.Request.Body).Decode(&creds)
+		err := c.BindJSON(&creds)
 		if err != nil {
 			c.Status(http.StatusBadRequest)
 			return
@@ -248,7 +247,7 @@ func httpStart(br *broker) {
 	r.POST("/signup", func(c *gin.Context) {
 		var creds credentials
 
-		err := jsoniter.NewDecoder(c.Request.Body).Decode(&creds)
+		err := c.BindJSON(&creds)
 		if err != nil {
 			c.Status(http.StatusBadRequest)
 			return
