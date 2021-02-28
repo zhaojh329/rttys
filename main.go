@@ -147,6 +147,10 @@ func main() {
 						Value: "rttys.db",
 						Usage: "sqlite3 database path",
 					},
+					&cli.BoolFlag{
+						Name:  "local-auth",
+						Usage: "need auth for local",
+					},
 				},
 				Action: func(c *cli.Context) error {
 					runRttys(c)

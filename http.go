@@ -67,10 +67,12 @@ func authorizedDev(devid string, cfg *config.Config) bool {
 	return ok
 }
 
-func httpAuth(c *gin.Context) bool {
-	addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
-	if addr.IP.IsLoopback() {
-		return true
+func httpAuth(cfg *config.Config, c *gin.Context) bool {
+	if !cfg.LocalAuth {
+		addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
+		if addr.IP.IsLoopback() {
+			return true
+		}
 	}
 
 	cookie, err := c.Cookie("sid")
@@ -98,7 +100,7 @@ func httpStart(br *broker) {
 			return
 		}
 
-		if !httpAuth(c) {
+		if !httpAuth(cfg, c) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		}
 	})
@@ -193,7 +195,7 @@ func httpStart(br *broker) {
 	})
 
 	r.GET("/authorized/:devid", func(c *gin.Context) {
-		authorized := authorizedDev(c.Param("devid"), cfg) || httpAuth(c)
+		authorized := authorizedDev(c.Param("devid"), cfg) || httpAuth(cfg, c)
 		c.JSON(http.StatusOK, gin.H{
 			"authorized": authorized,
 		})
@@ -225,7 +227,7 @@ func httpStart(br *broker) {
 	})
 
 	r.GET("/alive", func(c *gin.Context) {
-		if !httpAuth(c) {
+		if !httpAuth(cfg, c) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else {
 			c.Status(http.StatusOK)

@@ -23,6 +23,7 @@ type Config struct {
 	Token       string
 	WhiteList   map[string]bool
 	DB          string
+	LocalAuth   bool
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
@@ -51,6 +52,7 @@ func Parse(c *cli.Context) *Config {
 		SslCacert:   c.String("ssl-cacert"),
 		Token:       c.String("token"),
 		DB:          c.String("db"),
+		LocalAuth:   c.Bool("local-auth"),
 	}
 
 	cfg.WhiteList = make(map[string]bool)
