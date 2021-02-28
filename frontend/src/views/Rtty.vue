@@ -107,7 +107,7 @@
     updateFontSize(size: number) {
       this.term?.setOption('fontSize', size);
       this.fitAddon?.fit();
-      this.axios.post(`/fontsize/${this.devid}`, {size});
+      this.axios.post('/fontsize', {size});
     }
 
     onUploadDialogClosed() {
@@ -284,7 +284,7 @@
       this.socket = socket;
 
       socket.addEventListener('open', () => {
-        this.axios.get(`/fontsize/${this.devid}`).then(r => {
+        this.axios.get('/fontsize').then(r => {
           this.term?.setOption('fontSize', r.data.size);
           this.fitTerm();
         });

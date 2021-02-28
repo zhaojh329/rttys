@@ -114,11 +114,11 @@ func httpStart(br *broker) {
 		}
 	})
 
-	authorized.GET("/fontsize/:devid", func(c *gin.Context) {
+	authorized.GET("/fontsize", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"size": cfg.FontSize})
 	})
 
-	authorized.POST("/fontsize/:devid", func(c *gin.Context) {
+	authorized.POST("/fontsize", func(c *gin.Context) {
 		type Resp struct {
 			Size int `json:"size"`
 		}
