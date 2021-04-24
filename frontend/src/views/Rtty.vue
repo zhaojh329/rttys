@@ -70,9 +70,9 @@
     contextmenus = [
       {name: 'copy', caption: this.tr('Copy - Ctrl+Insert')},
       {name: 'paste', caption: this.tr('Paste - Shift+Insert')},
-      {name: 'Clear Scrollback', caption: this.tr('Clear Scrollback')},
-      {name: 'Font Size+', caption: this.tr('Font Size+')},
-      {name: 'Font Size-', caption: this.tr('Font Size-')}
+      {name: 'clear', caption: this.tr('Clear Scrollback')},
+      {name: 'font+', caption: this.tr('Font Size+')},
+      {name: 'font-', caption: this.tr('Font Size-')}
     ];
 
     tr(key: string): string {
@@ -90,13 +90,13 @@
         ClipboardEx.write(this.term?.getSelection() || '');
       } else if (name === 'paste') {
         ClipboardEx.read().then(text => this.term?.paste(text));
-      } else if (name === 'Clear Scrollback') {
+      } else if (name === 'clear') {
         this.term?.clear();
-      } else if (name === 'Font Size+') {
+      } else if (name === 'font+') {
         const size = this.term?.getOption('fontSize');
         if (size)
           this.updateFontSize(size + 1);
-      } else if (name === 'Font Size-') {
+      } else if (name === 'font-') {
         const size = this.term?.getOption('fontSize');
         if (size && size > 12)
           this.updateFontSize(size - 1);
