@@ -122,16 +122,6 @@ func main() {
 						Usage: "mtls CA storage in PEM file Path",
 					},
 					&cli.StringFlag{
-						Name:  "http-username",
-						Value: "",
-						Usage: "username for http auth",
-					},
-					&cli.StringFlag{
-						Name:  "http-password",
-						Value: "",
-						Usage: "password for http auth",
-					},
-					&cli.StringFlag{
 						Name:    "token",
 						Aliases: []string{"t"},
 						Value:   "",
