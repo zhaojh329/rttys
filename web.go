@@ -233,20 +233,29 @@ func handleWebCon(br *broker, wc *webNewCon) {
 func listenDeviceWeb(br *broker) {
 	cfg := br.cfg
 
-	addr, err := net.ResolveTCPAddr("tcp", cfg.AddrWeb)
-	if err != nil {
-		log.Fatal().Msg(err.Error())
-	}
-	cfg.WebPort = addr.Port
-
 	webSessions = cache.New(30*time.Minute, 5*time.Second)
 
-	log.Info().Msgf("Listen dev web on: %s", cfg.AddrWeb)
+	if cfg.AddrWeb != "" {
+		addr, err := net.ResolveTCPAddr("tcp", cfg.AddrWeb)
+		if err != nil {
+			log.Warn().Msgf("invalid web proxy addr:", err.Error())
+		} else {
+			cfg.WebPort = addr.Port
+		}
+	}
+
+	if cfg.WebPort == 0 {
+		log.Info().Msg("Automatically select an available port for web proxy")
+	}
 
 	ln, err := net.Listen("tcp", cfg.AddrWeb)
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
+
+	cfg.WebPort = ln.Addr().(*net.TCPAddr).Port
+
+	log.Info().Msgf("Listen web proxy on: %s", ln.Addr().(*net.TCPAddr))
 
 	go func() {
 		defer ln.Close()

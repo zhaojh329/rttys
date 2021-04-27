@@ -98,8 +98,8 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "addr-web",
-						Value: ":5914",
-						Usage: "address to listen for access device's web",
+						Value: "",
+						Usage: "address to listen for web proxy (default auto)",
 					},
 					&cli.StringFlag{
 						Name:  "web-redir-url",
