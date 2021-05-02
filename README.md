@@ -79,6 +79,31 @@ You can stop the service with:
 
     sudo systemctl stop rttys
 
+# Database Preparation
+
+On database instance, login to database console as root:
+```
+mysql -u root -p
+```
+
+Create database user which will be used by Rttys, authenticated by password. This example uses 'rttys' as password. Please use a secure password for your instance.
+```
+CREATE USER 'rttys' IDENTIFIED BY 'rttys';
+```
+
+Create database with UTF-8 charset and collation. Make sure to use utf8mb4 charset instead of utf8 as the former supports all Unicode characters (including emojis) beyond Basic Multilingual Plane. Also, collation chosen depending on your expected content. When in doubt, use either unicode_ci or general_ci.
+```
+CREATE DATABASE rttys CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci';
+```
+
+Grant all privileges on the database to database user created above.
+```
+GRANT ALL PRIVILEGES ON rttys.* TO 'rttys';
+FLUSH PRIVILEGES;
+```
+
+Quit from database console by exit.
+
 # Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
 see the [CONTRIBUTING.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING.md) file.

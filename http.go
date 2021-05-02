@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
 	"github.com/zhaojh329/rttys/config"
@@ -40,7 +39,7 @@ func httpLogin(cfg *config.Config, creds *credentials) bool {
 		return false
 	}
 
-	db, err := sql.Open("sqlite3", cfg.DB)
+	db, err := sql.Open("mysql", cfg.DB)
 	if err != nil {
 		log.Error().Msg(err.Error())
 		return false
@@ -105,7 +104,7 @@ func httpStart(br *broker) {
 	})
 
 	authorized.GET("/fontsize", func(c *gin.Context) {
-		db, err := sql.Open("sqlite3", cfg.DB)
+		db, err := sql.Open("mysql", cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			c.Status(http.StatusInternalServerError)
@@ -137,7 +136,7 @@ func httpStart(br *broker) {
 			return
 		}
 
-		db, err := sql.Open("sqlite3", cfg.DB)
+		db, err := sql.Open("mysql", cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			c.Status(http.StatusInternalServerError)
@@ -253,7 +252,7 @@ func httpStart(br *broker) {
 			return
 		}
 
-		db, err := sql.Open("sqlite3", cfg.DB)
+		db, err := sql.Open("mysql", cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			c.Status(http.StatusInternalServerError)
