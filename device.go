@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql"
 	"encoding/binary"
 	"io"
 	"io/ioutil"
@@ -88,6 +89,28 @@ func (dev *device) Close() {
 		dev.br.unregister <- dev
 
 		log.Info().Msgf("Device '%s' closed", dev.id)
+	}
+}
+
+func (dev *device) UpdateDb() {
+	db, err := sql.Open("mysql", dev.br.cfg.DB)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return
+	}
+	defer db.Close()
+
+	cnt := 0
+
+	db.QueryRow("SELECT COUNT(*) FROM device WHERE id = ?", dev.id).Scan(&cnt)
+	if cnt == 0 {
+		_, err = db.Exec("INSERT INTO device values(?,?,?,?)", dev.id, dev.desc, time.Now(), "")
+	} else {
+		_, err = db.Exec("UPDATE device SET description = ?, online = ? WHERE id = ?", dev.desc, time.Now(), dev.id)
+	}
+
+	if err != nil {
+		log.Error().Msg(err.Error())
 	}
 }
 

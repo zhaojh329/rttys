@@ -54,5 +54,10 @@
   "Access your device's Shell": "Access your device's Shell",
   "Access your devices's Web": "Access your devices's Web",
   "Please enter the address you want to access": "Please enter the address you want to access",
-  "The file you will upload is too large(> 4294967295 Byte)": "The file you will upload is too large(> 4294967295 Byte)"
+  "The file you will upload is too large(> 4294967295 Byte)": "The file you will upload is too large(> 4294967295 Byte)",
+  "Bind user": "Bind user",
+  "Unbind": "Unbind",
+  "Please select the devices you want to bind": "Please select the devices you want to bind",
+  "Bind success": "Bind success",
+  "Unbind success": "Unbind success"
 }

@@ -3,11 +3,10 @@
     <el-button style="margin-right: 4px;" type="primary" round icon="el-icon-refresh" @click="handleRefresh" :disabled="loading">{{$t('Refresh List')}}</el-button>
     <el-input style="margin-right: 4px;width:200px" v-model="filterString" suffix-icon="el-icon-search"
               @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
-    <el-button style="margin-right: 4px;" @click="showCmdForm" type="primary" :disabled="cmdStatus.execing > 0">
-      {{$t('Execute command')}}
-    </el-button>
+    <el-button style="margin-right: 4px;" @click="showCmdForm" type="primary" :disabled="cmdStatus.execing > 0">{{$t('Execute command')}}</el-button>
+    <el-button v-if="isadmin" style="margin-right: 4px;" @click="showBindForm" type="primary">{{$t('Bind user')}}</el-button>
     <div style="float: right; margin-right: 10px">
-      <span style="margin-right: 20px; color: #3399ff; font-size: 24px">{{ $t('device-count', {count: devlists.length}) }}</span>
+      <span style="margin-right: 20px; color: #3399ff; font-size: 24px">{{ $t('device-count', {count: devlists.filter(dev => dev.online).length}) }}</span>
       <el-dropdown @command="handleUserCommand">
         <span class="el-dropdown-link">
           <span style="color: #3399ff; font-size: 24px">{{ username }}</span>
@@ -25,20 +24,26 @@
       <el-table-column type="selection"/>
       <el-table-column prop="id" :label="$t('Device ID')" sortable width="200"/>
       <el-table-column prop="connected" :label="$t('Connected time')" sortable width="200">
-        <template v-slot="{ row }">{{ row.connected | formatTime }}</template>
+        <template v-slot="{ row }">
+          <span v-if="row.online">{{ row.connected | formatTime }}</span>
+        </template>
       </el-table-column>
       <el-table-column prop="uptime" :label="$t('Uptime')" sortable width="200">
-        <template v-slot="{ row }">{{ row.uptime | formatTime }}</template>
+        <template v-slot="{ row }">
+          <span v-if="row.online">{{ row.uptime | formatTime }}</span>
+        </template>
       </el-table-column>
       <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip/>
       <el-table-column label="#" width="200">
         <template v-slot="{ row }">
-          <el-tooltip placement="top" :content="$t('Access your device\'s Shell')">
+          <el-button v-if="isadmin && row.bound" type="danger" size="small" style="vertical-align: bottom;" @click="unBindUser(row.id)">{{ $t('Unbind') }}</el-button>
+          <el-tooltip v-if="row.online" placement="top" :content="$t('Access your device\'s Shell')">
             <el-button @click="connectDevice(row.id)" style="padding: 0"><i class="iconfont icon-shell" style="font-size: 40px; color: black"/></el-button>
           </el-tooltip>
-          <el-tooltip placement="top" :content="$t('Access your devices\'s Web')">
+          <el-tooltip v-if="row.online" placement="top" :content="$t('Access your devices\'s Web')">
             <el-button @click="connectDeviceWeb(row.id)" style="padding: 0"><i class="iconfont icon-web" style="font-size: 40px; color: #409EFF"/></el-button>
           </el-tooltip>
+          <span style="margin-left: 10px; color: red" v-if="!row.online">{{ $t('Device offline') }}</span>
         </template>
       </el-table-column>
     </el-table>
@@ -116,6 +121,14 @@
       </el-table>
       <div slot="footer"></div>
     </el-dialog>
+    <el-dialog :visible.sync="bindUserData.modal" :title="$t('Bind user')" width="300px">
+      <el-select v-model="bindUserData.currentUser">
+        <el-option v-for="u in bindUserData.users" :key="u" :value="u"/>
+      </el-select>
+      <span slot="footer" class="dialog-footer">
+        <el-button type="primary" :disabled="!bindUserData.currentUser" @click="bindUser">{{ $t('OK') }}</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -127,6 +140,8 @@
     id: string;
     uptime: number;
     description: string;
+    bound: boolean;
+    online: boolean;
   }
 
   interface ResponseInfo {
@@ -172,6 +187,7 @@
   })
   export default class Home extends Vue {
     username = '';
+    isadmin = false;
     filterString = '';
     loading = true;
     devlists = [];
@@ -195,6 +211,11 @@
       params: [] as string[],
       currentParam: '',
       wait: 30
+    };
+    bindUserData = {
+      modal: false,
+      users:[],
+      currentUser: ''
     };
     cmdRuleValidate = {
       username: [{required: true, message: this.tr('username is required')}],
@@ -253,6 +274,39 @@
 
     handleSelection(selection: DeviceInfo[]) {
       this.selection = selection;
+    }
+
+    showBindForm() {
+      if (this.selection.length < 1) {
+        this.$message.error(this.$t('Please select the devices you want to bind').toString());
+        return;
+      }
+
+      this.axios.get('/users').then(res => {
+        this.bindUserData.users = res.data.users;
+        this.bindUserData.modal = true;
+      });
+    }
+
+    bindUser() {
+      this.bindUserData.modal = false;
+
+      this.axios.post('/bind', {
+        devices: this.selection.map(s => s.id),
+        username: this.bindUserData.currentUser
+      }).then(() => {
+        this.getDevices();
+        this.$message.success(this.$t('Bind success').toString());
+      });
+    }
+
+    unBindUser(id: string) {
+      this.axios.post('/unbind', {
+        devices: [id]
+      }).then(() => {
+        this.getDevices();
+        this.$message.success(this.$t('Unbind success').toString());
+      });
     }
 
     connectDevice(devid: string) {
@@ -315,14 +369,16 @@
     doCmd() {
       (this.$refs['cmdForm'] as ElForm).validate(valid => {
         if (valid) {
+          const selection = this.selection.filter(dev => dev.online);
+
           this.cmdModal = false;
           this.cmdStatus.modal = true;
-          this.cmdStatus.total = this.selection.length;
-          this.cmdStatus.execing = this.selection.length;
+          this.cmdStatus.total = selection.length;
+          this.cmdStatus.execing = selection.length;
           this.cmdStatus.fail = 0;
           this.cmdStatus.responses = [];
 
-          this.selection.forEach(item => {
+          selection.forEach(item => {
             const data = {
               username: this.cmdData.username,
               password: this.cmdData.password,
@@ -386,6 +442,10 @@
 
     mounted() {
       this.username = sessionStorage.getItem('rttys-username') || '';
+
+      this.axios.get('/isadmin').then(res => {
+        this.isadmin = res.data.admin;
+      });
 
       this.getDevices();
     }
