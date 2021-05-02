@@ -49,11 +49,8 @@ func httpLogin(cfg *config.Config, creds *credentials) bool {
 	cnt := 0
 
 	db.QueryRow("SELECT COUNT(*) FROM account WHERE username = ? AND password = ?", creds.Username, creds.Password).Scan(&cnt)
-	if cnt == 0 {
-		return false
-	}
 
-	return true
+	return cnt != 0
 }
 
 func authorizedDev(devid string, cfg *config.Config) bool {

@@ -223,10 +223,8 @@ func handleWebCon(br *broker, wc *webNewCon) {
 	}()
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			c.Close()
-		}
+		<-ctx.Done()
+		c.Close()
 	}()
 }
 

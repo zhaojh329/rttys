@@ -102,9 +102,7 @@ func (br *broker) run() {
 			id := c.DeviceID()
 
 			if c.IsDevice() {
-				if _, ok := br.devices[id]; ok {
-					delete(br.devices, id)
-				}
+				delete(br.devices, id)
 
 				for sid, s := range br.sessions {
 					if s.devid == id {
