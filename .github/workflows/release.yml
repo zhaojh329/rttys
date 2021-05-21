@@ -18,7 +18,8 @@ jobs:
         with:
           node-version: '12'
 
-      - uses: battila7/get-version-action@v2
+      - id: get-version
+        uses: battila7/get-version-action@v2
 
       - uses: actions/checkout@v2
 
