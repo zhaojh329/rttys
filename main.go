@@ -61,7 +61,7 @@ func runRttys(c *cli.Context) {
 
 	err := initDb(cfg)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		log.Error().Msg("Init database fail:" + err.Error())
 		return
 	}
 
