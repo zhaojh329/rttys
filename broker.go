@@ -77,6 +77,7 @@ func (br *broker) run() {
 					msg = "Invalid token"
 					err = 1
 				} else {
+					dev.registered = true
 					br.devices[devid] = c
 					dev.UpdateDb()
 					log.Info().Msg("New device: " + devid)
@@ -104,6 +105,12 @@ func (br *broker) run() {
 			id := c.DeviceID()
 
 			if c.IsDevice() {
+				dev := c.(*device)
+
+				if !dev.registered {
+					break
+				}
+
 				delete(br.devices, id)
 
 				for sid, s := range br.sessions {
@@ -113,6 +120,8 @@ func (br *broker) run() {
 						log.Info().Msg("Delete session: " + sid)
 					}
 				}
+
+				log.Info().Msgf("Device '%s' closed", id)
 			} else {
 				sid := c.(*user).sid
 

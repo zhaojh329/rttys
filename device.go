@@ -42,6 +42,7 @@ type device struct {
 	token      string
 	conn       net.Conn
 	active     time.Time
+	registered bool
 	closeMutex sync.Mutex
 	closed     bool
 	cancel     context.CancelFunc
@@ -87,8 +88,6 @@ func (dev *device) Close() {
 		dev.cancel()
 
 		dev.br.unregister <- dev
-
-		log.Info().Msgf("Device '%s' closed", dev.id)
 	}
 }
 
