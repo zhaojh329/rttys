@@ -81,6 +81,8 @@ func (dev *device) Close() {
 	dev.closeMutex.Lock()
 
 	if !dev.closed {
+		log.Debug().Msgf("Device '%s' disconnected", dev.conn.RemoteAddr())
+
 		dev.closed = true
 
 		dev.conn.Close()
@@ -147,6 +149,11 @@ func (dev *device) keepAlive(ctx context.Context) {
 		case <-ticker.C:
 			now := time.Now()
 			if now.Sub(dev.active) > heartbeatInterval*3/2 {
+				if !dev.registered {
+					dev.Close()
+					return
+				}
+
 				log.Error().Msgf("Inactive device in long time: %s", dev.id)
 				if ninactive > 1 {
 					log.Error().Msgf("Inactive 3 times, now kill it: %s", dev.id)
@@ -327,6 +334,8 @@ func listenDevice(br *broker) {
 				log.Error().Msg(err.Error())
 				continue
 			}
+
+			log.Debug().Msgf("Device '%s' connected", conn.RemoteAddr())
 
 			ctx, cancel := context.WithCancel(context.Background())
 
