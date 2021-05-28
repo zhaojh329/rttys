@@ -59,5 +59,8 @@
   "Unbind": "Unbind",
   "Please select the devices you want to bind": "Please select the devices you want to bind",
   "Bind success": "Bind success",
-  "Unbind success": "Unbind success"
+  "Unbind success": "Unbind success",
+  "Delete": "Delete",
+  "Delete success": "Delete success",
+  "Delete offline devices": "Delete offline devices"
 }

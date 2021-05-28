@@ -516,6 +516,49 @@ func httpStart(br *broker) {
 		c.Status(http.StatusOK)
 	})
 
+	r.POST("/delete", func(c *gin.Context) {
+		type deldata struct {
+			Devices []string `json:"devices"`
+		}
+
+		data := deldata{}
+
+		err := c.BindJSON(&data)
+		if err != nil {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+
+		db, err := sql.Open("mysql", cfg.DB)
+		if err != nil {
+			log.Error().Msg(err.Error())
+			return
+		}
+		defer db.Close()
+
+		username := ""
+		if cfg.LocalAuth || !isLocalRequest(c) {
+			username = getLoginUsername(c)
+			if isAdminUsername(cfg, username) {
+				username = ""
+			}
+		}
+
+		for _, devid := range data.Devices {
+			if _, ok := br.devices[devid]; !ok {
+				sql := fmt.Sprintf("DELETE FROM device WHERE id = '%s'", devid)
+
+				if username != "" {
+					sql += fmt.Sprintf(" AND username = '%s'", username)
+				}
+
+				db.Exec(sql)
+			}
+		}
+
+		c.Status(http.StatusOK)
+	})
+
 	r.NoRoute(func(c *gin.Context) {
 		if !strings.HasPrefix(c.Request.URL.Path, "/frontend/dist/") {
 			c.Request.URL.Path = "/frontend/dist" + c.Request.URL.Path

@@ -5,6 +5,9 @@
               @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
     <el-button style="margin-right: 4px;" @click="showCmdForm" type="primary" :disabled="cmdStatus.execing > 0">{{$t('Execute command')}}</el-button>
     <el-button v-if="isadmin" style="margin-right: 4px;" @click="showBindForm" type="primary">{{$t('Bind user')}}</el-button>
+    <el-tooltip :content="$t('Delete offline devices')">
+      <el-button @click="deleteDevices" type="primary">{{$t('Delete')}}</el-button>
+    </el-tooltip>
     <div style="float: right; margin-right: 10px">
       <span style="margin-right: 20px; color: #3399ff; font-size: 24px">{{ $t('device-count', {count: devlists.filter(dev => dev.online).length}) }}</span>
       <el-dropdown @command="handleUserCommand">
@@ -306,6 +309,20 @@
       }).then(() => {
         this.getDevices();
         this.$message.success(this.$t('Unbind success').toString());
+      });
+    }
+
+    deleteDevices() {
+      if (this.selection.length < 1) {
+        this.$message.error(this.$t('Please select the devices you want to operate').toString());
+        return;
+      }
+
+      this.axios.post('/delete', {
+        devices: this.selection.filter(s => !s.online).map(s => s.id)
+      }).then(() => {
+        this.getDevices();
+        this.$message.success(this.$t('Delete success').toString());
       });
     }
 

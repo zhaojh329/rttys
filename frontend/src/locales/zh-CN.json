@@ -60,5 +60,8 @@
   "Unbind": "解绑",
   "Please select the devices you want to bind": "请选择您要绑定的设备",
   "Bind success": "绑定成功",
-  "Unbind success": "解绑成功"
+  "Unbind success": "解绑成功",
+  "Delete": "删除",
+  "Delete success": "删除成功",
+  "Delete offline devices": "删除离线设备"
 }
