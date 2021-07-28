@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"runtime"
@@ -14,10 +13,11 @@ import (
 	"github.com/zhaojh329/rttys/version"
 
 	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func initDb(cfg *config.Config) error {
-	db, err := sql.Open("mysql", cfg.DB)
+	db, err := instanceDB(cfg.DB)
 	if err != nil {
 		return err
 	}
