@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"database/sql"
 	"encoding/binary"
 	"io"
 	"io/ioutil"
@@ -94,7 +93,7 @@ func (dev *device) Close() {
 }
 
 func (dev *device) UpdateDb() {
-	db, err := sql.Open("mysql", dev.br.cfg.DB)
+	db, err := instanceDB(dev.br.cfg.DB)
 	if err != nil {
 		log.Error().Msg(err.Error())
 		return

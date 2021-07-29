@@ -39,7 +39,7 @@ func httpLogin(cfg *config.Config, creds *credentials) bool {
 		return false
 	}
 
-	db, err := sql.Open("mysql", cfg.DB)
+	db, err := instanceDB(cfg.DB)
 	if err != nil {
 		log.Error().Msg(err.Error())
 		return false
@@ -87,7 +87,7 @@ func isAdminUsername(cfg *config.Config, username string) bool {
 		return false
 	}
 
-	db, err := sql.Open("mysql", cfg.DB)
+	db, err := instanceDB(cfg.DB)
 	if err != nil {
 		log.Error().Msg(err.Error())
 		return false
@@ -138,7 +138,7 @@ func httpStart(br *broker) {
 	})
 
 	authorized.GET("/fontsize", func(c *gin.Context) {
-		db, err := sql.Open("mysql", cfg.DB)
+		db, err := instanceDB(cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			c.Status(http.StatusInternalServerError)
@@ -170,7 +170,7 @@ func httpStart(br *broker) {
 			return
 		}
 
-		db, err := sql.Open("mysql", cfg.DB)
+		db, err := instanceDB(cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			c.Status(http.StatusInternalServerError)
@@ -217,7 +217,7 @@ func httpStart(br *broker) {
 			Online      bool   `json:"online"`
 		}
 
-		db, err := sql.Open("mysql", cfg.DB)
+		db, err := instanceDB(cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			c.Status(http.StatusInternalServerError)
@@ -350,7 +350,7 @@ func httpStart(br *broker) {
 			return
 		}
 
-		db, err := sql.Open("mysql", cfg.DB)
+		db, err := instanceDB(cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			c.Status(http.StatusInternalServerError)
@@ -405,7 +405,7 @@ func httpStart(br *broker) {
 
 		users := []string{}
 
-		db, err := sql.Open("mysql", cfg.DB)
+		db, err := instanceDB(cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			c.Status(http.StatusInternalServerError)
@@ -460,7 +460,7 @@ func httpStart(br *broker) {
 			return
 		}
 
-		db, err := sql.Open("mysql", cfg.DB)
+		db, err := instanceDB(cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			return
@@ -502,7 +502,7 @@ func httpStart(br *broker) {
 			return
 		}
 
-		db, err := sql.Open("mysql", cfg.DB)
+		db, err := instanceDB(cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			return
@@ -529,7 +529,7 @@ func httpStart(br *broker) {
 			return
 		}
 
-		db, err := sql.Open("mysql", cfg.DB)
+		db, err := instanceDB(cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			return
