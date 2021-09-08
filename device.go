@@ -19,15 +19,16 @@ import (
 )
 
 const (
-	msgTypeRegister  = 0x00
-	msgTypeLogin     = 0x01
-	msgTypeLogout    = 0x02
-	msgTypeTermData  = 0x03
-	msgTypeWinsize   = 0x04
-	msgTypeCmd       = 0x05
-	msgTypeHeartbeat = 0x06
-	msgTypeFile      = 0x07
-	msgTypeWeb       = 0x08
+	msgTypeRegister = iota
+	msgTypeLogin
+	msgTypeLogout
+	msgTypeTermData
+	msgTypeWinsize
+	msgTypeCmd
+	msgTypeHeartbeat
+	msgTypeFile
+	msgTypeWeb
+	msgTypeMax = msgTypeWeb
 )
 
 const heartbeatInterval = time.Second * 5
@@ -189,6 +190,12 @@ func (dev *device) readLoop() {
 		br.Discard(3)
 
 		typ := b[0]
+
+		if typ > msgTypeMax {
+			log.Error().Msgf("invalid msg type: %d", typ)
+			return
+		}
+
 		msgLen := binary.BigEndian.Uint16(b[1:])
 
 		b = make([]byte, msgLen)
