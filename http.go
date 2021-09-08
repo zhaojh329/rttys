@@ -11,11 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"rttys/cache"
+	"rttys/config"
+	"rttys/utils"
+
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-	"github.com/zhaojh329/rttys/cache"
-	"github.com/zhaojh329/rttys/config"
-	"github.com/zhaojh329/rttys/utils"
 )
 
 type credentials struct {

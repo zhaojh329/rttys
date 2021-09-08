@@ -5,12 +5,13 @@ import (
 	"os"
 	"runtime"
 
+	"rttys/config"
+	rlog "rttys/log"
+	"rttys/utils"
+	"rttys/version"
+
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-	"github.com/zhaojh329/rttys/config"
-	rlog "github.com/zhaojh329/rttys/log"
-	"github.com/zhaojh329/rttys/utils"
-	"github.com/zhaojh329/rttys/version"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"

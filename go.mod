@@ -1,4 +1,4 @@
-module github.com/zhaojh329/rttys
+module rttys
 
 go 1.16
 

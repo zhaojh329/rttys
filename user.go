@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"rttys/client"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
-	"github.com/zhaojh329/rttys/client"
 
 	"net/http"
 )

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VersionPath="github.com/zhaojh329/rttys/version"
+VersionPath="rttys/version"
 GitCommit=$(git log --pretty=format:"%h" -1)
 BuildTime=$(date +%FT%T%z)
 

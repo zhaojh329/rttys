@@ -13,11 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"rttys/cache"
+	"rttys/client"
+	"rttys/utils"
+
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-	"github.com/zhaojh329/rttys/cache"
-	"github.com/zhaojh329/rttys/client"
-	"github.com/zhaojh329/rttys/utils"
 )
 
 type webSession struct {

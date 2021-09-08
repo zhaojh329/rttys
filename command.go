@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"rttys/client"
+	"rttys/utils"
+
 	"github.com/gin-gonic/gin"
-	"github.com/zhaojh329/rttys/client"
-	"github.com/zhaojh329/rttys/utils"
 
 	jsoniter "github.com/json-iterator/go"
 )

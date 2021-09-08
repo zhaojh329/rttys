@@ -5,11 +5,12 @@ import (
 	"encoding/binary"
 	"time"
 
+	"rttys/client"
+	"rttys/config"
+
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
-	"github.com/zhaojh329/rttys/client"
-	"github.com/zhaojh329/rttys/config"
 )
 
 type session struct {
