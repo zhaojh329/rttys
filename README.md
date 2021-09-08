@@ -23,7 +23,7 @@ This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 
     git clone https://github.com/zhaojh329/rttys
 
-    cd frontend
+    cd ui
     npm install
     npm run build
     cd ..

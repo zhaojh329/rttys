@@ -25,7 +25,7 @@ type credentials struct {
 
 var httpSessions *cache.Cache
 
-//go:embed frontend/dist
+//go:embed ui/dist
 var static embed.FS
 
 func allowOrigin(w http.ResponseWriter) {
@@ -560,18 +560,18 @@ func httpStart(br *broker) {
 	})
 
 	r.NoRoute(func(c *gin.Context) {
-		if !strings.HasPrefix(c.Request.URL.Path, "/frontend/dist/") {
-			c.Request.URL.Path = "/frontend/dist" + c.Request.URL.Path
+		if !strings.HasPrefix(c.Request.URL.Path, "/ui/dist/") {
+			c.Request.URL.Path = "/ui/dist" + c.Request.URL.Path
 			r.HandleContext(c)
 			return
 		}
 
 		p := path.Clean(c.Request.URL.Path)
 
-		if p != "/frontend/dist/" {
+		if p != "/ui/dist/" {
 			f, err := static.Open(p[1:])
 			if err != nil {
-				c.Request.URL.Path = "/frontend/dist/"
+				c.Request.URL.Path = "/ui/dist/"
 				r.HandleContext(c)
 				return
 			}

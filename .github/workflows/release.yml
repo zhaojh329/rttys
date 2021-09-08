@@ -25,7 +25,7 @@ jobs:
 
       - id: build
         run: |
-          cd frontend
+          cd ui
           npm install
           npm run build
           cd ..

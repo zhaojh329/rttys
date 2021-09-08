@@ -23,7 +23,7 @@
 
     git clone https://github.com/zhaojh329/rttys
 
-    cd frontend
+    cd ui
     npm install
     npm run build
     cd ..
