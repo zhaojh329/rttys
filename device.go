@@ -89,7 +89,9 @@ func (dev *device) Close() {
 
 		dev.cancel()
 
-		dev.br.unregister <- dev
+		if dev.registered {
+			dev.br.unregister <- dev
+		}
 	}
 }
 
