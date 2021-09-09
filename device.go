@@ -46,6 +46,7 @@ type device struct {
 	closeMutex sync.Mutex
 	closed     bool
 	cancel     context.CancelFunc
+	send       chan []byte // Buffered channel of outbound messages.
 }
 
 type termMessage struct {
@@ -72,7 +73,7 @@ func (dev *device) WriteMsg(typ int, data []byte) {
 
 	binary.BigEndian.PutUint16(b[1:], uint16(len(data)))
 
-	dev.conn.Write(append(b, data...))
+	dev.send <- append(b, data...)
 }
 
 func (dev *device) Close() {
@@ -292,6 +293,23 @@ func (dev *device) readLoop() {
 	}
 }
 
+func (dev *device) writeLoop(ctx context.Context) {
+	defer dev.Close()
+
+	for {
+		select {
+		case msg := <-dev.send:
+			_, err := dev.conn.Write(msg)
+			if err != nil {
+				log.Error().Msg(err.Error())
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 func listenDevice(br *broker) {
 	cfg := br.cfg
 
@@ -353,9 +371,11 @@ func listenDevice(br *broker) {
 				cancel:    cancel,
 				active:    time.Now(),
 				timestamp: time.Now().Unix(),
+				send:      make(chan []byte, 256),
 			}
 
 			go dev.readLoop()
+			go dev.writeLoop(ctx)
 			go dev.keepAlive(ctx)
 		}
 	}()
