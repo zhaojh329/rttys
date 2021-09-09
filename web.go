@@ -237,7 +237,7 @@ func listenDeviceWeb(br *broker) {
 	if cfg.AddrWeb != "" {
 		addr, err := net.ResolveTCPAddr("tcp", cfg.AddrWeb)
 		if err != nil {
-			log.Warn().Msgf("invalid web proxy addr:", err.Error())
+			log.Warn().Msg("invalid web proxy addr: " + err.Error())
 		} else {
 			cfg.WebPort = addr.Port
 		}
