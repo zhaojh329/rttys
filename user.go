@@ -149,8 +149,8 @@ func serveUser(br *broker, c *gin.Context) {
 	}
 
 	go u.readLoop()
-	go u.keepAlive(ctx)
 	go u.writeLoop(ctx)
+	go u.keepAlive(ctx)
 
 	br.register <- u
 }
