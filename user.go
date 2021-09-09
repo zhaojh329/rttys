@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"rttys/client"
@@ -22,14 +22,13 @@ const (
 )
 
 type user struct {
-	br         *broker
-	sid        string
-	devid      string
-	conn       *websocket.Conn
-	closeMutex sync.Mutex
-	closed     bool
-	cancel     context.CancelFunc
-	send       chan *usrMessage // Buffered channel of outbound messages.
+	br     *broker
+	sid    string
+	devid  string
+	conn   *websocket.Conn
+	closed uint32
+	cancel context.CancelFunc
+	send   chan *usrMessage // Buffered channel of outbound messages.
 }
 
 type usrMessage struct {
@@ -60,16 +59,14 @@ func (u *user) WriteMsg(typ int, data []byte) {
 }
 
 func (u *user) Close() {
-	defer u.closeMutex.Unlock()
-
-	u.closeMutex.Lock()
-
-	if !u.closed {
-		u.closed = true
-		u.cancel()
-		u.conn.Close()
-		u.br.unregister <- u
+	if atomic.LoadUint32(&u.closed) == 1 {
+		return
 	}
+	atomic.StoreUint32(&u.closed, 1)
+
+	u.cancel()
+	u.conn.Close()
+	u.br.unregister <- u
 }
 
 func userLoginAck(code int, c client.Client) {

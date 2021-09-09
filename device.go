@@ -12,7 +12,7 @@ import (
 	"io/ioutil"
 	"net"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -43,8 +43,7 @@ type device struct {
 	conn       net.Conn
 	active     time.Time
 	registered bool
-	closeMutex sync.Mutex
-	closed     bool
+	closed     uint32
 	cancel     context.CancelFunc
 	send       chan []byte // Buffered channel of outbound messages.
 }
@@ -56,7 +55,7 @@ type termMessage struct {
 
 type loginAckMsg struct {
 	devid  string
-	sid    byte
+	sid    string
 	isBusy bool
 }
 
@@ -77,22 +76,19 @@ func (dev *device) WriteMsg(typ int, data []byte) {
 }
 
 func (dev *device) Close() {
-	defer dev.closeMutex.Unlock()
+	if atomic.LoadUint32(&dev.closed) == 1 {
+		return
+	}
+	atomic.StoreUint32(&dev.closed, 1)
 
-	dev.closeMutex.Lock()
+	log.Debug().Msgf("Device '%s' disconnected", dev.conn.RemoteAddr())
 
-	if !dev.closed {
-		log.Debug().Msgf("Device '%s' disconnected", dev.conn.RemoteAddr())
+	dev.conn.Close()
 
-		dev.closed = true
+	dev.cancel()
 
-		dev.conn.Close()
-
-		dev.cancel()
-
-		if dev.registered {
-			dev.br.unregister <- dev
-		}
+	if dev.registered {
+		dev.br.unregister <- dev
 	}
 }
 
@@ -224,41 +220,35 @@ func (dev *device) readLoop() {
 			dev.br.register <- dev
 
 		case msgTypeLogin:
-			if msgLen < 1 {
+			if msgLen < 33 {
 				log.Error().Msg("msgTypeLogin: invalid")
 				return
 			}
 
-			code := b[0]
-			sid := byte(0)
+			sid := string(b[:32])
+			code := b[32]
 
-			if code == 0 {
-				if msgLen < 2 {
-					log.Error().Msg("msgTypeLogin: invalid")
-					return
-				}
-
-				sid = b[1]
-			}
 			dev.br.loginAck <- &loginAckMsg{dev.id, sid, code == 1}
 
 		case msgTypeLogout:
-			if msgLen < 1 {
+			if msgLen < 32 {
 				log.Error().Msg("msgTypeLogout: invalid")
 				return
 			}
 
-			dev.br.logout <- dev.id + string(b[0]+'0')
+			dev.br.logout <- string(b[:32])
 
 		case msgTypeTermData:
 			fallthrough
 		case msgTypeFile:
-			if msgLen < 1 {
+			if msgLen < 32 {
 				log.Error().Msg("msgTypeTermData|msgTypeFile: invalid")
 				return
 			}
 
-			sid := dev.id + string(b[0]+'0')
+			sid := string(b[:32])
+
+			b = b[31:]
 
 			if typ == msgTypeFile {
 				b[0] = 1

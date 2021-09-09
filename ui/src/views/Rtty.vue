@@ -272,22 +272,10 @@
       const overlayAddon = new OverlayAddon();
       term.loadAddon(overlayAddon);
 
-      term.open(this.$refs['terminal'] as HTMLElement);
-      term.focus();
-
-      window.addEventListener('resize', this.fitTerm);
-
       const socket = new WebSocket(protocol + location.host + `/connect/${this.devid}`);
       this.disposables.push({dispose: () => socket.close()});
       socket.binaryType = 'arraybuffer';
       this.socket = socket;
-
-      socket.addEventListener('open', () => {
-        this.axios.get('/fontsize').then(r => {
-          this.term?.setOption('fontSize', r.data.size);
-          this.fitTerm();
-        });
-      });
 
       socket.addEventListener('close', () => this.dispose());
       socket.addEventListener('error', () => this.dispose());
@@ -300,13 +288,23 @@
           if (msg.type === 'login') {
             if (msg.err === LoginErrorOffline) {
               this.$message.error(this.$t('Device offline').toString());
-              this.dispose();
+              this.$router.push('/');
               return;
             } else if (msg.err === LoginErrorBusy) {
               this.$message.error(this.$t('Sessions is full').toString());
-              this.dispose();
+              this.$router.push('/');
               return;
             }
+
+            window.addEventListener('resize', this.fitTerm);
+
+            term.open(this.$refs['terminal'] as HTMLElement);
+            term.focus();
+
+            this.axios.get('/fontsize').then(r => {
+              this.term?.setOption('fontSize', r.data.size);
+              this.fitTerm();
+            });
           } else if (msg.type === 'logout') {
             this.dispose();
           }

@@ -3,10 +3,12 @@ package main
 import (
 	"crypto/x509"
 	"encoding/binary"
+	"sync/atomic"
 	"time"
 
 	"rttys/client"
 	"rttys/config"
+	"rttys/utils"
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
@@ -14,47 +16,45 @@ import (
 )
 
 type session struct {
-	devid  string
-	devsid byte
-	u      client.Client
+	dev       client.Client
+	user      client.Client
+	confirmed uint32
 }
 
 type broker struct {
-	cfg            *config.Config
-	devices        map[string]client.Client
-	loginAck       chan *loginAckMsg
-	logout         chan string
-	register       chan client.Client
-	unregister     chan client.Client
-	waitLoginUsers map[string]client.Client
-	sessions       map[string]*session
-	cmdReq         chan *commandReq
-	webCon         chan *webNewCon
-	webReq         chan *webReq
-	termMessage    chan *termMessage
-	userMessage    chan *usrMessage
-	cmdMessage     chan []byte
-	webMessage     chan *webResp
-	devCertPool    *x509.CertPool
+	cfg         *config.Config
+	devices     map[string]client.Client
+	loginAck    chan *loginAckMsg
+	logout      chan string
+	register    chan client.Client
+	unregister  chan client.Client
+	sessions    map[string]*session
+	cmdReq      chan *commandReq
+	webCon      chan *webNewCon
+	webReq      chan *webReq
+	termMessage chan *termMessage
+	userMessage chan *usrMessage
+	cmdMessage  chan []byte
+	webMessage  chan *webResp
+	devCertPool *x509.CertPool
 }
 
 func newBroker(cfg *config.Config) *broker {
 	return &broker{
-		cfg:            cfg,
-		loginAck:       make(chan *loginAckMsg, 1000),
-		logout:         make(chan string, 1000),
-		register:       make(chan client.Client, 1000),
-		unregister:     make(chan client.Client, 1000),
-		devices:        make(map[string]client.Client),
-		waitLoginUsers: make(map[string]client.Client),
-		sessions:       make(map[string]*session),
-		cmdReq:         make(chan *commandReq, 1000),
-		webCon:         make(chan *webNewCon, 1000),
-		webReq:         make(chan *webReq, 1000),
-		termMessage:    make(chan *termMessage, 1000),
-		userMessage:    make(chan *usrMessage, 1000),
-		cmdMessage:     make(chan []byte, 1000),
-		webMessage:     make(chan *webResp, 1000),
+		cfg:         cfg,
+		loginAck:    make(chan *loginAckMsg, 1000),
+		logout:      make(chan string, 1000),
+		register:    make(chan client.Client, 1000),
+		unregister:  make(chan client.Client, 1000),
+		devices:     make(map[string]client.Client),
+		sessions:    make(map[string]*session),
+		cmdReq:      make(chan *commandReq, 1000),
+		webCon:      make(chan *webNewCon, 1000),
+		webReq:      make(chan *webReq, 1000),
+		termMessage: make(chan *termMessage, 1000),
+		userMessage: make(chan *usrMessage, 1000),
+		cmdMessage:  make(chan []byte, 1000),
+		webMessage:  make(chan *webResp, 1000),
 	}
 }
 
@@ -87,15 +87,23 @@ func (br *broker) run() {
 				c.WriteMsg(msgTypeRegister, append([]byte{err}, msg...))
 			} else {
 				if dev, ok := br.devices[devid]; ok {
-					if _, ok := br.waitLoginUsers[devid]; ok {
-						log.Error().Msg("Another user is logining the device, wait...")
-						time.AfterFunc(time.Millisecond*10, func() {
-							br.register <- c
-						})
-					} else {
-						br.waitLoginUsers[devid] = c
-						dev.WriteMsg(msgTypeLogin, []byte{})
+					sid := utils.GenUniqueID("sid")
+
+					s := &session{
+						dev:  dev,
+						user: c,
 					}
+
+					time.AfterFunc(time.Second*3, func() {
+						if atomic.LoadUint32(&s.confirmed) == 0 {
+							c.Close()
+						}
+					})
+
+					br.sessions[sid] = s
+
+					dev.WriteMsg(msgTypeLogin, []byte(sid))
+					log.Info().Msg("New session: " + sid)
 				} else {
 					userLoginAck(loginErrorOffline, c)
 					log.Error().Msgf("Not found the device '%s'", devid)
@@ -103,29 +111,29 @@ func (br *broker) run() {
 			}
 
 		case c := <-br.unregister:
-			id := c.DeviceID()
+			devid := c.DeviceID()
 
 			if c.IsDevice() {
-				delete(br.devices, id)
+				delete(br.devices, devid)
 
 				for sid, s := range br.sessions {
-					if s.devid == id {
-						s.u.Close()
+					if s.dev == c {
+						s.user.Close()
 						delete(br.sessions, sid)
 						log.Info().Msg("Delete session: " + sid)
 					}
 				}
 
-				log.Info().Msgf("Device '%s' unregistered", id)
+				log.Info().Msgf("Device '%s' unregistered", devid)
 			} else {
 				sid := c.(*user).sid
 
-				if s, ok := br.sessions[sid]; ok {
+				if _, ok := br.sessions[sid]; ok {
 					delete(br.sessions, sid)
 					c.Close()
 
-					if dev, ok := br.devices[s.devid]; ok {
-						dev.WriteMsg(msgTypeLogout, []byte{sid[len(sid)-1] - '0'})
+					if dev, ok := br.devices[devid]; ok {
+						dev.WriteMsg(msgTypeLogout, []byte(sid))
 					}
 
 					log.Info().Msg("Delete session: " + sid)
@@ -133,22 +141,18 @@ func (br *broker) run() {
 			}
 
 		case msg := <-br.loginAck:
-			if c, ok := br.waitLoginUsers[msg.devid]; ok {
+			if s, ok := br.sessions[msg.sid]; ok {
 				if msg.isBusy {
-					userLoginAck(loginErrorBusy, c)
+					userLoginAck(loginErrorBusy, s.user)
 					log.Error().Msg("login fail, device busy")
 				} else {
-					sid := msg.devid + string(msg.sid+'0')
-					br.sessions[sid] = &session{msg.devid, msg.sid, c}
+					atomic.StoreUint32(&s.confirmed, 1)
 
-					u := c.(*user)
-					u.sid = sid
+					u := s.user.(*user)
+					u.sid = msg.sid
 
-					userLoginAck(loginErrorNone, c)
-
-					log.Info().Msg("New session: " + sid)
+					userLoginAck(loginErrorNone, s.user)
 				}
-				delete(br.waitLoginUsers, msg.devid)
 			}
 
 		// device active logout
@@ -156,7 +160,7 @@ func (br *broker) run() {
 		case sid := <-br.logout:
 			if s, ok := br.sessions[sid]; ok {
 				delete(br.sessions, sid)
-				s.u.Close()
+				s.user.Close()
 
 				log.Info().Msg("Delete session: " + sid)
 			}
@@ -164,33 +168,34 @@ func (br *broker) run() {
 		// from device, includes terminal data and file data
 		case msg := <-br.termMessage:
 			if s, ok := br.sessions[msg.sid]; ok {
-				s.u.WriteMsg(websocket.BinaryMessage, msg.data)
+				s.user.WriteMsg(websocket.BinaryMessage, msg.data)
 			}
 
 		case msg := <-br.userMessage:
 			if s, ok := br.sessions[msg.sid]; ok {
-				if dev, ok := br.devices[s.devid]; ok {
-					devsid := msg.sid[len(msg.sid)-1] - '0'
+				if dev, ok := br.devices[s.dev.DeviceID()]; ok {
 					data := msg.data
 
 					if msg.typ == websocket.BinaryMessage {
 						if data[0] == 1 {
 							dev.WriteMsg(msgTypeFile, data[1:])
 						} else {
-							dev.WriteMsg(msgTypeTermData, append([]byte{devsid}, data[1:]...))
+							dev.WriteMsg(msgTypeTermData, append([]byte(msg.sid), data[1:]...))
 						}
 					} else {
 						typ := jsoniter.Get(data, "type").ToString()
 
 						switch typ {
 						case "winsize":
-							b := [5]byte{devsid}
+							b := [32 + 4]byte{}
+
+							copy(b[:], msg.sid)
 
 							cols := jsoniter.Get(data, "cols").ToUint()
 							rows := jsoniter.Get(data, "rows").ToUint()
 
-							binary.BigEndian.PutUint16(b[1:], uint16(cols))
-							binary.BigEndian.PutUint16(b[3:], uint16(rows))
+							binary.BigEndian.PutUint16(b[32:], uint16(cols))
+							binary.BigEndian.PutUint16(b[34:], uint16(rows))
 
 							dev.WriteMsg(msgTypeWinsize, b[:])
 						}
