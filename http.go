@@ -4,11 +4,10 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
-	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"rttys/cache"
@@ -27,7 +26,7 @@ type credentials struct {
 var httpSessions *cache.Cache
 
 //go:embed ui/dist
-var static embed.FS
+var staticFs embed.FS
 
 func allowOrigin(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -561,25 +560,21 @@ func httpStart(br *broker) {
 	})
 
 	r.NoRoute(func(c *gin.Context) {
-		if !strings.HasPrefix(c.Request.URL.Path, "/ui/dist/") {
-			c.Request.URL.Path = "/ui/dist" + c.Request.URL.Path
-			r.HandleContext(c)
-			return
-		}
+		fs, _ := fs.Sub(staticFs, "ui/dist")
 
-		p := path.Clean(c.Request.URL.Path)
+		path := c.Request.URL.Path
 
-		if p != "/ui/dist/" {
-			f, err := static.Open(p[1:])
+		if path != "/" {
+			f, err := fs.Open(path[1:])
 			if err != nil {
-				c.Request.URL.Path = "/ui/dist/"
+				c.Request.URL.Path = "/"
 				r.HandleContext(c)
 				return
 			}
 			f.Close()
 		}
 
-		http.FileServer(http.FS(static)).ServeHTTP(c.Writer, c.Request)
+		http.FileServer(http.FS(fs)).ServeHTTP(c.Writer, c.Request)
 	})
 
 	go func() {
