@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"rttys/cache"
@@ -571,6 +572,17 @@ func httpStart(br *broker) {
 				r.HandleContext(c)
 				return
 			}
+
+			if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
+				if strings.HasSuffix(path, "css") || strings.HasSuffix(path, "js") {
+					magic := make([]byte, 2)
+					f.Read(magic)
+					if magic[0] == 0x1f && magic[1] == 0x8b {
+						c.Writer.Header().Set("Content-Encoding", "gzip")
+					}
+				}
+			}
+
 			f.Close()
 		}
 
