@@ -31,10 +31,12 @@ const (
 	msgTypeMax = msgTypeWeb
 )
 
+const rttyProto uint8 = 3
 const heartbeatInterval = time.Second * 5
 
 type device struct {
 	br         *broker
+	proto      uint8
 	id         string
 	desc       string /* description of the device */
 	timestamp  int64  /* Connection time */
@@ -114,18 +116,23 @@ func (dev *device) UpdateDb() {
 	}
 }
 
-func parseDeviceInfo(b []byte) (string, string, string, bool) {
+func parseDeviceInfo(dev *device, b []byte) bool {
+	dev.proto = b[0]
+
+	b = b[1:]
+
 	fields := bytes.Split(b, []byte{0})
 
 	if len(fields) < 3 {
-		return "", "", "", false
+		log.Error().Msg("msgTypeRegister: invalid")
+		return false
 	}
 
-	id := string(fields[0])
-	desc := string(fields[1])
-	token := string(fields[2])
+	dev.id = string(fields[0])
+	dev.desc = string(fields[1])
+	dev.token = string(fields[2])
 
-	return id, desc, token, true
+	return true
 }
 
 func parseHeartbeat(dev *device, b []byte) {
@@ -208,15 +215,10 @@ func (dev *device) readLoop() {
 
 		switch typ {
 		case msgTypeRegister:
-			id, desc, token, ok := parseDeviceInfo(b)
-			if !ok {
-				log.Error().Msg("msgTypeRegister: invalid")
+			if !parseDeviceInfo(dev, b) {
 				return
 			}
 
-			dev.id = id
-			dev.token = token
-			dev.desc = desc
 			dev.br.register <- dev
 
 		case msgTypeLogin:

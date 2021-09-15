@@ -77,11 +77,17 @@ func (br *broker) run() {
 					log.Error().Msg("Invalid token from terminal device")
 					msg = "Invalid token"
 					err = 1
+				} else if dev.proto < rttyProto {
+					if dev.proto < rttyProto {
+						log.Error().Msgf("%s: unsupported protocol version: %d, need %d", dev.id, dev.proto, rttyProto)
+						msg = "unsupported protocol"
+						err = 1
+					}
 				} else {
 					dev.registered = true
 					br.devices[devid] = c
 					dev.UpdateDb()
-					log.Info().Msgf("Device '%s' registered", devid)
+					log.Info().Msgf("Device '%s' registered, proto %d", devid, dev.proto)
 				}
 
 				c.WriteMsg(msgTypeRegister, append([]byte{err}, msg...))
