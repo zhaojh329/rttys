@@ -80,6 +80,11 @@ You can stop the service with:
     sudo systemctl stop rttys
 
 # Database Preparation
+## Sqlite
+sqlite3://rttys.db
+
+## MySql or Mariadb
+mysql://rttys:rttys@tcp(localhost)/rttys
 
 On database instance, login to database console as root:
 ```

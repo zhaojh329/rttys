@@ -80,6 +80,11 @@
     sudo systemctl stop rttys
 
 # 数据库准备
+## Sqlite
+sqlite3://rttys.db
+
+## MySql 或者 Mariadb
+mysql://rttys:rttys@tcp(localhost)/rttys
 
 在数据库实例上，以root用户身份登录到数据库控制台：
 ```
