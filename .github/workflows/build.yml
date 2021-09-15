@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        target: [ linux.amd64, linux.arm64, darwin.amd64, windows.amd64 ]
+        target: [ linux.amd64 ]
     steps:
       - uses: actions/checkout@v2
         with:

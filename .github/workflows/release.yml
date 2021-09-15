@@ -36,18 +36,6 @@ jobs:
           mv rttys-linux-amd64 rttys-linux-amd64-$version
           tar zcf rttys-linux-amd64-$version.tar.gz rttys-linux-amd64-$version
 
-          ./build.sh linux arm64
-          mv rttys-linux-arm64 rttys-linux-arm64-$version
-          tar zcf rttys-linux-arm64-$version.tar.gz rttys-linux-arm64-$version
-
-          ./build.sh darwin amd64
-          mv rttys-darwin-amd64 rttys-darwin-amd64-$version
-          tar zcf rttys-darwin-amd64-$version.tar.gz rttys-darwin-amd64-$version
-
-          ./build.sh windows amd64
-          mv rttys-windows-amd64 rttys-windows-amd64-$version
-          tar zcf rttys-windows-amd64-$version.tar.gz rttys-windows-amd64-$version
-
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
