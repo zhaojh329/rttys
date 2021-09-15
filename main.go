@@ -150,8 +150,8 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "db",
-						Value: "rttys:rttys@tcp(localhost)/rttys",
-						Usage: "mysql database source",
+						Value: "sqlite3://rttys.db",
+						Usage: "database source",
 					},
 					&cli.BoolFlag{
 						Name:  "local-auth",
