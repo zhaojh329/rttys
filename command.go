@@ -9,11 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"rttys/client"
 	"rttys/utils"
 
 	"github.com/gin-gonic/gin"
-
 	jsoniter "github.com/json-iterator/go"
 )
 
@@ -39,14 +37,12 @@ type commandInfo struct {
 
 type commandReq struct {
 	cancel context.CancelFunc
-	dev    client.Client
 	c      *gin.Context
-	data   []byte
 }
 
 var commands sync.Map
 
-func handleCmdResp(br *broker, data []byte) {
+func handleCmdResp(data []byte) {
 	token := jsoniter.Get(data, "token").ToString()
 
 	if req, ok := commands.Load(token); ok {
@@ -80,8 +76,6 @@ func handleCmdReq(br *broker, c *gin.Context) {
 		return
 	}
 
-	req.dev = dev
-
 	content, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
 		c.Status(http.StatusBadRequest)
@@ -107,14 +101,14 @@ func handleCmdReq(br *broker, c *gin.Context) {
 	data[3] = token
 	data[4] = string(byte(params.Size()))
 
-	req.data = []byte(strings.Join(data, string(byte(0))))
+	msg := []byte(strings.Join(data, string(byte(0))))
 
 	for i := 0; i < params.Size(); i++ {
-		req.data = append(req.data, params.Get(i).ToString()...)
-		req.data = append(req.data, 0)
+		msg = append(msg, params.Get(i).ToString()...)
+		msg = append(msg, 0)
 	}
 
-	br.cmdReq <- req
+	dev.WriteMsg(msgTypeCmd, msg)
 
 	waitTime := commandTimeout
 

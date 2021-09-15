@@ -29,9 +29,6 @@ type broker struct {
 	register    chan client.Client
 	unregister  chan client.Client
 	sessions    map[string]*session
-	cmdReq      chan *commandReq
-	webCon      chan *webNewCon
-	webReq      chan *webReq
 	termMessage chan *termMessage
 	userMessage chan *usrMessage
 	cmdMessage  chan []byte
@@ -48,9 +45,6 @@ func newBroker(cfg *config.Config) *broker {
 		unregister:  make(chan client.Client, 1000),
 		devices:     make(map[string]client.Client),
 		sessions:    make(map[string]*session),
-		cmdReq:      make(chan *commandReq, 1000),
-		webCon:      make(chan *webNewCon, 1000),
-		webReq:      make(chan *webReq, 1000),
 		termMessage: make(chan *termMessage, 1000),
 		userMessage: make(chan *usrMessage, 1000),
 		cmdMessage:  make(chan []byte, 1000),
@@ -211,17 +205,8 @@ func (br *broker) run() {
 				log.Error().Msg("Not found sid: " + msg.sid)
 			}
 
-		case req := <-br.cmdReq:
-			req.dev.WriteMsg(msgTypeCmd, req.data)
-
-		case c := <-br.webCon:
-			handleWebCon(br, c)
-
-		case req := <-br.webReq:
-			handleWebReq(req)
-
 		case data := <-br.cmdMessage:
-			handleCmdResp(br, data)
+			handleCmdResp(data)
 
 		case resp := <-br.webMessage:
 			handleWebResp(resp)

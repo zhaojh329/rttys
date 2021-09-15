@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync/atomic"
 	"time"
 
@@ -11,8 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
-
-	"net/http"
 )
 
 const (

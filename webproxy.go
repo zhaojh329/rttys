@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
+	"sync"
 	"time"
 
 	"rttys/cache"
@@ -26,41 +26,13 @@ type webSession struct {
 	cancel context.CancelFunc
 }
 
-type webNewCon struct {
-	r *http.Request // First request
-	b *bufio.Reader
-	c net.Conn
-}
-
-type webCon struct {
-	dev client.Client
-	c   net.Conn
-}
-
-type webReq struct {
-	addr []byte
-	data []byte
-	dev  client.Client
-}
-
 type webResp struct {
 	data []byte
 	dev  client.Client
 }
 
-var webCons = make(map[string]map[string]*webCon)
+var webCons sync.Map
 var webSessions *cache.Cache
-
-func handleWebReq(req *webReq) {
-	dev := req.dev
-
-	if req.data == nil {
-		delete(webCons[dev.DeviceID()], string(req.addr))
-		return
-	}
-
-	dev.WriteMsg(msgTypeWeb, req.data)
-}
 
 func handleWebResp(resp *webResp) {
 	data := resp.data
@@ -71,62 +43,9 @@ func handleWebResp(resp *webResp) {
 		return
 	}
 
-	devcons, ok := webCons[resp.dev.DeviceID()]
-	if !ok {
-		return
-	}
-
-	wc, ok := devcons[string(addr)]
-	if !ok {
-		return
-	}
-
-	c := wc.c
-
-	c.Write(data)
-}
-
-func makeWebReqMsg(br *broker, dev client.Client, srcAddr []byte, r *http.Request, hostHeaderRewrite string, destAddr []byte) {
-	req := append([]byte{}, srcAddr...)
-	req = append(req, destAddr...)
-	req = append(req, r.Method...)
-	req = append(req, ' ')
-	req = append(req, r.RequestURI...)
-	req = append(req, ' ')
-	req = append(req, "HTTP/1.1\r\n"...)
-
-	for k, v := range r.Header {
-		req = append(req, k...)
-		req = append(req, ':')
-		req = append(req, strings.Join(v, ",")...)
-		req = append(req, "\r\n"...)
-	}
-
-	req = append(req, "Host:"...)
-	req = append(req, hostHeaderRewrite...)
-	req = append(req, "\r\n"...)
-
-	req = append(req, "\r\n"...)
-
-	b := make([]byte, 4096)
-	n, _ := r.Body.Read(b)
-	if n > 0 {
-		req = append(req, b[:n]...)
-	}
-
-	br.webReq <- &webReq{srcAddr, req, dev}
-
-	for {
-		n, err := r.Body.Read(b)
-		if n > 0 {
-			req := append([]byte{}, srcAddr...)
-			req = append(req, destAddr...)
-			req = append(req, b[:n]...)
-			br.webReq <- &webReq{srcAddr, req, dev}
-		}
-
-		if err != nil {
-			return
+	if cons, ok := webCons.Load(resp.dev.DeviceID()); ok {
+		if c, ok := cons.(*sync.Map).Load(string(addr)); ok {
+			c.(net.Conn).Write(data)
 		}
 	}
 }
@@ -155,26 +74,53 @@ func tcpAddr2Bytes(addr *net.TCPAddr) []byte {
 	return b
 }
 
-func handleWebCon(br *broker, wc *webNewCon) {
-	c := wc.c
-	r := wc.r
+type RttyWebWriter struct {
+	destAddr          []byte
+	srcAddr           []byte
+	hostHeaderRewrite string
+	dev               client.Client
+}
 
-	cookie, err := r.Cookie("rtty-web-devid")
+func (rw *RttyWebWriter) Write(p []byte) (n int, err error) {
+	msg := append([]byte{}, rw.srcAddr...)
+	msg = append(msg, rw.destAddr...)
+	msg = append(msg, p...)
+
+	dev := rw.dev.(*device)
+
+	dev.WriteMsg(msgTypeWeb, msg)
+
+	return len(p), nil
+}
+
+func (rw *RttyWebWriter) WriteRequest(req *http.Request) {
+	req.Host = rw.hostHeaderRewrite
+	req.Write(rw)
+}
+
+func webProxy(brk *broker, c net.Conn) {
+	defer c.Close()
+
+	br := bufio.NewReader(c)
+
+	req, err := http.ReadRequest(br)
 	if err != nil {
-		c.Close()
+		return
+	}
+
+	cookie, err := req.Cookie("rtty-web-devid")
+	if err != nil {
 		return
 	}
 	devid := cookie.Value
 
-	dev, ok := br.devices[devid]
+	dev, ok := brk.devices[devid]
 	if !ok {
-		c.Close()
 		return
 	}
 
-	cookie, err = r.Cookie("rtty-web-sid")
+	cookie, err = req.Cookie("rtty-web-sid")
 	if err != nil {
-		c.Close()
 		return
 	}
 	sid := cookie.Value
@@ -186,53 +132,60 @@ func handleWebCon(br *broker, wc *webNewCon) {
 		webSessions.Active(sid, 0)
 		ctx, cancel = context.WithCancel(v.(*webSession).ctx)
 	} else {
-		c.Close()
 		return
 	}
 
 	hostHeaderRewrite := "localhost"
-	cookie, err = r.Cookie("rtty-web-destaddr")
+	cookie, err = req.Cookie("rtty-web-destaddr")
 	if err == nil {
 		hostHeaderRewrite, _ = url.QueryUnescape(cookie.Value)
 	}
 
 	destAddr := genDestAddr(hostHeaderRewrite)
-
-	if _, ok := webCons[devid]; !ok {
-		webCons[devid] = make(map[string]*webCon)
-	}
-
 	srcAddr := tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr))
 
-	webCons[devid][string(srcAddr)] = &webCon{dev, c}
+	if cons, _ := webCons.LoadOrStore(devid, &sync.Map{}); true {
+		cons := cons.(*sync.Map)
+		cons.Store(string(srcAddr), c)
+	}
 
-	go func() {
-		defer func() {
-			br.webReq <- &webReq{srcAddr, nil, dev}
-			cancel()
-		}()
+	rw := &RttyWebWriter{destAddr, srcAddr, hostHeaderRewrite, dev}
 
-		makeWebReqMsg(br, dev, srcAddr, r, hostHeaderRewrite, destAddr)
-
-		for {
-			r, err := http.ReadRequest(wc.b)
-			if err != nil {
-				return
-			}
-			makeWebReqMsg(br, dev, srcAddr, r, hostHeaderRewrite, destAddr)
-		}
-	}()
+	req.Host = hostHeaderRewrite
+	rw.WriteRequest(req)
 
 	go func() {
 		<-ctx.Done()
+
+		// needed, for canceled by new proxy in the same web browser
 		c.Close()
 	}()
+
+	defer func() {
+		cons, ok := webCons.Load(devid)
+		if ok {
+			cons := cons.(*sync.Map)
+			cons.Delete(string(srcAddr))
+		}
+		cancel()
+	}()
+
+	for {
+		req, err := http.ReadRequest(br)
+		if err != nil {
+			return
+		}
+
+		webSessions.Active(sid, 0)
+
+		rw.WriteRequest(req)
+	}
 }
 
-func listenDeviceWeb(br *broker) {
-	cfg := br.cfg
+func listenDeviceWeb(brk *broker) {
+	cfg := brk.cfg
 
-	webSessions = cache.New(30*time.Minute, 5*time.Second)
+	webSessions = cache.New(10*time.Minute, 5*time.Second)
 
 	if cfg.AddrWeb != "" {
 		addr, err := net.ResolveTCPAddr("tcp", cfg.AddrWeb)
@@ -266,17 +219,7 @@ func listenDeviceWeb(br *broker) {
 				continue
 			}
 
-			go func() {
-				b := bufio.NewReader(c)
-
-				r, err := http.ReadRequest(b)
-				if err != nil {
-					c.Close()
-					return
-				}
-
-				br.webCon <- &webNewCon{r, b, c}
-			}()
+			go webProxy(brk, c)
 		}
 	}()
 }
