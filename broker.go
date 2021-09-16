@@ -177,11 +177,11 @@ func (br *broker) run() {
 					data := msg.data
 
 					if msg.typ == websocket.BinaryMessage {
+						typ := msgTypeTermData
 						if data[0] == 1 {
-							dev.WriteMsg(msgTypeFile, data[1:])
-						} else {
-							dev.WriteMsg(msgTypeTermData, append([]byte(msg.sid), data[1:]...))
+							typ = msgTypeFile
 						}
+						dev.WriteMsg(typ, append([]byte(msg.sid), data[1:]...))
 					} else {
 						typ := jsoniter.Get(data, "type").ToString()
 
