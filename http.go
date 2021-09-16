@@ -1,605 +1,302 @@
 package main
 
 import (
-	"database/sql"
-	"embed"
+	"bufio"
+	"context"
+	"encoding/binary"
+	"errors"
 	"fmt"
-	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
-	"strings"
+	"sync"
 	"time"
 
 	"rttys/cache"
-	"rttys/config"
+	"rttys/client"
 	"rttys/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
-type credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+type httpProxySession struct {
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-var httpSessions *cache.Cache
-
-//go:embed ui/dist
-var staticFs embed.FS
-
-func allowOrigin(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("content-type", "application/json")
+type httpResp struct {
+	data []byte
+	dev  client.Client
 }
 
-func httpLogin(cfg *config.Config, creds *credentials) bool {
-	if creds.Username == "" || creds.Password == "" {
-		return false
+var httpProxyCons sync.Map
+var httpProxySessions *cache.Cache
+
+func handleHttpProxyResp(resp *httpResp) {
+	data := resp.data
+	addr := data[:18]
+	data = data[18:]
+
+	if len(data) == 0 {
+		return
 	}
 
-	db, err := instanceDB(cfg.DB)
+	if cons, ok := httpProxyCons.Load(resp.dev.DeviceID()); ok {
+		if c, ok := cons.(*sync.Map).Load(string(addr)); ok {
+			c.(net.Conn).Write(data)
+		}
+	}
+}
+
+func genDestAddr(addr string) []byte {
+	destIP, destPort, err := httpProxyVaildAddr(addr)
 	if err != nil {
-		log.Error().Msg(err.Error())
-		return false
+		return nil
 	}
-	defer db.Close()
 
-	cnt := 0
+	b := make([]byte, 6)
+	copy(b, destIP)
 
-	db.QueryRow("SELECT COUNT(*) FROM account WHERE username = ? AND password = ?", creds.Username, creds.Password).Scan(&cnt)
+	binary.BigEndian.PutUint16(b[4:], destPort)
 
-	return cnt != 0
+	return b
 }
 
-func authorizedDev(devid string, cfg *config.Config) bool {
-	if cfg.WhiteList == nil {
-		return true
-	}
+func tcpAddr2Bytes(addr *net.TCPAddr) []byte {
+	b := make([]byte, 18)
 
-	_, ok := cfg.WhiteList[devid]
-	return ok
+	binary.BigEndian.PutUint16(b[:2], uint16(addr.Port))
+
+	copy(b[2:], addr.IP)
+
+	return b
 }
 
-func isLocalRequest(c *gin.Context) bool {
-	addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
-	return addr.IP.IsLoopback()
+type HttpProxyWriter struct {
+	destAddr          []byte
+	srcAddr           []byte
+	hostHeaderRewrite string
+	dev               client.Client
 }
 
-func httpAuth(cfg *config.Config, c *gin.Context) bool {
-	if !cfg.LocalAuth && isLocalRequest(c) {
-		return true
-	}
+func (rw *HttpProxyWriter) Write(p []byte) (n int, err error) {
+	msg := append([]byte{}, rw.srcAddr...)
+	msg = append(msg, rw.destAddr...)
+	msg = append(msg, p...)
 
-	cookie, err := c.Cookie("sid")
-	if err != nil || !httpSessions.Have(cookie) {
-		return false
-	}
+	dev := rw.dev.(*device)
 
-	httpSessions.Active(cookie, 0)
+	dev.WriteMsg(msgTypeHttp, msg)
 
-	return true
+	return len(p), nil
 }
 
-func isAdminUsername(cfg *config.Config, username string) bool {
-	if username == "" {
-		return false
-	}
+func (rw *HttpProxyWriter) WriteRequest(req *http.Request) {
+	req.Host = rw.hostHeaderRewrite
+	req.Write(rw)
+}
 
-	db, err := instanceDB(cfg.DB)
+func doHttpProxy(brk *broker, c net.Conn) {
+	defer c.Close()
+
+	br := bufio.NewReader(c)
+
+	req, err := http.ReadRequest(br)
 	if err != nil {
-		log.Error().Msg(err.Error())
-		return false
-	}
-	defer db.Close()
-
-	isAdmin := false
-
-	if db.QueryRow("SELECT admin FROM account WHERE username = ?", username).Scan(&isAdmin) == sql.ErrNoRows {
-		return false
+		return
 	}
 
-	return isAdmin
-}
-
-func getLoginUsername(c *gin.Context) string {
-	cookie, err := c.Cookie("sid")
+	cookie, err := req.Cookie("rtty-http-devid")
 	if err != nil {
-		return ""
+		return
+	}
+	devid := cookie.Value
+
+	dev, ok := brk.devices[devid]
+	if !ok {
+		return
 	}
 
-	username, ok := httpSessions.Get(cookie)
-	if ok {
-		return username.(string)
+	cookie, err = req.Cookie("rtty-http-sid")
+	if err != nil {
+		return
+	}
+	sid := cookie.Value
+
+	var ctx context.Context
+	var cancel context.CancelFunc
+
+	if v, ok := httpProxySessions.Get(sid); ok {
+		httpProxySessions.Active(sid, 0)
+		ctx, cancel = context.WithCancel(v.(*httpProxySession).ctx)
+	} else {
+		return
 	}
 
-	return ""
+	hostHeaderRewrite := "localhost"
+	cookie, err = req.Cookie("rtty-http-destaddr")
+	if err == nil {
+		hostHeaderRewrite, _ = url.QueryUnescape(cookie.Value)
+	}
+
+	destAddr := genDestAddr(hostHeaderRewrite)
+	srcAddr := tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr))
+
+	if cons, _ := httpProxyCons.LoadOrStore(devid, &sync.Map{}); true {
+		cons := cons.(*sync.Map)
+		cons.Store(string(srcAddr), c)
+	}
+
+	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, dev}
+
+	req.Host = hostHeaderRewrite
+	hpw.WriteRequest(req)
+
+	go func() {
+		<-ctx.Done()
+
+		// needed, for canceled by new proxy in the same web browser
+		c.Close()
+	}()
+
+	defer func() {
+		cons, ok := httpProxyCons.Load(devid)
+		if ok {
+			cons := cons.(*sync.Map)
+			cons.Delete(string(srcAddr))
+		}
+		cancel()
+	}()
+
+	for {
+		req, err := http.ReadRequest(br)
+		if err != nil {
+			return
+		}
+
+		httpProxySessions.Active(sid, 0)
+
+		hpw.WriteRequest(req)
+	}
 }
 
-func httpStart(br *broker) {
-	cfg := br.cfg
+func listenHttpProxy(brk *broker) {
+	cfg := brk.cfg
 
-	httpSessions = cache.New(30*time.Minute, 5*time.Second)
+	httpProxySessions = cache.New(10*time.Minute, 5*time.Second)
 
-	gin.SetMode(gin.ReleaseMode)
-
-	r := gin.New()
-
-	authorized := r.Group("/", func(c *gin.Context) {
-		devid := c.Param("devid")
-		if devid != "" && authorizedDev(devid, cfg) {
-			return
-		}
-
-		if !httpAuth(cfg, c) {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		}
-	})
-
-	authorized.GET("/fontsize", func(c *gin.Context) {
-		db, err := instanceDB(cfg.DB)
+	if cfg.AddrHttpProxy != "" {
+		addr, err := net.ResolveTCPAddr("tcp", cfg.AddrHttpProxy)
 		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		value := "16"
-
-		db.QueryRow("SELECT value FROM config WHERE name = 'FontSize'").Scan(&value)
-
-		FontSize, _ := strconv.Atoi(value)
-
-		c.JSON(http.StatusOK, gin.H{"size": FontSize})
-	})
-
-	authorized.POST("/fontsize", func(c *gin.Context) {
-		data := make(map[string]int)
-
-		err := c.BindJSON(&data)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		size, ok := data["size"]
-		if !ok {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		if size < 12 {
-			size = 12
-		}
-
-		_, err = db.Exec("DELETE FROM config WHERE name = 'FontSize'")
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		_, err = db.Exec("INSERT INTO config values('FontSize',?)", fmt.Sprintf("%d", size))
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		c.Status(http.StatusOK)
-	})
-
-	authorized.GET("/connect/:devid", func(c *gin.Context) {
-		if c.GetHeader("Upgrade") != "websocket" {
-			c.Redirect(http.StatusFound, "/rtty/"+c.Param("devid"))
-			return
-		}
-		serveUser(br, c)
-	})
-
-	authorized.GET("/devs", func(c *gin.Context) {
-		type DeviceInfo struct {
-			ID          string `json:"id"`
-			Connected   uint32 `json:"connected"`
-			Uptime      uint32 `json:"uptime"`
-			Description string `json:"description"`
-			Bound       bool   `json:"bound"`
-			Online      bool   `json:"online"`
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		sql := "SELECT id, description, username FROM device"
-
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			username := getLoginUsername(c)
-			if username == "" {
-				c.Status(http.StatusUnauthorized)
-				return
-			}
-
-			if !isAdminUsername(cfg, username) {
-				sql += fmt.Sprintf(" WHERE username = '%s'", username)
-			}
-		}
-
-		devs := make([]DeviceInfo, 0)
-
-		rows, err := db.Query(sql)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		for rows.Next() {
-			id := ""
-			desc := ""
-			username := ""
-
-			err := rows.Scan(&id, &desc, &username)
-			if err != nil {
-				log.Error().Msg(err.Error())
-				break
-			}
-
-			di := DeviceInfo{
-				ID:          id,
-				Description: desc,
-				Bound:       username != "",
-			}
-
-			if dev, ok := br.devices[id]; ok {
-				dev := dev.(*device)
-				di.Connected = uint32(time.Now().Unix() - dev.timestamp)
-				di.Uptime = dev.uptime
-				di.Online = true
-			}
-
-			devs = append(devs, di)
-		}
-
-		allowOrigin(c.Writer)
-
-		c.JSON(http.StatusOK, devs)
-	})
-
-	authorized.POST("/cmd/:devid", func(c *gin.Context) {
-		allowOrigin(c.Writer)
-
-		handleCmdReq(br, c)
-	})
-
-	r.Any("/web/:devid/:addr/*path", func(c *gin.Context) {
-		webReqRedirect(br, c)
-	})
-
-	r.GET("/authorized/:devid", func(c *gin.Context) {
-		authorized := authorizedDev(c.Param("devid"), cfg) || httpAuth(cfg, c)
-		c.JSON(http.StatusOK, gin.H{
-			"authorized": authorized,
-		})
-	})
-
-	r.POST("/signin", func(c *gin.Context) {
-		var creds credentials
-
-		err := c.BindJSON(&creds)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		if httpLogin(cfg, &creds) {
-			sid := utils.GenUniqueID("http")
-			httpSessions.Set(sid, creds.Username, 0)
-
-			c.SetCookie("sid", sid, 0, "", "", false, true)
-
-			c.JSON(http.StatusOK, gin.H{
-				"sid":      sid,
-				"username": creds.Username,
-			})
-			return
-		}
-
-		c.Status(http.StatusForbidden)
-	})
-
-	r.GET("/alive", func(c *gin.Context) {
-		if !httpAuth(cfg, c) {
-			c.AbortWithStatus(http.StatusUnauthorized)
+			log.Warn().Msg("invalid http proxy addr: " + err.Error())
 		} else {
-			c.Status(http.StatusOK)
+			cfg.HttpProxyPort = addr.Port
 		}
-	})
+	}
 
-	r.GET("/signout", func(c *gin.Context) {
-		cookie, err := c.Cookie("sid")
-		if err != nil || !httpSessions.Have(cookie) {
-			return
-		}
+	if cfg.HttpProxyPort == 0 {
+		log.Info().Msg("Automatically select an available port for http proxy")
+	}
 
-		httpSessions.Del(cookie)
+	ln, err := net.Listen("tcp", cfg.AddrHttpProxy)
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+	}
 
-		c.Status(http.StatusOK)
-	})
+	cfg.HttpProxyPort = ln.Addr().(*net.TCPAddr).Port
 
-	r.POST("/signup", func(c *gin.Context) {
-		var creds credentials
+	log.Info().Msgf("Listen http proxy on: %s", ln.Addr().(*net.TCPAddr))
 
-		err := c.BindJSON(&creds)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
+	go func() {
+		defer ln.Close()
 
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		isAdmin := 0
-
-		cnt := 0
-		db.QueryRow("SELECT COUNT(*) FROM account").Scan(&cnt)
-		if cnt == 0 {
-			isAdmin = 1
-		}
-
-		db.QueryRow("SELECT COUNT(*) FROM account WHERE username = ?", creds.Username).Scan(&cnt)
-		if cnt > 0 {
-			c.Status(http.StatusForbidden)
-			return
-		}
-
-		_, err = db.Exec("INSERT INTO account values(?,?,?)", creds.Username, creds.Password, isAdmin)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		c.Status(http.StatusOK)
-	})
-
-	r.GET("/isadmin", func(c *gin.Context) {
-		isAdmin := true
-
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			isAdmin = isAdminUsername(cfg, getLoginUsername(c))
-		}
-
-		c.JSON(http.StatusOK, gin.H{"admin": isAdmin})
-	})
-
-	r.GET("/users", func(c *gin.Context) {
-		loginUsername := getLoginUsername(c)
-		isAdmin := isAdminUsername(cfg, loginUsername)
-
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			if !isAdmin {
-				c.Status(http.StatusUnauthorized)
-				return
-			}
-		}
-
-		users := []string{}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		rows, err := db.Query("SELECT username FROM account")
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		for rows.Next() {
-			username := ""
-			err := rows.Scan(&username)
+		for {
+			c, err := ln.Accept()
 			if err != nil {
 				log.Error().Msg(err.Error())
-				break
-			}
-
-			if isAdmin && username == loginUsername {
 				continue
 			}
 
-			users = append(users, username)
+			go doHttpProxy(brk, c)
 		}
-
-		c.JSON(http.StatusOK, gin.H{"users": users})
-	})
-
-	r.POST("/bind", func(c *gin.Context) {
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			username := getLoginUsername(c)
-			if !isAdminUsername(cfg, username) {
-				c.Status(http.StatusUnauthorized)
-				return
-			}
-		}
-
-		type binddata struct {
-			Username string   `json:"username"`
-			Devices  []string `json:"devices"`
-		}
-
-		data := binddata{}
-
-		err := c.BindJSON(&data)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			return
-		}
-		defer db.Close()
-
-		isAdmin := false
-
-		if db.QueryRow("SELECT admin FROM account WHERE username = ?", data.Username).Scan(&isAdmin) == sql.ErrNoRows || isAdmin {
-			c.Status(http.StatusOK)
-			return
-		}
-
-		for _, devid := range data.Devices {
-			db.Exec("UPDATE device SET username = ? WHERE id = ?", data.Username, devid)
-		}
-
-		c.Status(http.StatusOK)
-	})
-
-	r.POST("/unbind", func(c *gin.Context) {
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			username := getLoginUsername(c)
-			if !isAdminUsername(cfg, username) {
-				c.Status(http.StatusUnauthorized)
-				return
-			}
-		}
-
-		type binddata struct {
-			Devices []string `json:"devices"`
-		}
-
-		data := binddata{}
-
-		err := c.BindJSON(&data)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			return
-		}
-		defer db.Close()
-
-		for _, devid := range data.Devices {
-			db.Exec("UPDATE device SET username = '' WHERE id = ?", devid)
-		}
-
-		c.Status(http.StatusOK)
-	})
-
-	r.POST("/delete", func(c *gin.Context) {
-		type deldata struct {
-			Devices []string `json:"devices"`
-		}
-
-		data := deldata{}
-
-		err := c.BindJSON(&data)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			return
-		}
-		defer db.Close()
-
-		username := ""
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			username = getLoginUsername(c)
-			if isAdminUsername(cfg, username) {
-				username = ""
-			}
-		}
-
-		for _, devid := range data.Devices {
-			if _, ok := br.devices[devid]; !ok {
-				sql := fmt.Sprintf("DELETE FROM device WHERE id = '%s'", devid)
-
-				if username != "" {
-					sql += fmt.Sprintf(" AND username = '%s'", username)
-				}
-
-				db.Exec(sql)
-			}
-		}
-
-		c.Status(http.StatusOK)
-	})
-
-	r.NoRoute(func(c *gin.Context) {
-		fs, _ := fs.Sub(staticFs, "ui/dist")
-
-		path := c.Request.URL.Path
-
-		if path != "/" {
-			f, err := fs.Open(path[1:])
-			if err != nil {
-				c.Request.URL.Path = "/"
-				r.HandleContext(c)
-				return
-			}
-
-			if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
-				if strings.HasSuffix(path, "css") || strings.HasSuffix(path, "js") {
-					magic := make([]byte, 2)
-					f.Read(magic)
-					if magic[0] == 0x1f && magic[1] == 0x8b {
-						c.Writer.Header().Set("Content-Encoding", "gzip")
-					}
-				}
-			}
-
-			f.Close()
-		}
-
-		http.FileServer(http.FS(fs)).ServeHTTP(c.Writer, c.Request)
-	})
-
-	go func() {
-		var err error
-
-		if cfg.SslCert != "" && cfg.SslKey != "" {
-			log.Info().Msgf("Listen user on: %s SSL on", cfg.AddrUser)
-			err = r.RunTLS(cfg.AddrUser, cfg.SslCert, cfg.SslKey)
-		} else {
-			log.Info().Msgf("Listen user on: %s SSL off", cfg.AddrUser)
-			err = r.Run(cfg.AddrUser)
-		}
-
-		log.Fatal().Err(err)
 	}()
+}
+
+func httpProxyVaildAddr(addr string) (net.IP, uint16, error) {
+	ips, ports, err := net.SplitHostPort(addr)
+	if err != nil {
+		ips = addr
+		ports = "80"
+	}
+
+	ip := net.ParseIP(ips)
+	if ip == nil {
+		return nil, 0, errors.New("invalid IPv4 Addr")
+	}
+
+	ip = ip.To4()
+	if ip == nil {
+		return nil, 0, errors.New("invalid IPv4 Addr")
+	}
+
+	port, _ := strconv.Atoi(ports)
+
+	return ip, uint16(port), nil
+}
+
+func httpProxyRedirect(br *broker, c *gin.Context) {
+	cfg := br.cfg
+	devid := c.Param("devid")
+	addr := c.Param("addr")
+	path := c.Param("path")
+
+	_, _, err := httpProxyVaildAddr(addr)
+	if err != nil {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	_, ok := br.devices[devid]
+	if !ok {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	location := cfg.HttpProxyRedirURL
+
+	if location == "" {
+		host, _, err := net.SplitHostPort(c.Request.Host)
+		if err != nil {
+			host = c.Request.Host
+		}
+		location = "http://" + host
+		if cfg.HttpProxyPort != 80 {
+			location += fmt.Sprintf(":%d", cfg.HttpProxyPort)
+		}
+	}
+
+	location += path
+
+	location += fmt.Sprintf("?_=%d", time.Now().Unix())
+
+	sid, err := c.Cookie("rtty-http-sid")
+	if err == nil {
+		if v, ok := httpProxySessions.Get(sid); ok {
+			v.(*httpProxySession).cancel()
+			httpProxySessions.Del(sid)
+		}
+	}
+
+	sid = utils.GenUniqueID("http-proxy")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	httpProxySessions.Set(sid, &httpProxySession{ctx, cancel}, 0)
+
+	c.SetCookie("rtty-http-sid", sid, 0, "", "", false, true)
+	c.SetCookie("rtty-http-devid", devid, 0, "", "", false, true)
+	c.SetCookie("rtty-http-destaddr", addr, 0, "", "", false, true)
+
+	c.Redirect(http.StatusFound, location)
 }

@@ -12,18 +12,18 @@ import (
 
 // Config struct
 type Config struct {
-	AddrDev     string
-	AddrUser    string
-	AddrWeb     string
-	WebRedirURL string
-	WebPort     int
-	SslCert     string
-	SslKey      string
-	SslCacert   string // mTLS for device
-	Token       string
-	WhiteList   map[string]bool
-	DB          string
-	LocalAuth   bool
+	AddrDev           string
+	AddrUser          string
+	AddrHttpProxy     string
+	HttpProxyRedirURL string
+	HttpProxyPort     int
+	SslCert           string
+	SslKey            string
+	SslCacert         string // mTLS for device
+	Token             string
+	WhiteList         map[string]bool
+	DB                string
+	LocalAuth         bool
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
@@ -43,16 +43,16 @@ func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
 // Parse config
 func Parse(c *cli.Context) *Config {
 	cfg := &Config{
-		AddrDev:     c.String("addr-dev"),
-		AddrUser:    c.String("addr-user"),
-		AddrWeb:     c.String("addr-web"),
-		WebRedirURL: c.String("web-redir-url"),
-		SslCert:     c.String("ssl-cert"),
-		SslKey:      c.String("ssl-key"),
-		SslCacert:   c.String("ssl-cacert"),
-		Token:       c.String("token"),
-		DB:          c.String("db"),
-		LocalAuth:   c.Bool("local-auth"),
+		AddrDev:           c.String("addr-dev"),
+		AddrUser:          c.String("addr-user"),
+		AddrHttpProxy:     c.String("addr-http-proxy"),
+		HttpProxyRedirURL: c.String("http-proxy-redir-url"),
+		SslCert:           c.String("ssl-cert"),
+		SslKey:            c.String("ssl-key"),
+		SslCacert:         c.String("ssl-cacert"),
+		Token:             c.String("token"),
+		DB:                c.String("db"),
+		LocalAuth:         c.Bool("local-auth"),
 	}
 
 	cfg.WhiteList = make(map[string]bool)
@@ -71,8 +71,8 @@ func Parse(c *cli.Context) *Config {
 	if err == nil {
 		getConfigOpt(yamlCfg, "addr-dev", &cfg.AddrDev)
 		getConfigOpt(yamlCfg, "addr-user", &cfg.AddrUser)
-		getConfigOpt(yamlCfg, "addr-web", &cfg.AddrWeb)
-		getConfigOpt(yamlCfg, "web-redir-url", &cfg.WebRedirURL)
+		getConfigOpt(yamlCfg, "addr-http-proxy", &cfg.AddrHttpProxy)
+		getConfigOpt(yamlCfg, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
 		getConfigOpt(yamlCfg, "ssl-cert", &cfg.SslCert)
 		getConfigOpt(yamlCfg, "ssl-key", &cfg.SslKey)
 		getConfigOpt(yamlCfg, "ssl-cacert", &cfg.SslCacert)

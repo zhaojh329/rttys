@@ -32,7 +32,7 @@ type broker struct {
 	termMessage chan *termMessage
 	userMessage chan *usrMessage
 	cmdMessage  chan []byte
-	webMessage  chan *webResp
+	httpMessage chan *httpResp
 	devCertPool *x509.CertPool
 }
 
@@ -48,7 +48,7 @@ func newBroker(cfg *config.Config) *broker {
 		termMessage: make(chan *termMessage, 1000),
 		userMessage: make(chan *usrMessage, 1000),
 		cmdMessage:  make(chan []byte, 1000),
-		webMessage:  make(chan *webResp, 1000),
+		httpMessage: make(chan *httpResp, 1000),
 	}
 }
 
@@ -208,8 +208,8 @@ func (br *broker) run() {
 		case data := <-br.cmdMessage:
 			handleCmdResp(data)
 
-		case resp := <-br.webMessage:
-			handleWebResp(resp)
+		case resp := <-br.httpMessage:
+			handleHttpProxyResp(resp)
 		}
 	}
 }

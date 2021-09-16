@@ -70,8 +70,8 @@ func runRttys(c *cli.Context) {
 	go br.run()
 
 	listenDevice(br)
-	listenDeviceWeb(br)
-	httpStart(br)
+	listenHttpProxy(br)
+	apiStart(br)
 
 	select {}
 }
@@ -113,14 +113,14 @@ func main() {
 						Usage: "address to listen user",
 					},
 					&cli.StringFlag{
-						Name:  "addr-web",
+						Name:  "addr-http-proxy",
 						Value: "",
-						Usage: "address to listen for web proxy (default auto)",
+						Usage: "address to listen for HTTP proxy (default auto)",
 					},
 					&cli.StringFlag{
-						Name:  "web-redir-url",
+						Name:  "http-proxy-redir-url",
 						Value: "",
-						Usage: "url to redirect for access device's web",
+						Usage: "url to redirect for HTTP proxy",
 					},
 					&cli.StringFlag{
 						Name:  "ssl-cert",

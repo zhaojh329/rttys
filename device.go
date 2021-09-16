@@ -27,8 +27,8 @@ const (
 	msgTypeCmd
 	msgTypeHeartbeat
 	msgTypeFile
-	msgTypeWeb
-	msgTypeMax = msgTypeWeb
+	msgTypeHttp
+	msgTypeMax = msgTypeHttp
 )
 
 const rttyProto uint8 = 3
@@ -268,13 +268,13 @@ func (dev *device) readLoop() {
 
 			dev.br.cmdMessage <- b
 
-		case msgTypeWeb:
+		case msgTypeHttp:
 			if msgLen < 18 {
-				log.Error().Msg("msgTypeWeb: invalid")
+				log.Error().Msg("msgTypeHttp: invalid")
 				return
 			}
 
-			dev.br.webMessage <- &webResp{b, dev}
+			dev.br.httpMessage <- &httpResp{b, dev}
 
 		case msgTypeHeartbeat:
 			parseHeartbeat(dev, b)
