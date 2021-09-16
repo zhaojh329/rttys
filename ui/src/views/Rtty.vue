@@ -34,6 +34,8 @@
 
   const ReadFileBlkSize = 16 * 1024;
 
+  const AckBlkSize = 4 * 1024;
+
   interface FileContext {
     name: string;
     list: Array<File>;
@@ -73,6 +75,7 @@
       {name: 'font+', caption: this.tr('Font Size+')},
       {name: 'font-', caption: this.tr('Font Size-')}
     ];
+    unack = 0;
 
     tr(key: string): string {
       if (this.$t)
@@ -319,7 +322,14 @@
             return;
           }
 
+          this.unack += data.length;
           term.write(data.toString());
+
+          if (this.unack > AckBlkSize) {
+            const msg = {type: 'ack', ack: this.unack};
+            socket.send(JSON.stringify(msg));
+            this.unack = 0;
+          }
         }
       });
 

@@ -28,7 +28,8 @@ const (
 	msgTypeHeartbeat
 	msgTypeFile
 	msgTypeHttp
-	msgTypeMax = msgTypeHttp
+	msgTypeAck
+	msgTypeMax = msgTypeAck
 )
 
 const rttyProto uint8 = 3

@@ -198,6 +198,14 @@ func (br *broker) run() {
 							binary.BigEndian.PutUint16(b[34:], uint16(rows))
 
 							dev.WriteMsg(msgTypeWinsize, b[:])
+
+						case "ack":
+							b := [32 + 2]byte{}
+							copy(b[:], msg.sid)
+
+							ack := jsoniter.Get(data, "ack").ToUint()
+							binary.BigEndian.PutUint16(b[32:], uint16(ack))
+							dev.WriteMsg(msgTypeAck, b[:])
 						}
 					}
 				}
