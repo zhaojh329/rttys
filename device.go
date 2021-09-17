@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"rttys/client"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -30,6 +31,15 @@ const (
 	msgTypeHttp
 	msgTypeAck
 	msgTypeMax = msgTypeAck
+)
+
+const (
+	msgTypeFileSend = iota
+	msgTypeFileRecv
+	msgTypeFileInfo
+	msgTypeFileData
+	msgTypeFileAck
+	msgTypeFileAbort
 )
 
 const rttyProto uint8 = 3
@@ -54,6 +64,50 @@ type device struct {
 type termMessage struct {
 	sid  string
 	data []byte
+}
+
+type fileMessage struct {
+	sid  string
+	data []byte
+}
+
+type fileProxy struct {
+	reader *io.PipeReader
+	writer *io.PipeWriter
+}
+
+func (fp *fileProxy) Read(b []byte) (int, error) {
+	return fp.reader.Read(b)
+}
+
+func (fp *fileProxy) Write(dev client.Client, sid string, b []byte) {
+	go func() {
+		_, err := fp.writer.Write(b)
+		if err != nil {
+			fp.Cancel(dev, sid)
+			dev.(*device).br.fileProxy.Delete(sid)
+			return
+		}
+		fp.Ack(dev, sid)
+	}()
+}
+
+func (fp *fileProxy) Close() {
+	fp.writer.Close()
+}
+
+func (fp *fileProxy) Cancel(dev client.Client, sid string) {
+	b := make([]byte, 33)
+	copy(b, sid)
+	b[32] = msgTypeFileAbort
+	dev.WriteMsg(msgTypeFile, b)
+}
+
+func (fp *fileProxy) Ack(dev client.Client, sid string) {
+	b := make([]byte, 33)
+	copy(b, sid)
+	b[32] = msgTypeFileAck
+	dev.WriteMsg(msgTypeFile, b)
 }
 
 type loginAckMsg struct {
@@ -251,15 +305,11 @@ func (dev *device) readLoop() {
 
 			sid := string(b[:32])
 
-			b = b[31:]
-
 			if typ == msgTypeFile {
-				b[0] = 1
+				dev.br.fileMessage <- &fileMessage{sid, b[32:]}
 			} else {
-				b[0] = 0
+				dev.br.termMessage <- &termMessage{sid, b[32:]}
 			}
-
-			dev.br.termMessage <- &termMessage{sid, b}
 
 		case msgTypeCmd:
 			if msgLen < 1 {

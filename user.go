@@ -69,7 +69,7 @@ func (u *user) Close() {
 }
 
 func userLoginAck(code int, c client.Client) {
-	msg := fmt.Sprintf(`{"type":"login","err":%d}`, code)
+	msg := fmt.Sprintf(`{"type":"login","sid":"%s","err":%d}`, c.(*user).sid, code)
 	c.WriteMsg(websocket.TextMessage, []byte(msg))
 }
 

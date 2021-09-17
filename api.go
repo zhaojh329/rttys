@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -126,6 +127,8 @@ func apiStart(br *broker) {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
+
+	r.Use(gin.Recovery())
 
 	authorized := r.Group("/", func(c *gin.Context) {
 		devid := c.Param("devid")
@@ -558,6 +561,30 @@ func apiStart(br *broker) {
 		}
 
 		c.Status(http.StatusOK)
+	})
+
+	r.GET("/file/:sid", func(c *gin.Context) {
+		sid := c.Param("sid")
+		if fp, ok := br.fileProxy.Load(sid); ok {
+			fp := fp.(*fileProxy)
+			s := br.sessions[sid]
+			fp.Ack(s.dev, sid)
+
+			defer func() {
+				if err := recover(); err != nil {
+					if ne, ok := err.(*net.OpError); ok {
+						if se, ok := ne.Err.(*os.SyscallError); ok {
+							if strings.Contains(strings.ToLower(se.Error()), "broken pipe") || strings.Contains(strings.ToLower(se.Error()), "connection reset by peer") {
+								fp.reader.Close()
+							}
+						}
+					}
+				}
+			}()
+
+			c.DataFromReader(http.StatusOK, -1, "application/octet-stream", fp.reader, nil)
+			br.fileProxy.Delete(sid)
+		}
 	})
 
 	r.NoRoute(func(c *gin.Context) {

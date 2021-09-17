@@ -26,11 +26,7 @@
   const LoginErrorOffline = 0x01;
   const LoginErrorBusy = 0x02;
 
-  const MsgTypeFileStartDownload = 0x00;
-  const MsgTypeFileInfo = 0x01;
-  const MsgTypeFileData = 0x02;
-  const MsgTypeFileDataAck = 0x03;
-  const MsgTypeFileCanceled = 0x04;
+  const MsgTypeFileData = 0x03;
 
   const ReadFileBlkSize = 16 * 1024;
 
@@ -40,12 +36,10 @@
     name: string;
     list: Array<File>;
     modal: boolean;
-    recving: boolean;
     accepted: boolean;
     file: File | null;
     offset: number;
     readonly fr: FileReader;
-    buffer: Array<Uint8Array>;
   }
 
   @Component
@@ -56,12 +50,10 @@
       name: '',
       list: [],
       modal: false,
-      recving: false,
       accepted: false,
       file: null,
       offset: 0,
-      fr: new FileReader(),
-      buffer: []
+      fr: new FileReader()
     };
     socket: WebSocket | undefined;
     term: Terminal | undefined;
@@ -75,6 +67,7 @@
       {name: 'font+', caption: this.tr('Font Size+')},
       {name: 'font-', caption: this.tr('Font Size-')}
     ];
+    sid = '';
     unack = 0;
 
     tr(key: string): string {
@@ -117,7 +110,8 @@
       this.file.list = [];
       if (this.file.accepted)
         return;
-      this.sendFileData(MsgTypeFileCanceled, null);
+      const msg = {type: 'fileCanceled'};
+      this.socket?.send(JSON.stringify(msg));
     }
 
     onFileRemove() {
@@ -133,15 +127,8 @@
     }
 
     sendFileInfo(file: File) {
-      const buf: Array<Buffer> = new Array<Buffer>();
-
-      const b = Buffer.alloc(4);
-      b.writeUInt32BE(file.size, 0);
-      buf.push(b);
-
-      buf.push(Buffer.from(file.name));
-
-      this.sendFileData(MsgTypeFileInfo, Buffer.concat(buf));
+      const msg = {type: 'fileInfo', size: file.size, name: file.name};
+      this.socket?.send(JSON.stringify(msg));
     }
 
     readFileBlob(fr: FileReader, file: File, offset: number, size: number) {
@@ -161,7 +148,7 @@
       this.sendFileInfo(options.file);
 
       if (options.file.size === 0) {
-        this.sendFileData(MsgTypeFileData, null);
+        this.sendFileData(null);
         return;
       }
 
@@ -171,11 +158,8 @@
       const fr = this.file.fr;
 
       fr.onload = e => {
-        if (!this.file.recving)
-          return;
         this.file.offset += e.loaded;
-
-        this.sendFileData(MsgTypeFileData, Buffer.from(fr.result as ArrayBuffer));
+        this.sendFileData(Buffer.from(fr.result as ArrayBuffer));
       };
       this.readFileBlob(fr, options.file, this.file.offset, ReadFileBlkSize);
     }
@@ -184,9 +168,9 @@
       this.sendData(Buffer.concat([Buffer.from([0]), Buffer.from(data)]));
     }
 
-    sendFileData(type: number, data: Uint8Array | null): void {
+    sendFileData(data: Uint8Array | null): void {
       const buf: Array<Buffer> = new Array<Buffer>();
-      buf.push(Buffer.from([1, type]));
+      buf.push(Buffer.from([1, MsgTypeFileData]));
       if (data !== null)
         buf.push(Buffer.from(data));
       this.sendData(Buffer.concat(buf));
@@ -199,51 +183,6 @@
       if (socket.readyState !== 1)
         return;
       socket.send(data);
-    }
-
-    parseFileMsg(msg: Uint8Array) {
-      const type = msg[0];
-
-      msg = msg.slice(1);
-
-      switch (type) {
-        case MsgTypeFileStartDownload:
-          this.file.modal = true;
-          this.file.recving = true;
-          this.file.accepted = false;
-          this.term?.blur();
-          break;
-        case MsgTypeFileInfo:
-          this.file.name = msg.toString();
-          this.file.buffer = [];
-          this.sendFileData(MsgTypeFileDataAck, null);
-          break;
-        case MsgTypeFileData:
-          if (msg.length === 0) {
-            const blob = new Blob(this.file.buffer, {type : 'application/octet-stream'});
-            const url = URL.createObjectURL(blob);
-            const el = document.createElement('a');
-            el.style.display = 'none';
-            el.href = url;
-            el.download = this.file.name;
-            document.body.appendChild(el);
-            el.click();
-            document.body.removeChild(el);
-            this.file.buffer = [];
-          } else {
-            this.file.buffer.push(msg);
-            this.sendFileData(MsgTypeFileDataAck, null);
-          }
-          break;
-        case MsgTypeFileDataAck:
-          if (this.file.file && this.file.offset < this.file.file.size)
-              this.readFileBlob(this.file.fr, this.file.file, this.file.offset, ReadFileBlkSize);
-          break;
-        case MsgTypeFileCanceled:
-          this.file.buffer = [];
-          this.file.recving = false;
-          break;
-      }
     }
 
     fitTerm() {
@@ -299,6 +238,8 @@
               return;
             }
 
+            this.sid = msg.sid;
+
             window.addEventListener('resize', this.fitTerm);
 
             term.open(this.$refs['terminal'] as HTMLElement);
@@ -308,19 +249,24 @@
               this.term?.setOption('fontSize', r.data.size);
               this.fitTerm();
             });
+          } else if (msg.type === 'sendfile') {
+            const el = document.createElement('a');
+            el.style.display = 'none';
+            el.href = '/file/' + this.sid;
+            el.download = msg.name;
+            el.click();
+          } else if (msg.type === 'recvfile') {
+            this.file.modal = true;
+            this.file.accepted = false;
+            this.term?.blur();
+          } else if (msg.type === 'fileAck') {
+            if (this.file.file && this.file.offset < this.file.file.size)
+              this.readFileBlob(this.file.fr, this.file.file, this.file.offset, ReadFileBlkSize);
           } else if (msg.type === 'logout') {
             this.dispose();
           }
         } else {
-          let data = Buffer.from(ev.data);
-          const isFileMsg = data[0] === 1;
-
-          data = data.slice(1);
-
-          if (isFileMsg) {
-            this.parseFileMsg(data);
-            return;
-          }
+          const data = Buffer.from(ev.data);
 
           this.unack += data.length;
           term.write(data.toString());

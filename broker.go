@@ -3,6 +3,9 @@ package main
 import (
 	"crypto/x509"
 	"encoding/binary"
+	"fmt"
+	"io"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -30,9 +33,11 @@ type broker struct {
 	unregister  chan client.Client
 	sessions    map[string]*session
 	termMessage chan *termMessage
+	fileMessage chan *fileMessage
 	userMessage chan *usrMessage
 	cmdMessage  chan []byte
 	httpMessage chan *httpResp
+	fileProxy   sync.Map
 	devCertPool *x509.CertPool
 }
 
@@ -46,6 +51,7 @@ func newBroker(cfg *config.Config) *broker {
 		devices:     make(map[string]client.Client),
 		sessions:    make(map[string]*session),
 		termMessage: make(chan *termMessage, 1000),
+		fileMessage: make(chan *fileMessage, 1000),
 		userMessage: make(chan *usrMessage, 1000),
 		cmdMessage:  make(chan []byte, 1000),
 		httpMessage: make(chan *httpResp, 1000),
@@ -165,10 +171,45 @@ func (br *broker) run() {
 				log.Info().Msg("Delete session: " + sid)
 			}
 
-		// from device, includes terminal data and file data
 		case msg := <-br.termMessage:
 			if s, ok := br.sessions[msg.sid]; ok {
 				s.user.WriteMsg(websocket.BinaryMessage, msg.data)
+			}
+
+		case msg := <-br.fileMessage:
+			sid := msg.sid
+			if s, ok := br.sessions[sid]; ok {
+				typ := msg.data[0]
+				data := msg.data[1:]
+
+				switch typ {
+				case msgTypeFileSend:
+					pipereader, pipewriter := io.Pipe()
+					br.fileProxy.Store(sid, &fileProxy{pipereader, pipewriter})
+					s.user.WriteMsg(websocket.TextMessage, []byte(fmt.Sprintf(`{"type":"sendfile", "name": "%s"}`, string(data))))
+
+				case msgTypeFileRecv:
+					s.user.WriteMsg(websocket.TextMessage, []byte(`{"type":"recvfile"}`))
+
+				case msgTypeFileData:
+					if fp, ok := br.fileProxy.Load(sid); ok {
+						fp := fp.(*fileProxy)
+						if len(data) == 0 {
+							fp.Close()
+						} else {
+							fp.Write(s.dev, sid, data)
+						}
+					}
+
+				case msgTypeFileAck:
+					s.user.WriteMsg(websocket.TextMessage, []byte(`{"type":"fileAck"}`))
+
+				case msgTypeFileAbort:
+					if fp, ok := br.fileProxy.Load(sid); ok {
+						fp := fp.(*fileProxy)
+						fp.Close()
+					}
+				}
 			}
 
 		case msg := <-br.userMessage:
@@ -206,6 +247,23 @@ func (br *broker) run() {
 							ack := jsoniter.Get(data, "ack").ToUint()
 							binary.BigEndian.PutUint16(b[32:], uint16(ack))
 							dev.WriteMsg(msgTypeAck, b[:])
+
+						case "fileInfo":
+							size := jsoniter.Get(data, "size").ToUint32()
+							name := jsoniter.Get(data, "name").ToString()
+
+							b := make([]byte, 32+1+4+len(name))
+							copy(b[:], msg.sid)
+							b[32] = msgTypeFileInfo
+							binary.BigEndian.PutUint32(b[33:], size)
+							copy(b[37:], name)
+							dev.WriteMsg(msgTypeFile, b[:])
+
+						case "fileCanceled":
+							b := [33]byte{}
+							copy(b[:], msg.sid)
+							b[32] = msgTypeFileAbort
+							dev.WriteMsg(msgTypeFile, b[:])
 						}
 					}
 				}
