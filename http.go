@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"rttys/cache"
 	"rttys/client"
 	"rttys/utils"
 
@@ -21,31 +19,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type httpProxySession struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-}
-
 type httpResp struct {
 	data []byte
 	dev  client.Client
 }
 
 var httpProxyCons sync.Map
-var httpProxySessions *cache.Cache
+var httpProxySessions sync.Map
 
 func handleHttpProxyResp(resp *httpResp) {
 	data := resp.data
 	addr := data[:18]
 	data = data[18:]
 
-	if len(data) == 0 {
-		return
-	}
-
 	if cons, ok := httpProxyCons.Load(resp.dev.DeviceID()); ok {
 		if c, ok := cons.(*sync.Map).Load(string(addr)); ok {
-			c.(net.Conn).Write(data)
+			c := c.(net.Conn)
+			if len(data) == 0 {
+				c.Close()
+			} else {
+				c.Write(data)
+			}
 		}
 	}
 }
@@ -125,16 +119,6 @@ func doHttpProxy(brk *broker, c net.Conn) {
 	}
 	sid := cookie.Value
 
-	var ctx context.Context
-	var cancel context.CancelFunc
-
-	if v, ok := httpProxySessions.Get(sid); ok {
-		httpProxySessions.Active(sid, 0)
-		ctx, cancel = context.WithCancel(v.(*httpProxySession).ctx)
-	} else {
-		return
-	}
-
 	hostHeaderRewrite := "localhost"
 	cookie, err = req.Cookie("rtty-http-destaddr")
 	if err == nil {
@@ -149,34 +133,37 @@ func doHttpProxy(brk *broker, c net.Conn) {
 		cons.Store(string(srcAddr), c)
 	}
 
+	exit := make(chan struct{})
+
+	if v, ok := httpProxySessions.Load(sid); ok {
+		go func() {
+			select {
+			case <-v.(chan struct{}):
+				c.Close()
+			case <-exit:
+			}
+
+			cons, ok := httpProxyCons.Load(devid)
+			if ok {
+				cons := cons.(*sync.Map)
+				cons.Delete(string(srcAddr))
+			}
+		}()
+	} else {
+		return
+	}
+
 	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, dev}
 
 	req.Host = hostHeaderRewrite
 	hpw.WriteRequest(req)
 
-	go func() {
-		<-ctx.Done()
-
-		// needed, for canceled by new proxy in the same web browser
-		c.Close()
-	}()
-
-	defer func() {
-		cons, ok := httpProxyCons.Load(devid)
-		if ok {
-			cons := cons.(*sync.Map)
-			cons.Delete(string(srcAddr))
-		}
-		cancel()
-	}()
-
 	for {
 		req, err := http.ReadRequest(br)
 		if err != nil {
+			close(exit)
 			return
 		}
-
-		httpProxySessions.Active(sid, 0)
 
 		hpw.WriteRequest(req)
 	}
@@ -184,8 +171,6 @@ func doHttpProxy(brk *broker, c net.Conn) {
 
 func listenHttpProxy(brk *broker) {
 	cfg := brk.cfg
-
-	httpProxySessions = cache.New(10*time.Minute, 5*time.Second)
 
 	if cfg.AddrHttpProxy != "" {
 		addr, err := net.ResolveTCPAddr("tcp", cfg.AddrHttpProxy)
@@ -283,16 +268,15 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 
 	sid, err := c.Cookie("rtty-http-sid")
 	if err == nil {
-		if v, ok := httpProxySessions.Get(sid); ok {
-			v.(*httpProxySession).cancel()
-			httpProxySessions.Del(sid)
+		if v, ok := httpProxySessions.Load(sid); ok {
+			close(v.(chan struct{}))
+			httpProxySessions.Delete(sid)
 		}
 	}
 
 	sid = utils.GenUniqueID("http-proxy")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	httpProxySessions.Set(sid, &httpProxySession{ctx, cancel}, 0)
+	httpProxySessions.Store(sid, make(chan struct{}))
 
 	c.SetCookie("rtty-http-sid", sid, 0, "", "", false, true)
 	c.SetCookie("rtty-http-devid", devid, 0, "", "", false, true)
