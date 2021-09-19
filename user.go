@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"sync/atomic"
@@ -26,7 +25,6 @@ type user struct {
 	devid  string
 	conn   *websocket.Conn
 	closed uint32
-	cancel context.CancelFunc
 	send   chan *usrMessage // Buffered channel of outbound messages.
 }
 
@@ -63,7 +61,7 @@ func (u *user) Close() {
 	}
 	atomic.StoreUint32(&u.closed, 1)
 
-	u.cancel()
+	close(u.send)
 	u.conn.Close()
 	u.br.unregister <- u
 }
@@ -71,20 +69,6 @@ func (u *user) Close() {
 func userLoginAck(code int, c client.Client) {
 	msg := fmt.Sprintf(`{"type":"login","sid":"%s","err":%d}`, c.(*user).sid, code)
 	c.WriteMsg(websocket.TextMessage, []byte(msg))
-}
-
-func (u *user) keepAlive(ctx context.Context) {
-	ticker := time.NewTicker(time.Second * 5)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			u.WriteMsg(websocket.PingMessage, []byte{})
-		case <-ctx.Done():
-			return
-		}
-	}
 }
 
 func (u *user) readLoop() {
@@ -103,19 +87,29 @@ func (u *user) readLoop() {
 	}
 }
 
-func (u *user) writeLoop(ctx context.Context) {
-	defer u.Close()
+func (u *user) writeLoop() {
+	ticker := time.NewTicker(time.Second * 5)
+
+	defer func() {
+		ticker.Stop()
+		u.Close()
+	}()
 
 	for {
 		select {
-		case msg := <-u.send:
+		case <-ticker.C:
+			u.WriteMsg(websocket.PingMessage, []byte{})
+
+		case msg, ok := <-u.send:
+			if !ok {
+				return
+			}
+
 			err := u.conn.WriteMessage(msg.typ, msg.data)
 			if err != nil {
 				log.Error().Msg(err.Error())
 				return
 			}
-		case <-ctx.Done():
-			return
 		}
 	}
 }
@@ -134,19 +128,15 @@ func serveUser(br *broker, c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	u := &user{
-		br:     br,
-		conn:   conn,
-		devid:  devid,
-		cancel: cancel,
-		send:   make(chan *usrMessage, 256),
+		br:    br,
+		conn:  conn,
+		devid: devid,
+		send:  make(chan *usrMessage, 256),
 	}
 
 	go u.readLoop()
-	go u.writeLoop(ctx)
-	go u.keepAlive(ctx)
+	go u.writeLoop()
 
 	br.register <- u
 }

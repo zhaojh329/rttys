@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -57,7 +56,6 @@ type device struct {
 	active     time.Time
 	registered bool
 	closed     uint32
-	cancel     context.CancelFunc
 	send       chan []byte // Buffered channel of outbound messages.
 }
 
@@ -142,7 +140,7 @@ func (dev *device) Close() {
 
 	dev.conn.Close()
 
-	dev.cancel()
+	close(dev.send)
 
 	if dev.registered {
 		dev.br.unregister <- dev
@@ -196,42 +194,6 @@ func parseHeartbeat(dev *device, b []byte) {
 		return
 	}
 	dev.uptime = binary.BigEndian.Uint32(b[:4])
-}
-
-func (dev *device) keepAlive(ctx context.Context) {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	ninactive := 0
-	lastHeartbeat := time.Now()
-
-	for {
-		select {
-		case <-ticker.C:
-			now := time.Now()
-			if now.Sub(dev.active) > heartbeatInterval*3/2 {
-				if !dev.registered {
-					dev.Close()
-					return
-				}
-
-				log.Error().Msgf("Inactive device in long time: %s", dev.id)
-				if ninactive > 1 {
-					log.Error().Msgf("Inactive 3 times, now kill it: %s", dev.id)
-					dev.Close()
-					return
-				}
-				ninactive = ninactive + 1
-			}
-
-			if now.Sub(lastHeartbeat) > heartbeatInterval-1 {
-				lastHeartbeat = now
-				dev.WriteMsg(msgTypeHeartbeat, []byte{})
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
 }
 
 func (dev *device) readLoop() {
@@ -336,19 +298,51 @@ func (dev *device) readLoop() {
 	}
 }
 
-func (dev *device) writeLoop(ctx context.Context) {
-	defer dev.Close()
+func (dev *device) writeLoop() {
+	ticker := time.NewTicker(time.Second)
+
+	defer func() {
+		ticker.Stop()
+		dev.Close()
+	}()
+
+	ninactive := 0
+	lastHeartbeat := time.Now()
 
 	for {
 		select {
-		case msg := <-dev.send:
+		case msg, ok := <-dev.send:
+			if !ok {
+				return
+			}
+
 			_, err := dev.conn.Write(msg)
 			if err != nil {
 				log.Error().Msg(err.Error())
 				return
 			}
-		case <-ctx.Done():
-			return
+
+		case <-ticker.C:
+			now := time.Now()
+			if now.Sub(dev.active) > heartbeatInterval*3/2 {
+				if !dev.registered {
+					dev.Close()
+					return
+				}
+
+				log.Error().Msgf("Inactive device in long time: %s", dev.id)
+				if ninactive > 1 {
+					log.Error().Msgf("Inactive 3 times, now kill it: %s", dev.id)
+					dev.Close()
+					return
+				}
+				ninactive = ninactive + 1
+			}
+
+			if now.Sub(lastHeartbeat) > heartbeatInterval-1 {
+				lastHeartbeat = now
+				dev.WriteMsg(msgTypeHeartbeat, []byte{})
+			}
 		}
 	}
 }
@@ -406,20 +400,16 @@ func listenDevice(br *broker) {
 
 			log.Debug().Msgf("Device '%s' connected", conn.RemoteAddr())
 
-			ctx, cancel := context.WithCancel(context.Background())
-
 			dev := &device{
 				br:        br,
 				conn:      conn,
-				cancel:    cancel,
 				active:    time.Now(),
 				timestamp: time.Now().Unix(),
 				send:      make(chan []byte, 256),
 			}
 
 			go dev.readLoop()
-			go dev.writeLoop(ctx)
-			go dev.keepAlive(ctx)
+			go dev.writeLoop()
 		}
 	}()
 }
