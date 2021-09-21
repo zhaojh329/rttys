@@ -7,30 +7,27 @@
   </div>
 </template>
 
-<script lang="ts">
-  import {Component, Prop, Watch, Vue} from 'vue-property-decorator'
-
-  interface MenuItem {
-    name: string;
-    caption: string;
-    underline: boolean;
-  }
-
-  @Component
-  export default class Contextmenu extends Vue {
-    @Prop() readonly menus: MenuItem[] | undefined;
-
-    visibility = false;
-    axis = {x: 0, y: 0};
-
-    @Watch('visibility')
-    onVisibilityChanged(val: boolean) {
+<script>
+export default {
+  name: 'ContextMenu',
+  props: {
+    menus: Array
+  },
+  data() {
+    return {
+      visibility: false,
+      axis: {x: 0, y: 0}
+    }
+  },
+  watch: {
+    visibility(val) {
       if (!val)
         document.removeEventListener('mousedown', this.close);
     }
-
-    close(e: MouseEvent) {
-      const el = (this.$refs.content as HTMLElement);
+  },
+  methods: {
+    close(e) {
+      const el = this.$refs.content;
 
       if (e.clientX >= this.axis.x && e.clientX <= this.axis.x + el.clientWidth &&
         e.clientY >= this.axis.y && e.clientY <= this.axis.y + el.clientHeight) {
@@ -38,13 +35,12 @@
       }
 
       this.visibility = false;
-    }
-
+    },
     updated() {
       if (this.$refs.content) {
         const bw = document.body.offsetWidth;
         const bh = document.body.offsetHeight;
-        const element = this.$refs.content as HTMLElement;
+        const element = this.$refs.content;
         const width = element.offsetWidth;
         const height = element.offsetHeight;
 
@@ -54,19 +50,18 @@
         if (this.axis.y + height >= bh)
           this.axis.y = bh - height;
       }
-    }
-
-    show(e: MouseEvent) {
+    },
+    show(e) {
       document.addEventListener('mousedown', this.close);
       this.axis = {x: e.clientX, y: e.clientY};
       this.visibility = true;
-    }
-
-    onMenuClick(name: string) {
+    },
+    onMenuClick(name) {
       this.visibility = false;
       this.$emit('click', name);
     }
   }
+}
 </script>
 
 <style scoped>

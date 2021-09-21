@@ -41,7 +41,6 @@
   "Status Code": "Status Code",
   "Stdout": "Stdout",
   "Stderr": "Stderr",
-  "(Show all by mouse hover)": "(Show all by mouse hover)",
   "Select file": "Select file",
   "Upload": "Upload",
   "Device offline": "Device offline",
@@ -51,6 +50,9 @@
   "Clear Scrollback": "Clear Scrollback",
   "Font Size+": "Font Size+",
   "Font Size-": "Font Size-",
+  "Upload or download file": "Upload or download file",
+  "About": "About",
+  "Please execute command \"rtty -R\" or \"rtty -S\" in current terminal!": "Please execute command \"rtty -R\" or \"rtty -S\" in current terminal!",
   "Access your device's Shell": "Access your device's Shell",
   "Access your devices's Web": "Access your devices's Web",
   "Please enter the address you want to access": "Please enter the address you want to access",
@@ -62,5 +64,7 @@
   "Unbind success": "Unbind success",
   "Delete": "Delete",
   "Delete success": "Delete success",
-  "Delete offline devices": "Delete offline devices"
+  "Delete offline devices": "Delete offline devices",
+  "There are no offline devices in selected devices": "There are no offline devices in selected devices",
+  "Invalid address": "Invalid address"
 }

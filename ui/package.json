@@ -1,44 +1,35 @@
 {
-  "name": "web",
+  "name": "rttys-ui",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint",
-    "i18n:report": "vue-cli-service i18n:report --src './src/**/*.?(js|vue)' --locales './src/locales/**/*.json'"
+    "lint": "vue-cli-service lint"
   },
   "dependencies": {
-    "axios": "^0.21.1",
-    "core-js": "^3.11.1",
-    "element-ui": "^2.15.1",
-    "vue": "^2.6.12",
-    "vue-axios": "^2.1.5",
-    "vue-class-component": "^7.2.6",
-    "vue-i18n": "^8.24.4",
-    "vue-property-decorator": "^8.5.1",
-    "vue-router": "^3.5.1",
-    "xterm": "^4.11.0",
-    "xterm-addon-fit": "^0.3.0"
+    "axios": "^0.21.4",
+    "core-js": "^3.6.5",
+    "view-design": "^4.7.0-beta.9",
+    "vue": "^2.6.11",
+    "vue-axios": "^3.3.7",
+    "vue-i18n": "^8.25.1",
+    "vue-router": "^3.2.0",
+    "xterm": "^4.14.1",
+    "xterm-addon-fit": "^0.5.0"
   },
   "devDependencies": {
-    "@types/webpack": "^4.41.27",
-    "@typescript-eslint/eslint-plugin": "^2.34.0",
-    "@typescript-eslint/parser": "^2.34.0",
-    "@vue/cli-plugin-babel": "^4.5.12",
-    "@vue/cli-plugin-eslint": "^4.5.12",
-    "@vue/cli-plugin-router": "^4.5.12",
-    "@vue/cli-plugin-typescript": "^4.5.12",
-    "@vue/cli-service": "^4.5.12",
-    "@vue/eslint-config-typescript": "^5.1.0",
+    "@vue/cli-plugin-babel": "~4.5.0",
+    "@vue/cli-plugin-eslint": "~4.5.0",
+    "@vue/cli-plugin-router": "~4.5.0",
+    "@vue/cli-service": "~4.5.0",
+    "babel-eslint": "^10.1.0",
+    "babel-plugin-import": "^1.13.3",
     "compression-webpack-plugin": "^6.1.1",
     "eslint": "^6.7.2",
     "eslint-plugin-vue": "^6.2.2",
-    "sass": "^1.32.12",
-    "sass-loader": "^8.0.2",
-    "typescript": "^3.7.7",
-    "vue-cli-plugin-element": "^1.0.1",
-    "vue-cli-plugin-i18n": "^0.6.1",
-    "vue-template-compiler": "^2.6.12"
+    "stylus": "^0.54.7",
+    "stylus-loader": "^3.0.2",
+    "vue-template-compiler": "^2.6.11"
   }
 }

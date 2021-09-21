@@ -2,10 +2,23 @@ const CompressionPlugin = require('compression-webpack-plugin')
 
 module.exports = {
   productionSourceMap: false,
-  pages: {
-    index: {
-      entry: 'src/main.ts',
-      title: 'Rttys'
+  chainWebpack: config => {
+    config.plugin('html')
+      .tap(args => {
+        args[0].title = 'Rttys';
+        return args;
+      })
+  },
+  configureWebpack: config => {
+    if (process.env.NODE_ENV === 'production') {
+      return {
+        plugins: [new CompressionPlugin({
+          test: /\.js$|\.css$/,
+          threshold: 4096,
+          deleteOriginalAssets: true,
+          filename: '[path][base]?gz'
+        })]
+      }
     }
   },
   pluginOptions: {
@@ -14,18 +27,6 @@ module.exports = {
       fallbackLocale: 'en',
       localeDir: 'locales',
       enableInSFC: false
-    }
-  },
-  configureWebpack: config => {
-    if (process.env.NODE_ENV === 'production') {
-      return {
-        plugins: [new CompressionPlugin({
-          test: /\.js$|\.html$|\.css/,
-          threshold: 4096,
-          deleteOriginalAssets: true,
-          filename: '[path][base]?gz'
-        })]
-      }
     }
   },
   devServer: {
@@ -57,6 +58,9 @@ module.exports = {
       '/unbind': {
         target: 'http://127.0.0.1:5913'
       },
+      '/delete': {
+        target: 'http://127.0.0.1:5913'
+      },
       '/cmd/*': {
         target: 'http://127.0.0.1:5913'
       },
@@ -69,7 +73,13 @@ module.exports = {
       },
       '/authorized/*': {
         target: 'http://127.0.0.1:5913'
+      },
+      '/web/*': {
+        target: 'http://127.0.0.1:5913'
+      },
+      '/file/*': {
+        target: 'http://127.0.0.1:5913'
       }
     }
   }
-};
+}

@@ -1,11 +1,6 @@
-import {Terminal, ITerminalAddon} from 'xterm'
-
-export class OverlayAddon implements ITerminalAddon {
-  private terminal: Terminal | undefined;
-  private overlayNode: HTMLDivElement;
-  private timeout: NodeJS.Timeout | undefined;
-
+export default class {
   constructor() {
+    this.terminal = null;
     this.overlayNode = document.createElement('div');
     this.overlayNode.style.cssText = `
       border-radius: 15px;
@@ -22,15 +17,16 @@ export class OverlayAddon implements ITerminalAddon {
     this.overlayNode.style.opacity = '0.75';
   }
 
-  public activate(terminal: Terminal): void {
+  activate(terminal) {
     this.terminal = terminal;
   }
 
-  public dispose(): void {
+  dispose() {
+    this.terminal = null;
     return;
   }
 
-  public show(msg: string, timeout?: number): void {
+  show(msg, timeout) {
     const {terminal, overlayNode} = this;
 
     if (!terminal || !terminal.element)

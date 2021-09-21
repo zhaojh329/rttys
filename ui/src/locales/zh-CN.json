@@ -41,7 +41,6 @@
   "Status Code": "状态码",
   "Stdout": "标准输出",
   "Stderr": "标准错误输出",
-  "(Show all by mouse hover)": "(鼠标悬浮显示所有)",
   "Upload file to device": "上传文件到设备",
   "Select file": "选择文件",
   "Upload": "上传",
@@ -52,6 +51,9 @@
   "Clear Scrollback": "清除回滚",
   "Font Size+": "增大字体",
   "Font Size-": "减小字体",
+  "Upload or download file": "上传或者下载文件",
+  "About": "关于",
+  "Please execute command \"rtty -R\" or \"rtty -S\" in current terminal!": "请在当前终端中执行命令 \"rtty -R\" 或者 \"rtty -S\"",
   "Access your device's Shell": "访问您的设备的 Shell",
   "Access your devices's Web": "访问您的设备的 Web",
   "Please enter the address you want to access": "请输入您要访问的地址",
@@ -63,5 +65,7 @@
   "Unbind success": "解绑成功",
   "Delete": "删除",
   "Delete success": "删除成功",
-  "Delete offline devices": "删除离线设备"
+  "Delete offline devices": "删除离线设备",
+  "There are no offline devices in selected devices": "所选设备中无离线设备",
+  "Invalid address": "无效的地址"
 }
