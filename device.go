@@ -278,7 +278,7 @@ func (dev *device) readLoop() {
 				return
 			}
 
-			dev.br.cmdMessage <- b
+			dev.br.cmdResp <- b
 
 		case msgTypeHttp:
 			if msgLen < 18 {
@@ -286,7 +286,7 @@ func (dev *device) readLoop() {
 				return
 			}
 
-			dev.br.httpMessage <- &httpResp{b, dev}
+			dev.br.httpResp <- &httpResp{b, dev}
 
 		case msgTypeHeartbeat:
 			parseHeartbeat(dev, b)

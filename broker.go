@@ -35,8 +35,10 @@ type broker struct {
 	termMessage chan *termMessage
 	fileMessage chan *fileMessage
 	userMessage chan *usrMessage
-	cmdMessage  chan []byte
-	httpMessage chan *httpResp
+	cmdResp     chan []byte
+	cmdReq      chan *commandReq
+	httpResp    chan *httpResp
+	httpReq     chan *httpReq
 	fileProxy   sync.Map
 	devCertPool *x509.CertPool
 }
@@ -53,8 +55,10 @@ func newBroker(cfg *config.Config) *broker {
 		termMessage: make(chan *termMessage, 1000),
 		fileMessage: make(chan *fileMessage, 1000),
 		userMessage: make(chan *usrMessage, 1000),
-		cmdMessage:  make(chan []byte, 1000),
-		httpMessage: make(chan *httpResp, 1000),
+		cmdResp:     make(chan []byte, 1000),
+		cmdReq:      make(chan *commandReq, 1000),
+		httpResp:    make(chan *httpResp, 1000),
+		httpReq:     make(chan *httpReq, 1000),
 	}
 }
 
@@ -272,10 +276,20 @@ func (br *broker) run() {
 				log.Error().Msg("Not found sid: " + msg.sid)
 			}
 
-		case data := <-br.cmdMessage:
+		case req := <-br.cmdReq:
+			if dev, ok := br.devices[req.devid]; ok {
+				dev.WriteMsg(msgTypeCmd, req.data)
+			}
+
+		case data := <-br.cmdResp:
 			handleCmdResp(data)
 
-		case resp := <-br.httpMessage:
+		case req := <-br.httpReq:
+			if dev, ok := br.devices[req.devid]; ok {
+				dev.WriteMsg(msgTypeHttp, req.data)
+			}
+
+		case resp := <-br.httpResp:
 			handleHttpProxyResp(resp)
 		}
 	}

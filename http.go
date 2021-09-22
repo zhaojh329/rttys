@@ -24,6 +24,11 @@ type httpResp struct {
 	dev  client.Client
 }
 
+type httpReq struct {
+	devid string
+	data  []byte
+}
+
 var httpProxyCons sync.Map
 var httpProxySessions sync.Map
 
@@ -72,7 +77,8 @@ type HttpProxyWriter struct {
 	destAddr          []byte
 	srcAddr           []byte
 	hostHeaderRewrite string
-	dev               client.Client
+	br                *broker
+	devid             string
 }
 
 func (rw *HttpProxyWriter) Write(p []byte) (n int, err error) {
@@ -80,9 +86,7 @@ func (rw *HttpProxyWriter) Write(p []byte) (n int, err error) {
 	msg = append(msg, rw.destAddr...)
 	msg = append(msg, p...)
 
-	dev := rw.dev.(*device)
-
-	dev.WriteMsg(msgTypeHttp, msg)
+	rw.br.httpReq <- &httpReq{rw.devid, msg}
 
 	return len(p), nil
 }
@@ -108,7 +112,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 	}
 	devid := cookie.Value
 
-	dev, ok := brk.devices[devid]
+	_, ok := brk.devices[devid]
 	if !ok {
 		return
 	}
@@ -153,7 +157,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 		return
 	}
 
-	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, dev}
+	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, brk, devid}
 
 	req.Host = hostHeaderRewrite
 	hpw.WriteRequest(req)

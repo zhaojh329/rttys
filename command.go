@@ -38,6 +38,8 @@ type commandInfo struct {
 type commandReq struct {
 	cancel context.CancelFunc
 	c      *gin.Context
+	devid  string
+	data   []byte
 }
 
 var commands sync.Map
@@ -68,9 +70,10 @@ func handleCmdReq(br *broker, c *gin.Context) {
 	req := &commandReq{
 		cancel: cancel,
 		c:      c,
+		devid:  devid,
 	}
 
-	dev, ok := br.devices[devid]
+	_, ok := br.devices[devid]
 	if !ok {
 		cmdErrReply(rttyCmdErrOffline, req)
 		return
@@ -108,7 +111,8 @@ func handleCmdReq(br *broker, c *gin.Context) {
 		msg = append(msg, 0)
 	}
 
-	dev.WriteMsg(msgTypeCmd, msg)
+	req.data = msg
+	br.cmdReq <- req
 
 	waitTime := commandTimeout
 
