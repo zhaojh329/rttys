@@ -141,10 +141,6 @@ func (dev *device) Close() {
 	dev.conn.Close()
 
 	close(dev.send)
-
-	if dev.registered {
-		dev.br.unregister <- dev
-	}
 }
 
 func (dev *device) UpdateDb() {
@@ -197,7 +193,10 @@ func parseHeartbeat(dev *device, b []byte) {
 }
 
 func (dev *device) readLoop() {
-	defer dev.Close()
+	defer func() {
+		dev.br.unregister <- dev
+		dev.conn.Close()
+	}()
 
 	br := bufio.NewReader(dev.conn)
 
@@ -303,7 +302,7 @@ func (dev *device) writeLoop() {
 
 	defer func() {
 		ticker.Stop()
-		dev.Close()
+		dev.conn.Close()
 	}()
 
 	ninactive := 0

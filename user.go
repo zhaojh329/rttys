@@ -61,9 +61,8 @@ func (u *user) Close() {
 	}
 	atomic.StoreUint32(&u.closed, 1)
 
-	close(u.send)
 	u.conn.Close()
-	u.br.unregister <- u
+	close(u.send)
 }
 
 func userLoginAck(code int, c client.Client) {
@@ -72,7 +71,10 @@ func userLoginAck(code int, c client.Client) {
 }
 
 func (u *user) readLoop() {
-	defer u.Close()
+	defer func() {
+		u.br.unregister <- u
+		u.conn.Close()
+	}()
 
 	for {
 		typ, data, err := u.conn.ReadMessage()
@@ -92,7 +94,7 @@ func (u *user) writeLoop() {
 
 	defer func() {
 		ticker.Stop()
-		u.Close()
+		u.conn.Close()
 	}()
 
 	for {
