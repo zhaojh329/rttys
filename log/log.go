@@ -52,7 +52,7 @@ func init() {
 	}
 
 	out := consoleEx.ConsoleWriterEx{Out: colorable.NewColorableStdout()}
-	logger := zerolog.New(out).With().Caller().Timestamp().Logger()
+	logger := zerolog.New(out).With().Timestamp().Logger()
 
 	if !terminal.IsTerminal(int(os.Stdout.Fd())) {
 		logger = logger.Hook(logFile)
@@ -64,4 +64,8 @@ func init() {
 // SetPath set the log file path
 func SetPath(path string) {
 	logFile.path = path
+}
+
+func Verbose() {
+	log.Logger = log.Logger.With().Caller().Logger()
 }

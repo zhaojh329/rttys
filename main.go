@@ -6,7 +6,7 @@ import (
 	"runtime"
 
 	"rttys/config"
-	rlog "rttys/log"
+	xlog "rttys/log"
 	"rttys/utils"
 	"rttys/version"
 
@@ -40,7 +40,11 @@ func initDb(cfg *config.Config) error {
 }
 
 func runRttys(c *cli.Context) {
-	rlog.SetPath(c.String("log"))
+	xlog.SetPath(c.String("log"))
+
+	if c.Bool("verbose") {
+		xlog.Verbose()
+	}
 
 	cfg := config.Parse(c)
 
@@ -156,6 +160,11 @@ func main() {
 					&cli.BoolFlag{
 						Name:  "local-auth",
 						Usage: "need auth for local",
+					},
+					&cli.BoolFlag{
+						Name:    "verbose",
+						Aliases: []string{"V"},
+						Usage:   "more detailed output",
 					},
 				},
 				Action: func(c *cli.Context) error {
