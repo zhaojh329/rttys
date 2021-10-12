@@ -227,6 +227,11 @@ func (dev *device) readLoop() {
 
 		switch typ {
 		case msgTypeRegister:
+			if msgLen < 2 {
+				log.Error().Msg("msgTypeRegister: invalid")
+				return
+			}
+
 			if !parseDeviceInfo(dev, b) {
 				return
 			}
