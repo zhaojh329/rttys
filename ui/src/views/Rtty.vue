@@ -126,6 +126,11 @@ export default {
       fr.readAsArrayBuffer(blob);
     },
     doUploadFile() {
+      if (!this.file.file) {
+        this.onUploadDialogClosed();
+        return;
+      }
+
       this.term.focus();
 
       if (this.file.size > 0xffffffff) {
