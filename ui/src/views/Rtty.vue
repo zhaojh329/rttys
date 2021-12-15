@@ -256,6 +256,7 @@ export default {
           el.click();
         } else if (msg.type === 'recvfile') {
           this.file.modal = true;
+          this.file.file = null;
           this.file.accepted = false;
           this.term.blur();
         } else if (msg.type === 'fileAck') {
