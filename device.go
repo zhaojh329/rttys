@@ -341,7 +341,9 @@ func (dev *device) writeLoop() {
 
 			if now.Sub(lastHeartbeat) > heartbeatInterval-1 {
 				lastHeartbeat = now
-				dev.WriteMsg(msgTypeHeartbeat, []byte{})
+				if len(dev.send) < 1 {
+					dev.WriteMsg(msgTypeHeartbeat, []byte{})
+				}
 			}
 		}
 	}
