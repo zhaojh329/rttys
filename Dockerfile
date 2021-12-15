@@ -1,4 +1,4 @@
-FROM node
+FROM node:16
 WORKDIR /build
 COPY ./ui ./
 RUN  npm install && npm run build
