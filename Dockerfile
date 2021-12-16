@@ -1,6 +1,6 @@
-FROM node
+FROM node:16
 WORKDIR /build
-COPY ./html ./
+COPY ./ui ./
 RUN  npm install && npm run build
 
 FROM golang:alpine
