@@ -6,11 +6,11 @@ RUN  npm install && npm run build
 FROM golang:alpine
 WORKDIR /build
 COPY . ./
-COPY --from=0 /build/dist /build/dist
+COPY --from=0 /build/dist /build/ui/dist
 RUN apk update && \
     apk add git gcc linux-pam-dev libc-dev && \
     go get -v github.com/rakyll/statik && \
-    statik -src=/build/dist && \
+    statik -src=/build/ui/dist && \
     go build -ldflags "-w -s"
 
 FROM alpine
