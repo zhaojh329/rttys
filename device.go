@@ -367,6 +367,7 @@ func listenDevice(br *broker) {
 		tlsConfig.Certificates = []tls.Certificate{crt}
 		tlsConfig.Time = time.Now
 		tlsConfig.Rand = rand.Reader
+		tlsConfig.MinVersion = tls.VersionTLS12
 
 		if cfg.SslCacert == "" {
 			log.Warn().Msgf("mTLS not enabled")
