@@ -95,6 +95,13 @@ func (br *broker) run() {
 				}
 
 				c.WriteMsg(msgTypeRegister, append([]byte{err}, msg...))
+
+				if err > 0 {
+					// ensure the last packet was sent
+					time.AfterFunc(time.Millisecond*100, func() {
+						dev.Close()
+					})
+				}
 			} else {
 				if dev, ok := br.devices[devid]; ok {
 					sid := utils.GenUniqueID("sid")
@@ -125,19 +132,11 @@ func (br *broker) run() {
 
 			c.Close()
 
-			if !c.IsDevice() {
-				sid := c.(*user).sid
-
-				if _, ok := br.sessions[sid]; ok {
-					delete(br.sessions, sid)
-
-					if dev, ok := br.devices[devid]; ok {
-						dev.WriteMsg(msgTypeLogout, []byte(sid))
-					}
-
-					log.Info().Msg("Delete session: " + sid)
+			if c.IsDevice() {
+				if !c.(*device).registered {
+					break
 				}
-			} else if c.(*device).registered {
+
 				delete(br.devices, devid)
 
 				for sid, s := range br.sessions {
@@ -149,6 +148,18 @@ func (br *broker) run() {
 				}
 
 				log.Info().Msgf("Device '%s' unregistered", devid)
+			} else {
+				sid := c.(*user).sid
+
+				if _, ok := br.sessions[sid]; ok {
+					delete(br.sessions, sid)
+
+					if dev, ok := br.devices[devid]; ok {
+						dev.WriteMsg(msgTypeLogout, []byte(sid))
+					}
+
+					log.Info().Msg("Delete session: " + sid)
+				}
 			}
 
 		case msg := <-br.loginAck:

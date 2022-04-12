@@ -191,7 +191,6 @@ func parseHeartbeat(dev *device, b []byte) {
 func (dev *device) readLoop() {
 	defer func() {
 		dev.br.unregister <- dev
-		dev.conn.Close()
 	}()
 
 	br := bufio.NewReader(dev.conn)
@@ -303,7 +302,7 @@ func (dev *device) writeLoop() {
 
 	defer func() {
 		ticker.Stop()
-		dev.conn.Close()
+		dev.br.unregister <- dev
 	}()
 
 	ninactive := 0
@@ -325,15 +324,13 @@ func (dev *device) writeLoop() {
 		case <-ticker.C:
 			now := time.Now()
 			if now.Sub(dev.active) > heartbeatInterval*3/2 {
-				if !dev.registered {
-					dev.Close()
+				if dev.id == "" {
 					return
 				}
 
 				log.Error().Msgf("Inactive device in long time: %s", dev.id)
 				if ninactive > 1 {
 					log.Error().Msgf("Inactive 3 times, now kill it: %s", dev.id)
-					dev.Close()
 					return
 				}
 				ninactive = ninactive + 1
