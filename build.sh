@@ -23,7 +23,7 @@ generate() {
 		bin="rttys.exe"
 	}
 
-	GOOS=$os GOARCH=$arch go build -ldflags="-s -w -X $VersionPath.gitCommit=$GitCommit -X $VersionPath.buildTime=$BuildTime" -o $dir/$bin
+	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X $VersionPath.gitCommit=$GitCommit -X $VersionPath.buildTime=$BuildTime" -o $dir/$bin
 }
 
 generate $1 $2

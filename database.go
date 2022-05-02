@@ -9,9 +9,10 @@ package main
 
 import (
 	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/mattn/go-sqlite3"
 	"strings"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "modernc.org/sqlite"
 )
 
 func instanceDB(str string) (*sql.DB, error) {

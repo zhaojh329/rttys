@@ -81,7 +81,7 @@
 
 # 数据库准备
 ## Sqlite
-sqlite3://rttys.db
+sqlite://rttys.db
 
 ## MySql 或者 Mariadb
 mysql://rttys:rttys@tcp(localhost)/rttys

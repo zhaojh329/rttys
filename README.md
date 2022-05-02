@@ -81,7 +81,7 @@ You can stop the service with:
 
 # Database Preparation
 ## Sqlite
-sqlite3://rttys.db
+sqlite://rttys.db
 
 ## MySql or Mariadb
 mysql://rttys:rttys@tcp(localhost)/rttys

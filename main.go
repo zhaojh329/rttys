@@ -6,15 +6,13 @@ import (
 	"runtime"
 
 	"rttys/config"
-	xlog "rttys/log"
 	"rttys/utils"
 	"rttys/version"
 
+	xlog "rttys/log"
+
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
-
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func initDb(cfg *config.Config) error {
@@ -154,7 +152,7 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "db",
-						Value: "sqlite3://rttys.db",
+						Value: "sqlite://rttys.db",
 						Usage: "database source",
 					},
 					&cli.BoolFlag{
