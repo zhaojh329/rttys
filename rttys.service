@@ -1,0 +1,10 @@
+[Unit]
+Description=rttys
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/rttys run -c /etc/rttys/rttys.conf
+TimeoutStopSec=5s
+
+[Install]
+WantedBy=multi-user.target
