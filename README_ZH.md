@@ -18,19 +18,7 @@
 
 这是[rtty](https://github.com/zhaojh329/rtty)的服务器程序。
 
-# 如何使用
-## 从[Release](https://github.com/zhaojh329/rttys/releases)页面下载编译好的二进制文件或者自己编译
-
-    git clone https://github.com/zhaojh329/rttys
-
-    cd ui
-    npm install
-    npm run build
-    cd ..
-
-    ./build.sh linux amd64
-
-## 认证
+## 认证(可选)
 ### Token
 生成一个 token
 
@@ -45,39 +33,6 @@
 ### SSL 双向认证(mTLS)
 您可以在配置文件中指定设备 CA 存储(有效文件)或在 CLI 中指定设备 CA 存储(参数 ssl-cacert) 来启用 mTLS。
 存储中没有有效 CA 的设备将在 TLS 握手中断开连接。
-
-## 作为Linux服务运行
-移动rttys可执行程序到/usr/local/bin/
-
-    sudo mv rttys /usr/local/bin/
-
-拷贝配置文件到/etc/rttys/
-
-    sudo mkdir /etc/rttys
-    sudo cp rttys.conf /etc/rttys/
-
-创建一个systemd单元文件: /etc/systemd/system/rttys.service
-
-    [Unit]
-    Description=rttys
-    After=network.target
-
-    [Service]
-    ExecStart=/usr/local/bin/rttys run -c /etc/rttys/rttys.conf
-    TimeoutStopSec=5s
-
-    [Install]
-    WantedBy=multi-user.target
-
-要首次启动该服务，请执行通常的systemctl操作:
-
-    sudo systemctl daemon-reload
-    sudo systemctl enable rttys
-    sudo systemctl start rttys
-
-您可以通过以下方式停止服务:
-
-    sudo systemctl stop rttys
 
 # 数据库准备
 ## Sqlite

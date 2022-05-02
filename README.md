@@ -18,19 +18,7 @@
 
 This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 
-# Usage
-## download the pre-built release binary from [Release](https://github.com/zhaojh329/rttys/releases) page according to your os and arch or compile it by yourself.
-
-    git clone https://github.com/zhaojh329/rttys
-
-    cd ui
-    npm install
-    npm run build
-    cd ..
-
-    ./build.sh linux amd64
-
-## Authorization
+## Authorization(optional)
 ### Token
 Generate a token
 
@@ -45,39 +33,6 @@ Use token
 ### mTLS
 You can enable mTLS by specifying device CA storage (valid file) in config file or from CLI (variable ssl-cacert).
 Device(s) without valid CA in storage will be disconnected in TLS handshake.
-
-## Running as a Linux service
-Move the rttys binary into /usr/local/bin/
-
-    sudo mv rttys /usr/local/bin/
-
-Copy the config file to /etc/rttys/
-
-    sudo mkdir /etc/rttys
-    sudo cp rttys.conf /etc/rttys/
-
-Create a systemd unit file: /etc/systemd/system/rttys.service
-
-    [Unit]
-    Description=rttys
-    After=network.target
-
-    [Service]
-    ExecStart=/usr/local/bin/rttys run -c /etc/rttys/rttys.conf
-    TimeoutStopSec=5s
-
-    [Install]
-    WantedBy=multi-user.target
-
-To start the service for the first time, do the usual systemctl dance:
-
-    sudo systemctl daemon-reload
-    sudo systemctl enable rttys
-    sudo systemctl start rttys
-
-You can stop the service with:
-
-    sudo systemctl stop rttys
 
 # Database Preparation
 ## Sqlite
