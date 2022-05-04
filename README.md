@@ -34,11 +34,11 @@ Use token
 You can enable mTLS by specifying device CA storage (valid file) in config file or from CLI (variable ssl-cacert).
 Device(s) without valid CA in storage will be disconnected in TLS handshake.
 
-# Database Preparation
+## Database Preparation
 ## Sqlite
-sqlite://rttys.db
+s#qlite://rttys.db
 
-## MySql or Mariadb
+### MySql or Mariadb
 mysql://rttys:rttys@tcp(localhost)/rttys
 
 On database instance, login to database console as root:
@@ -64,6 +64,6 @@ FLUSH PRIVILEGES;
 
 Quit from database console by exit.
 
-# Contributing
+## Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
 see the [CONTRIBUTING.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING.md) file.

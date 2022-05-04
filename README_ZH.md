@@ -34,11 +34,11 @@
 您可以在配置文件中指定设备 CA 存储(有效文件)或在 CLI 中指定设备 CA 存储(参数 ssl-cacert) 来启用 mTLS。
 存储中没有有效 CA 的设备将在 TLS 握手中断开连接。
 
-# 数据库准备
-## Sqlite
+## 数据库准备
+### Sqlite
 sqlite://rttys.db
 
-## MySql 或者 Mariadb
+### MySql 或者 Mariadb
 mysql://rttys:rttys@tcp(localhost)/rttys
 
 在数据库实例上，以root用户身份登录到数据库控制台：
@@ -64,6 +64,6 @@ FLUSH PRIVILEGES;
 
 退出数据库控制台。
 
-# 贡献代码
+## 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
 [CONTRIBUTING_ZH.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING_ZH.md)。
