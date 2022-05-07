@@ -175,14 +175,32 @@ func doHttpProxy(brk *broker, c net.Conn) {
 	req.Host = hostHeaderRewrite
 	hpw.WriteRequest(req)
 
-	for {
-		req, err := http.ReadRequest(br)
-		if err != nil {
-			close(exit)
-			return
-		}
+	if req.Header.Get("Upgrade") == "websocket" {
+		b := make([]byte, 4096)
 
-		hpw.WriteRequest(req)
+		for {
+			n, err := c.Read(b)
+			if err != nil {
+				close(exit)
+				return
+			}
+
+			msg := append([]byte{}, srcAddr...)
+			msg = append(msg, destAddr...)
+			msg = append(msg, b[:n]...)
+
+			brk.httpReq <- &httpReq{devid, msg}
+		}
+	} else {
+		for {
+			req, err := http.ReadRequest(br)
+			if err != nil {
+				close(exit)
+				return
+			}
+
+			hpw.WriteRequest(req)
+		}
 	}
 }
 
