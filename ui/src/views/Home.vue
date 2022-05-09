@@ -360,28 +360,37 @@ export default {
                 }
               }
           });
-          return h('div', [input, h('p', '127.0.0.1, 127.0.0.1:8080, http://127.0.0.1')]);
+          return h('div', [input, h('p', '127.0.0.1, 127.0.0.1:8080, 127.0.0.1/test.html?a=1')]);
         },
         onOk: () => {
-          const addrs = addr.split(':');
+          let [addrs, ...path] = addr.split('/');
 
-          if (!this.parseIPv4(addrs[0])) {
+          path = '/' + path.join('/');
+
+          let [ip, ...port] = addrs.split(':');
+
+          if (!this.parseIPv4(ip)) {
             this.$Message.error(this.$t('Invalid address'));
             return;
           }
 
-          let port = 80;
+          if (port.length !== 0 && port.length !== 1) {
+            this.$Message.error(this.$t('Invalid port'));
+            return;
+          }
 
-          if (addrs.length > 0) {
-            port = Number(addrs[1]);
+          if (port.length === 1) {
+            port = Number(port[0]);
             if (port <= 0 || port > 65535) {
               this.$Message.error(this.$t('Invalid port'));
               return;
             }
+          } else {
+            port = 80;
           }
 
-          addr = encodeURIComponent(addrs[0] + ':' + port);
-          window.open(`/web/${devid}/${addr}/`);
+          addr = encodeURIComponent(`${ip}:${port}${path}`);
+          window.open(`/web/${devid}/${addr}`);
         }
       });
     },

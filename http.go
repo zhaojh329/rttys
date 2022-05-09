@@ -239,9 +239,15 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 	cfg := br.cfg
 	devid := c.Param("devid")
 	addr := c.Param("addr")
-	path := c.Param("path")
+	rawPath := c.Param("path")
 
 	_, _, err := httpProxyVaildAddr(addr)
+	if err != nil {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	path, err := url.Parse(rawPath)
 	if err != nil {
 		c.Status(http.StatusBadRequest)
 		return
@@ -266,9 +272,13 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 		}
 	}
 
-	location += path
+	location += path.Path
 
 	location += fmt.Sprintf("?_=%d", time.Now().Unix())
+
+	if path.RawQuery != "" {
+		location += "&" + path.RawQuery
+	}
 
 	sid, err := c.Cookie("rtty-http-sid")
 	if err == nil {
