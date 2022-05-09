@@ -339,7 +339,7 @@ export default {
 
       this.$Modal.confirm({
         render: h => {
-          return h('Input', {
+          const input = h('Input', {
               props: {
                 value: addr,
                 autofocus: true,
@@ -350,7 +350,8 @@ export default {
                   addr = val;
                 }
               }
-          })
+          });
+          return h('div', [input, h('p', '127.0.0.1, 127.0.0.1:8080, http://127.0.0.1')]);
         },
         onOk: () => {
           const ipreg = /^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$/
