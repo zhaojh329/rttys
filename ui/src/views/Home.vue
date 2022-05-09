@@ -249,6 +249,15 @@ export default {
     }
   },
   methods: {
+    parseIPv4(x) {
+      if (!x.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/))
+        return null;
+
+      if (RegExp.$1 > 255 || RegExp.$2 > 255 || RegExp.$3 > 255 || RegExp.$4 > 255)
+        return null;
+
+      return [ +RegExp.$1, +RegExp.$2, +RegExp.$3, +RegExp.$4 ];
+    },
     handleUserCommand(command) {
       if (command === 'logout') {
         this.axios.get('/signout').then(() => {
@@ -354,23 +363,24 @@ export default {
           return h('div', [input, h('p', '127.0.0.1, 127.0.0.1:8080, http://127.0.0.1')]);
         },
         onOk: () => {
-          const ipreg = /^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])$/
-          const portreg = /^(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5])\.(\d{1,2}|1\d\d|2[0-4]\d|25[0-5]):\d{1,5}$/
+          const addrs = addr.split(':');
 
-          if (!ipreg.test(addr)) {
-            if (!portreg.test(addr)) {
-              this.$Message.error(this.$t('Invalid address'));
-              return;
-            }
+          if (!this.parseIPv4(addrs[0])) {
+            this.$Message.error(this.$t('Invalid address'));
+            return;
+          }
 
-            const port = Number(addr.substr(addr.lastIndexOf(':') + 1));
-            if (port < 0 || port > 65535) {
-              this.$Message.error(this.$t('Invalid address'));
+          let port = 80;
+
+          if (addrs.length > 0) {
+            port = Number(addrs[1]);
+            if (port <= 0 || port > 65535) {
+              this.$Message.error(this.$t('Invalid port'));
               return;
             }
           }
 
-          addr = encodeURIComponent(addr);
+          addr = encodeURIComponent(addrs[0] + ':' + port);
           window.open(`/web/${devid}/${addr}/`);
         }
       });
