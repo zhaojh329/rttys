@@ -79,10 +79,17 @@ type HttpProxyWriter struct {
 	hostHeaderRewrite string
 	br                *broker
 	devid             string
+	https             bool
 }
 
 func (rw *HttpProxyWriter) Write(p []byte) (n int, err error) {
-	msg := append([]byte{}, rw.srcAddr...)
+	msg := []byte{0}
+
+	if rw.https {
+		msg[0] = 1
+	}
+
+	msg = append(msg, rw.srcAddr...)
 	msg = append(msg, rw.destAddr...)
 	msg = append(msg, p...)
 
@@ -123,6 +130,12 @@ func doHttpProxy(brk *broker, c net.Conn) {
 	}
 	sid := cookie.Value
 
+	https := false
+	cookie, _ = req.Cookie("rtty-http-proto")
+	if cookie != nil && cookie.Value == "https" {
+		https = true
+	}
+
 	hostHeaderRewrite := "localhost"
 	cookie, err = req.Cookie("rtty-http-destaddr")
 	if err == nil {
@@ -157,7 +170,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 		return
 	}
 
-	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, brk, devid}
+	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, brk, devid, https}
 
 	req.Host = hostHeaderRewrite
 	hpw.WriteRequest(req)
@@ -238,6 +251,7 @@ func httpProxyVaildAddr(addr string) (net.IP, uint16, error) {
 func httpProxyRedirect(br *broker, c *gin.Context) {
 	cfg := br.cfg
 	devid := c.Param("devid")
+	proto := c.Param("proto")
 	addr := c.Param("addr")
 	rawPath := c.Param("path")
 
@@ -294,6 +308,7 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 
 	c.SetCookie("rtty-http-sid", sid, 0, "", "", false, true)
 	c.SetCookie("rtty-http-devid", devid, 0, "", "", false, true)
+	c.SetCookie("rtty-http-proto", proto, 0, "", "", false, true)
 	c.SetCookie("rtty-http-destaddr", addr, 0, "", "", false, true)
 
 	c.Redirect(http.StatusFound, location)

@@ -290,7 +290,7 @@ func apiStart(br *broker) {
 		handleCmdReq(br, c)
 	})
 
-	r.Any("/web/:devid/:addr/*path", func(c *gin.Context) {
+	r.Any("/web/:devid/:proto/:addr/*path", func(c *gin.Context) {
 		httpProxyRedirect(br, c)
 	})
 

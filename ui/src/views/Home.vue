@@ -360,9 +360,23 @@ export default {
                 }
               }
           });
-          return h('div', [input, h('p', '127.0.0.1, 127.0.0.1:8080, 127.0.0.1/test.html?a=1')]);
+          return h('div', [
+            input,
+            h('p', '127.0.0.1, 127.0.0.1:8080, 127.0.0.1/test.html?a=1'),
+            h('p', 'http://127.0.0.1, https://127.0.0.1')
+          ]);
         },
         onOk: () => {
+          let proto = 'http';
+
+          if (addr.startsWith('http://'))
+            addr = addr.substring(7);
+
+          if (addr.startsWith('https://')) {
+            addr = addr.substring(8);
+            proto = 'https';
+          }
+
           let [addrs, ...path] = addr.split('/');
 
           path = '/' + path.join('/');
@@ -387,10 +401,12 @@ export default {
             }
           } else {
             port = 80;
+            if (proto === 'https')
+              port = 443;
           }
 
           addr = encodeURIComponent(`${ip}:${port}${path}`);
-          window.open(`/web/${devid}/${addr}`);
+          window.open(`/web/${devid}/${proto}/${addr}`);
         }
       });
     },
