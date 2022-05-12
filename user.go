@@ -73,7 +73,6 @@ func userLoginAck(code int, c client.Client) {
 func (u *user) readLoop() {
 	defer func() {
 		u.br.unregister <- u
-		u.conn.Close()
 	}()
 
 	for {
@@ -94,7 +93,7 @@ func (u *user) writeLoop() {
 
 	defer func() {
 		ticker.Stop()
-		u.conn.Close()
+		u.br.unregister <- u
 	}()
 
 	for {
