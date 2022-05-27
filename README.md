@@ -64,6 +64,10 @@ FLUSH PRIVILEGES;
 
 Quit from database console by exit.
 
+## Docker
+
+    sudo docker run -it -p 5912:5912 -p 5913:5913 zhaojh329/rttys:latest
+
 ## Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
 see the [CONTRIBUTING.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING.md) file.

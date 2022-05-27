@@ -64,6 +64,10 @@ FLUSH PRIVILEGES;
 
 退出数据库控制台。
 
+## Docker
+
+    sudo docker run -it -p 5912:5912 -p 5913:5913 zhaojh329/rttys:latest
+
 ## 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
 [CONTRIBUTING_ZH.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING_ZH.md)。
