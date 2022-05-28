@@ -65,5 +65,5 @@ jobs:
         with:
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/rttys:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/rttys:${{ steps.get-version.outputs.version-without-v }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/rttys:latest
