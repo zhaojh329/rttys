@@ -66,5 +66,7 @@
   "Delete success": "Delete success",
   "Delete offline devices": "Delete offline devices",
   "There are no offline devices in selected devices": "There are no offline devices in selected devices",
-  "Invalid address": "Invalid address"
+  "Invalid address": "Invalid address",
+  "Already copied to clipboard": "Already copied to clipboard",
+  "Please use shortcut \"Shift+Insert\"": "Please use shortcut \"Shift+Insert\""
 }

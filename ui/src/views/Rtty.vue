@@ -13,8 +13,6 @@
 
 <script>
 import Contextmenu from '@/components/ContextMenu'
-import ClipboardEx from '@/plugins/clipboard'
-
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import OverlayAddon from '@/plugins/xterm-addon-overlay'
@@ -71,9 +69,14 @@ export default {
     },
     onContextmenuClick(name) {
       if (name === 'copy') {
-        ClipboardEx.write(this.term.getSelection() || '');
+        const text = this.term.getSelection();
+        if (text) {
+          this.$copyText(text).then(() => {
+            this.$Message.info(this.$t('Already copied to clipboard').toString());
+          })
+        }
       } else if (name === 'paste') {
-        ClipboardEx.read().then(text => this.term.paste(text));
+        this.$Message.info(this.$t('Please use shortcut "Shift+Insert"').toString());
       } else if (name === 'clear') {
         this.term.clear();
       } else if (name === 'font+') {
@@ -85,12 +88,7 @@ export default {
         if (size && size > 12)
           this.updateFontSize(size - 1);
       } else if (name === 'file') {
-        this.$Modal.info({
-          content: this.$t('Please execute command "rtty -R" or "rtty -S" in current terminal!'),
-          onOk: () => {
-            this.term.focus();
-          }
-        });
+        this.$Message.info(this.$t('Please execute command "rtty -R" or "rtty -S" in current terminal!').toString());
       } else if (name === 'about') {
         window.open('https://github.com/zhaojh329/rtty');
       }
