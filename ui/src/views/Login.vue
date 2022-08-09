@@ -50,9 +50,9 @@ export default {
             });
           } else {
             this.axios.post('./signin', params).then(res => {
-              sessionStorage.setItem('rttys-sid', res.data.sid);
-              sessionStorage.setItem('rttys-username', res.data.username);
-              sessionStorage.setItem('rttys-admin', res.data.admin);
+              sessionStorage.setItem('rttys-sid', res.data.rttys_sid);
+              sessionStorage.setItem('rttys-username', res.data.rttys_username);
+              sessionStorage.setItem('rttys-admin', res.data.rttys_admin);
               this.$router.push('/');
             }).catch(() => {
               this.$Message.error(this.$t('Signin Fail! username or password wrong.').toString());

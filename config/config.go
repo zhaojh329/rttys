@@ -25,6 +25,7 @@ type Config struct {
 	DB                string
 	LocalAuth         bool
 	AllowSignUp       bool
+	LocalAssets       string
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
@@ -59,6 +60,7 @@ func Parse(c *cli.Context) *Config {
 		DB:                c.String("db"),
 		LocalAuth:         c.Bool("local-auth"),
 		AllowSignUp:       c.Bool("allow-signup"),
+		LocalAssets:       c.String("local-assets"),
 	}
 
 	cfg.WhiteList = make(map[string]bool)
@@ -87,6 +89,7 @@ func Parse(c *cli.Context) *Config {
 		// bugfix: support read local-auth from yaml config file.
 		getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
 		getConfigOpt(yamlCfg, "allow-signup", &cfg.AllowSignUp)
+		getConfigOpt(yamlCfg, "local-assets", &cfg.LocalAssets)
 
 		val, err := yamlCfg.Get("white-list")
 		if err == nil {

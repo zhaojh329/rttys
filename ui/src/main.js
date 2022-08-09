@@ -17,7 +17,7 @@ Vue.prototype.$axios = axios
 
 // 进入后配置一次
 Vue.prototype.BASE_URL = getConfigItem('BASE_URL_PROD');
-console.log('接口配置的基础地址1', Vue.prototype.BASE_URL)
+//console.log('接口配置的基础地址1', Vue.prototype.BASE_URL)
 
 axios.defaults.baseURL = Vue.prototype.BASE_URL;
 
