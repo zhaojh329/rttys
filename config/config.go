@@ -84,6 +84,8 @@ func Parse(c *cli.Context) *Config {
 		getConfigOpt(yamlCfg, "ssl-cacert", &cfg.SslCacert)
 		getConfigOpt(yamlCfg, "token", &cfg.Token)
 		getConfigOpt(yamlCfg, "db", &cfg.DB)
+		// bugfix: support read local-auth from yaml config file.
+		getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
 		getConfigOpt(yamlCfg, "allow-signup", &cfg.AllowSignUp)
 
 		val, err := yamlCfg.Get("white-list")
