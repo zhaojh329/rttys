@@ -370,6 +370,14 @@ func apiStart(br *broker) {
 			isAdmin = 1
 		}
 
+		// 当前已有一个以上用户后，如果配置上不允许注册，则返回禁止
+		if (cnt > 0) {
+			if (!cfg.AllowSignUp) {
+				c.Status(http.StatusForbidden)
+				return	
+			}
+		}
+
 		db.QueryRow("SELECT COUNT(*) FROM account WHERE username = ?", creds.Username).Scan(&cnt)
 		if cnt > 0 {
 			c.Status(http.StatusForbidden)

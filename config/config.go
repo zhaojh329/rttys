@@ -24,6 +24,7 @@ type Config struct {
 	WhiteList         map[string]bool
 	DB                string
 	LocalAuth         bool
+	AllowSignUp       bool
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
@@ -35,6 +36,10 @@ func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
 	switch opt := opt.(type) {
 	case *string:
 		*opt = val
+	case *bool:
+		if *opt, err = strconv.ParseBool(val); err != nil {
+			*opt = false;
+		}
 	case *int:
 		*opt, _ = strconv.Atoi(val)
 	}
@@ -53,6 +58,7 @@ func Parse(c *cli.Context) *Config {
 		Token:             c.String("token"),
 		DB:                c.String("db"),
 		LocalAuth:         c.Bool("local-auth"),
+		AllowSignUp:       c.Bool("allow-signup"),
 	}
 
 	cfg.WhiteList = make(map[string]bool)
@@ -78,6 +84,7 @@ func Parse(c *cli.Context) *Config {
 		getConfigOpt(yamlCfg, "ssl-cacert", &cfg.SslCacert)
 		getConfigOpt(yamlCfg, "token", &cfg.Token)
 		getConfigOpt(yamlCfg, "db", &cfg.DB)
+		getConfigOpt(yamlCfg, "allow-signup", &cfg.AllowSignUp)
 
 		val, err := yamlCfg.Get("white-list")
 		if err == nil {
