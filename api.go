@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +30,25 @@ var httpSessions *cache.Cache
 
 //go:embed ui/dist
 var staticFs embed.FS
+
+// Exists determine whether the file exists
+func FileExists(name string) bool {
+	if _, err := os.Stat(name); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
+}
+
+// IsFolder determine whether the file is folder
+func IsFolder(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return s.IsDir()
+}
 
 func allowOrigin(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -74,7 +94,7 @@ func httpAuth(cfg *config.Config, c *gin.Context) bool {
 		return true
 	}
 
-	cookie, err := c.Cookie("sid")
+	cookie, err := c.Cookie("rttys-sid")
 	if err != nil || !httpSessions.Have(cookie) {
 		return false
 	}
@@ -106,7 +126,7 @@ func isAdminUsername(cfg *config.Config, username string) bool {
 }
 
 func getLoginUsername(c *gin.Context) string {
-	cookie, err := c.Cookie("sid")
+	cookie, err := c.Cookie("rttys-sid")
 	if err != nil {
 		return ""
 	}
@@ -314,11 +334,11 @@ func apiStart(br *broker) {
 			sid := utils.GenUniqueID("http")
 			httpSessions.Set(sid, creds.Username, 0)
 
-			c.SetCookie("sid", sid, 0, "", "", false, true)
+			c.SetCookie("rttys-sid", sid, 0, "", "", false, true)
 
 			c.JSON(http.StatusOK, gin.H{
-				"sid":      sid,
-				"username": creds.Username,
+				"rttys_sid":      sid,
+				"rttys_username": creds.Username,
 			})
 			return
 		}
@@ -335,7 +355,7 @@ func apiStart(br *broker) {
 	})
 
 	r.GET("/signout", func(c *gin.Context) {
-		cookie, err := c.Cookie("sid")
+		cookie, err := c.Cookie("rttys-sid")
 		if err != nil || !httpSessions.Have(cookie) {
 			return
 		}
@@ -368,6 +388,14 @@ func apiStart(br *broker) {
 		db.QueryRow("SELECT COUNT(*) FROM account").Scan(&cnt)
 		if cnt == 0 {
 			isAdmin = 1
+		}
+
+		// 当前已有一个以上用户后，如果配置上不允许注册，则返回禁止
+		if (cnt > 0) {
+			if (!cfg.AllowSignUp) {
+				c.Status(http.StatusForbidden)
+				return	
+			}
 		}
 
 		db.QueryRow("SELECT COUNT(*) FROM account WHERE username = ?", creds.Username).Scan(&cnt)
@@ -588,12 +616,31 @@ func apiStart(br *broker) {
 	})
 
 	r.NoRoute(func(c *gin.Context) {
-		fs, _ := fs.Sub(staticFs, "ui/dist")
+		var assets fs.FS
+		var err error
 
 		path := c.Request.URL.Path
+		filename := path
+		if filename == "/" {
+			filename = "/index.html"
+		}
+
+		// if LocalAssets is valid, use LocalAssets.
+		if (cfg.LocalAssets != "") && IsFolder(filepath.Dir(cfg.LocalAssets)) && FileExists(filepath.Join(cfg.LocalAssets, filename)) {
+			fsys := os.DirFS(cfg.LocalAssets)
+			assets, err = fs.Sub(fsys, ".")
+			log.Debug().Msgf("use local assets: [%s]", filename)
+		} else {
+			assets, _ = fs.Sub(staticFs, "ui/dist")
+		}
+		if err != nil {
+			log.Fatal().Msg("can't find assets folder")
+			// raise exception, use inner assets.
+			assets, _ = fs.Sub(staticFs, "ui/dist")
+		}
 
 		if path != "/" {
-			f, err := fs.Open(path[1:])
+			f, err := assets.Open(path[1:])
 			if err != nil {
 				c.Request.URL.Path = "/"
 				r.HandleContext(c)
@@ -613,7 +660,7 @@ func apiStart(br *broker) {
 			f.Close()
 		}
 
-		http.FileServer(http.FS(fs)).ServeHTTP(c.Writer, c.Request)
+		http.FileServer(http.FS(assets)).ServeHTTP(c.Writer, c.Request)
 	})
 
 	go func() {

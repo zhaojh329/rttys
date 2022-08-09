@@ -85,7 +85,7 @@ export default {
           this.updateFontSize(size + 1);
       } else if (name === 'font-') {
         const size = this.term.getOption('fontSize');
-        if (size && size > 12)
+        if (size && size > getConfigItem('XTermFontMinSize'))
           this.updateFontSize(size - 1);
       } else if (name === 'file') {
         this.$Message.info(this.$t('Please execute command "rtty -R" or "rtty -S" in current terminal!').toString());
@@ -184,7 +184,8 @@ export default {
     openTerm() {
       const term = new Terminal({
         cursorBlink: true,
-        fontSize: 16
+        fontFamily: getConfigItem('XTermFontFamily'),
+        fontSize: getConfigItem('XTermFontDefaultSize')
       });
       this.term = term;
 
@@ -220,7 +221,17 @@ export default {
   mounted() {
     const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://';
 
-    const socket = new WebSocket(protocol + location.host + `/connect/${this.devid}`);
+    // get base url for subfolder in domain name.
+    let webName = this.BASE_URL;
+    if ((webName.length === 0) || (webName.substr(0, 1) !== '/')) {
+        webName = '/' + webName
+    }
+    if (webName.substr(-1) !== '/') {
+      webName += '/'
+    }
+    //console.log('webName: ' + webName)
+
+    const socket = new WebSocket(protocol + location.host + webName + `connect/${this.devid}`);
     socket.binaryType = 'arraybuffer';
     this.socket = socket;
 
@@ -244,7 +255,7 @@ export default {
 
           this.openTerm();
 
-          this.axios.get('/fontsize').then(r => {
+          this.axios.get('./fontsize').then(r => {
             this.term.setOption('fontSize', r.data.size);
             this.fitTerm();
           });
@@ -254,7 +265,7 @@ export default {
         } else if (msg.type === 'sendfile') {
           const el = document.createElement('a');
           el.style.display = 'none';
-          el.href = '/file/' + this.sid;
+          el.href = './file/' + this.sid;
           el.download = msg.name;
           el.click();
         } else if (msg.type === 'recvfile') {
