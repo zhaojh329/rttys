@@ -2,6 +2,7 @@ const CompressionPlugin = require('compression-webpack-plugin')
 
 module.exports = {
   productionSourceMap: false,
+  publicPath: process.env.NODE_ENV === "production" ? "/" : "/", //"/rttys" : "/",
   chainWebpack: config => {
     config.plugin('html')
       .tap(args => {

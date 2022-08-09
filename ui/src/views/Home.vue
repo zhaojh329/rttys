@@ -260,7 +260,7 @@ export default {
     },
     handleUserCommand(command) {
       if (command === 'logout') {
-        this.axios.get('/signout').then(() => {
+        this.axios.get('./signout').then(() => {
           this.$router.push('/login');
         });
       }
@@ -272,7 +272,7 @@ export default {
       });
     },
     getDevices() {
-      this.axios.get('/devs').then(res => {
+      this.axios.get('./devs').then(res => {
         this.loading = false;
         this.devlists = res.data;
         this.selection = [];
@@ -296,7 +296,7 @@ export default {
         return;
       }
 
-      this.axios.get('/users').then(res => {
+      this.axios.get('./users').then(res => {
         this.bindUserData.users = res.data.users;
         this.bindUserData.modal = true;
       });
@@ -304,7 +304,7 @@ export default {
     bindUser() {
       this.bindUserData.modal = false;
 
-      this.axios.post('/bind', {
+      this.axios.post('./bind', {
         devices: this.selection.map(s => s.id),
         username: this.bindUserData.currentUser
       }).then(() => {
@@ -313,7 +313,7 @@ export default {
       });
     },
     unBindUser(id) {
-      this.axios.post('/unbind', {
+      this.axios.post('./unbind', {
         devices: [id]
       }).then(() => {
         this.getDevices();
@@ -333,7 +333,7 @@ export default {
         return;
       }
 
-      this.axios.post('/delete', {
+      this.axios.post('./delete', {
         devices: offlines.map(s => s.id)
       }).then(() => {
         this.getDevices();
@@ -341,7 +341,7 @@ export default {
       });
     },
     connectDevice(devid) {
-      window.open('/rtty/' + devid);
+      window.open('./rtty/' + devid);
     },
     connectDeviceWeb(devid) {
       let addr = '127.0.0.1';
@@ -406,7 +406,7 @@ export default {
           }
 
           addr = encodeURIComponent(`${ip}:${port}${path}`);
-          window.open(`/web/${devid}/${proto}/${addr}`);
+          window.open(`./web/${devid}/${proto}/${addr}`);
         }
       });
     },
@@ -454,7 +454,7 @@ export default {
               params: this.cmdData.params
             };
 
-            this.axios.post(`/cmd/${item.id}?wait=${this.cmdData.wait}`, data).then((response) => {
+            this.axios.post(`./cmd/${item.id}?wait=${this.cmdData.wait}`, data).then((response) => {
               if (this.cmdData.wait === 0) {
                 this.cmdStatus.responses.push({
                   err: 0,
@@ -502,7 +502,7 @@ export default {
   mounted() {
     this.username = sessionStorage.getItem('rttys-username') || '';
 
-    this.axios.get('/isadmin').then(res => {
+    this.axios.get('./isadmin').then(res => {
       this.isadmin = res.data.admin;
     });
 
