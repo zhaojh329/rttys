@@ -16,7 +16,7 @@
   "Sign out": "Sign out",
   "Sign up": "Sign up",
   "New to Rttys?": "New to Rttys?",
-  "Already have an account?":"Already have an account?",
+  "Already have an account?": "Already have an account?",
   "Sign up Fail.": "Sign up Fail.",
   "No devices connected": "No devices connected",
   "Device ID": "Device ID",
@@ -68,5 +68,6 @@
   "There are no offline devices in selected devices": "There are no offline devices in selected devices",
   "Invalid address": "Invalid address",
   "Already copied to clipboard": "Already copied to clipboard",
-  "Please use shortcut \"Shift+Insert\"": "Please use shortcut \"Shift+Insert\""
+  "Please use shortcut \"Shift+Insert\"": "Please use shortcut \"Shift+Insert\"",
+  "The username length must be less than 16": "The username length must be less than 16"
 }

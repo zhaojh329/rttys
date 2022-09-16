@@ -16,7 +16,7 @@
   "Sign out": "退出",
   "Sign up": "注册",
   "New to Rttys?": "新用户?",
-  "Already have an account?":"已经有一个账号?",
+  "Already have an account?": "已经有一个账号?",
   "Sign up Fail.": "注册失败",
   "No devices connected": "没有设备连接",
   "Device ID": "设备ID",
@@ -69,5 +69,6 @@
   "There are no offline devices in selected devices": "所选设备中无离线设备",
   "Invalid address": "无效的地址",
   "Already copied to clipboard": "已复制到剪切板",
-  "Please use shortcut \"Shift+Insert\"": "请使用快捷键 \"Shift+Insert\""
+  "Please use shortcut \"Shift+Insert\"": "请使用快捷键 \"Shift+Insert\"",
+  "The username length must be less than 16": "用户名长度必须小于16"
 }

@@ -36,27 +36,31 @@ export default {
     handleSubmit() {
       (this.$refs['login']).validate(valid => {
         if (valid) {
-          const params = {
-            username: this.formData.username,
-            password: this.formData.password
-          };
+          if (this.formData.username.length < 16) {
+            const params = {
+              username: this.formData.username,
+              password: this.formData.password
+            };
 
-          if (this.signup) {
-            this.axios.post('/signup', params).then(() => {
-              this.signup = false;
-              this.$router.push('/login');
-            }).catch(() => {
-              this.$Message.error(this.$t('Sign up Fail.').toString());
-            });
+            if (this.signup) {
+              this.axios.post('/signup', params).then(() => {
+                this.signup = false;
+                this.$router.push('/login');
+              }).catch(() => {
+                this.$Message.error(this.$t('Sign up Fail.').toString());
+              });
+            } else {
+              this.axios.post('/signin', params).then(res => {
+                sessionStorage.setItem('rttys-sid', res.data.sid);
+                sessionStorage.setItem('rttys-username', res.data.username);
+                sessionStorage.setItem('rttys-admin', res.data.admin);
+                this.$router.push('/');
+              }).catch(() => {
+                this.$Message.error(this.$t('Signin Fail! username or password wrong.').toString());
+              });
+            }
           } else {
-            this.axios.post('/signin', params).then(res => {
-              sessionStorage.setItem('rttys-sid', res.data.sid);
-              sessionStorage.setItem('rttys-username', res.data.username);
-              sessionStorage.setItem('rttys-admin', res.data.admin);
-              this.$router.push('/');
-            }).catch(() => {
-              this.$Message.error(this.$t('Signin Fail! username or password wrong.').toString());
-            });
+            this.$Message.error(this.$t('The username length must be less than 16').toString());
           }
         }
       });
