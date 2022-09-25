@@ -219,6 +219,7 @@ func apiStart(br *broker) {
 			Description string `json:"description"`
 			Bound       bool   `json:"bound"`
 			Online      bool   `json:"online"`
+			Proto       uint8  `json:"proto"`
 		}
 
 		db, err := instanceDB(cfg.DB)
@@ -274,6 +275,7 @@ func apiStart(br *broker) {
 				di.Connected = uint32(time.Now().Unix() - dev.timestamp)
 				di.Uptime = dev.uptime
 				di.Online = true
+				di.Proto = dev.proto
 			}
 
 			devs = append(devs, di)

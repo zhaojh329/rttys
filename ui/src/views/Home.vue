@@ -32,7 +32,7 @@
           <i class="iconfont icon-shell" style="font-size: 40px; color: black; cursor:pointer;" @click="connectDevice(row.id)"/>
         </Tooltip>
         <Tooltip v-if="row.online" placement="top" :content="$t('Access your devices\'s Web')">
-          <i class="iconfont icon-web" style="font-size: 40px; color: #409EFF; cursor:pointer;" @click="connectDeviceWeb(row.id)"/>
+          <i class="iconfont icon-web" style="font-size: 40px; color: #409EFF; cursor:pointer;" @click="connectDeviceWeb(row)"/>
         </Tooltip>
         <span v-if="!row.online" style="margin-left: 10px; color: red">{{ $t('Device offline') }}</span>
       </template>
@@ -343,7 +343,7 @@ export default {
     connectDevice(devid) {
       window.open('/rtty/' + devid);
     },
-    connectDeviceWeb(devid) {
+    connectDeviceWeb(dev) {
       let addr = '127.0.0.1';
 
       this.$Modal.confirm({
@@ -377,6 +377,11 @@ export default {
             proto = 'https';
           }
 
+          if (dev.proto < 4 && proto === 'https') {
+            this.$Message.error(this.$t('Your device\'s rtty does not support https proxy, please upgrade it.'));
+            return;
+          }
+
           let [addrs, ...path] = addr.split('/');
 
           path = '/' + path.join('/');
@@ -406,7 +411,7 @@ export default {
           }
 
           addr = encodeURIComponent(`${ip}:${port}${path}`);
-          window.open(`/web/${devid}/${proto}/${addr}`);
+          window.open(`/web/${dev.id}/${proto}/${addr}`);
         }
       });
     },

@@ -69,5 +69,6 @@
   "There are no offline devices in selected devices": "所选设备中无离线设备",
   "Invalid address": "无效的地址",
   "Already copied to clipboard": "已复制到剪切板",
-  "Please use shortcut \"Shift+Insert\"": "请使用快捷键 \"Shift+Insert\""
+  "Please use shortcut \"Shift+Insert\"": "请使用快捷键 \"Shift+Insert\"",
+  "Your device's rtty does not support https proxy, please upgrade it.": "你的设备的 rtty 不支持 https 代理，请升级"
 }

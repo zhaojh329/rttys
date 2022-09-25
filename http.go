@@ -78,22 +78,27 @@ type HttpProxyWriter struct {
 	srcAddr           []byte
 	hostHeaderRewrite string
 	br                *broker
-	devid             string
+	dev               *device
 	https             bool
 }
 
 func (rw *HttpProxyWriter) Write(p []byte) (n int, err error) {
-	msg := []byte{0}
+	msg := []byte{}
+	dev := rw.dev
 
-	if rw.https {
-		msg[0] = 1
+	if dev.proto > 3 {
+		if rw.https {
+			msg = append(msg, 1)
+		} else {
+			msg = append(msg, 0)
+		}
 	}
 
 	msg = append(msg, rw.srcAddr...)
 	msg = append(msg, rw.destAddr...)
 	msg = append(msg, p...)
 
-	rw.br.httpReq <- &httpReq{rw.devid, msg}
+	rw.br.httpReq <- &httpReq{dev.id, msg}
 
 	return len(p), nil
 }
@@ -119,7 +124,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 	}
 	devid := cookie.Value
 
-	_, ok := brk.devices[devid]
+	dev, ok := brk.devices[devid]
 	if !ok {
 		return
 	}
@@ -170,7 +175,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 		return
 	}
 
-	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, brk, devid, https}
+	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, brk, dev.(*device), https}
 
 	req.Host = hostHeaderRewrite
 	hpw.WriteRequest(req)

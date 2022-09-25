@@ -68,5 +68,6 @@
   "There are no offline devices in selected devices": "There are no offline devices in selected devices",
   "Invalid address": "Invalid address",
   "Already copied to clipboard": "Already copied to clipboard",
-  "Please use shortcut \"Shift+Insert\"": "Please use shortcut \"Shift+Insert\""
+  "Please use shortcut \"Shift+Insert\"": "Please use shortcut \"Shift+Insert\"",
+  "Your device's rtty does not support https proxy, please upgrade it.": "Your device's rtty does not support https proxy, please upgrade it."
 }
