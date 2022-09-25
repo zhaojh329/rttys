@@ -41,7 +41,8 @@ const (
 	msgTypeFileAbort
 )
 
-const rttyProto uint8 = 3
+// Minimum protocol version requirements of rtty
+const rttyProtoRequired uint8 = 3
 const heartbeatInterval = time.Second * 5
 
 type device struct {

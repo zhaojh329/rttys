@@ -81,9 +81,9 @@ func (br *broker) run() {
 					log.Error().Msg("Invalid token from terminal device")
 					msg = "Invalid token"
 					err = 1
-				} else if dev.proto < rttyProto {
-					if dev.proto < rttyProto {
-						log.Error().Msgf("%s: unsupported protocol version: %d, need %d", dev.id, dev.proto, rttyProto)
+				} else if dev.proto < rttyProtoRequired {
+					if dev.proto < rttyProtoRequired {
+						log.Error().Msgf("%s: unsupported protocol version: %d, need %d", dev.id, dev.proto, rttyProtoRequired)
 						msg = "unsupported protocol"
 						err = 1
 					}
