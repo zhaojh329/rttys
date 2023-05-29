@@ -1,5 +1,11 @@
 # rttys-ui
 
+## Install node 12
+```
+nvm install 12
+nvm use 12
+```
+
 ## Project setup
 ```
 npm install
