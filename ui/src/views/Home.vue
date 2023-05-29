@@ -7,7 +7,7 @@
     <Tooltip :content="$t('Delete offline devices')">
       <Button @click="deleteDevices" type="primary">{{ $t('Delete') }}</Button>
     </Tooltip>
-    <div style="float: right; margin-right: 10px">
+    <div style="float: right; margin-right: 50px">
       <span style="margin-right: 20px; color: #3399ff; font-size: 24px">{{ $t('device-count', {count: devlists.filter(dev => dev.online).length}) }}</span>
       <Dropdown @on-click="handleUserCommand">
         <a href="javascript:void(0)">
