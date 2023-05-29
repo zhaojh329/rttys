@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div ref="terminal" :style="{height: termHeight + 'px'}" @contextmenu.prevent="showContextmenu"/>
+    <div ref="terminal" :style="{height: termHeight + 'px', margin: '5px'}" @contextmenu.prevent="showContextmenu"/>
     <Modal v-model="file.modal" :title="$t('Upload file to device')" @on-ok="doUploadFile" @on-cancel="onUploadDialogClosed">
       <Upload :before-upload="beforeUpload" action="#">
         <Button icon="ios-cloud-upload-outline">{{ $t("Select file") }}</Button>
@@ -167,7 +167,7 @@ export default {
       this.socket.send(Buffer.concat(buf));
     },
     fitTerm() {
-      this.termHeight = document.documentElement.clientHeight - 10;
+      this.termHeight = document.documentElement.clientHeight - 11;
 
       this.$nextTick(() => {
         if (this.resizeDelay)
