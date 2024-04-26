@@ -133,11 +133,15 @@ func (br *broker) run() {
 			c.Close()
 
 			if c.IsDevice() {
-				if !c.(*device).registered {
+				dev := c.(*device)
+
+				if !dev.registered {
 					break
 				}
 
 				delete(br.devices, devid)
+
+				dev.registered = false
 
 				for sid, s := range br.sessions {
 					if s.dev == c {
