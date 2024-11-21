@@ -356,6 +356,11 @@ func apiStart(br *broker) {
 			return
 		}
 
+		if cfg.DisableSignUp {
+			c.Status(http.StatusForbidden)
+			return
+		}
+
 		db, err := instanceDB(cfg.DB)
 		if err != nil {
 			log.Error().Msg(err.Error())
@@ -396,6 +401,10 @@ func apiStart(br *broker) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"admin": isAdmin})
+	})
+
+	r.GET("/allowsignup", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"allow": !cfg.DisableSignUp})
 	})
 
 	r.GET("/users", func(c *gin.Context) {
