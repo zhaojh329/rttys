@@ -20,6 +20,8 @@ type Config struct {
 	SslCert           string
 	SslKey            string
 	SslCacert         string // mTLS for device
+	WebUISslCert       string
+	WebUISslKey        string
 	Token             string
 	WhiteList         map[string]bool
 	DB                string
@@ -50,6 +52,8 @@ func Parse(c *cli.Context) *Config {
 		SslCert:           c.String("ssl-cert"),
 		SslKey:            c.String("ssl-key"),
 		SslCacert:         c.String("ssl-cacert"),
+		WebUISslCert:       c.String("webui-ssl-cert"),
+		WebUISslKey:        c.String("webui-ssl-key"),
 		Token:             c.String("token"),
 		DB:                c.String("db"),
 		LocalAuth:         c.Bool("local-auth"),
@@ -76,6 +80,8 @@ func Parse(c *cli.Context) *Config {
 		getConfigOpt(yamlCfg, "ssl-cert", &cfg.SslCert)
 		getConfigOpt(yamlCfg, "ssl-key", &cfg.SslKey)
 		getConfigOpt(yamlCfg, "ssl-cacert", &cfg.SslCacert)
+		getConfigOpt(yamlCfg, "webui-ssl-cert", &cfg.WebUISslCert)
+		getConfigOpt(yamlCfg, "webui-ssl-key", &cfg.WebUISslKey)
 		getConfigOpt(yamlCfg, "token", &cfg.Token)
 		getConfigOpt(yamlCfg, "db", &cfg.DB)
 		getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
