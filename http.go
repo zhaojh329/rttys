@@ -78,28 +78,31 @@ type HttpProxyWriter struct {
 	srcAddr           []byte
 	hostHeaderRewrite string
 	br                *broker
-	dev               *device
+	dev               client.Client
 	https             bool
 }
 
-func (rw *HttpProxyWriter) Write(p []byte) (n int, err error) {
+func sendHttpReq(br *broker, c client.Client, https bool, srcAddr []byte, destAddr []byte, data []byte) {
 	msg := []byte{}
-	dev := rw.dev
+	dev := c.(*device)
 
 	if dev.proto > 3 {
-		if rw.https {
+		if https {
 			msg = append(msg, 1)
 		} else {
 			msg = append(msg, 0)
 		}
 	}
 
-	msg = append(msg, rw.srcAddr...)
-	msg = append(msg, rw.destAddr...)
-	msg = append(msg, p...)
+	msg = append(msg, srcAddr...)
+	msg = append(msg, destAddr...)
+	msg = append(msg, data...)
 
-	rw.br.httpReq <- &httpReq{dev.id, msg}
+	br.httpReq <- &httpReq{dev.id, msg}
+}
 
+func (rw *HttpProxyWriter) Write(p []byte) (n int, err error) {
+	sendHttpReq(rw.br, rw.dev, rw.https, rw.srcAddr, rw.destAddr, p)
 	return len(p), nil
 }
 
@@ -190,11 +193,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 				return
 			}
 
-			msg := append([]byte{}, srcAddr...)
-			msg = append(msg, destAddr...)
-			msg = append(msg, b[:n]...)
-
-			brk.httpReq <- &httpReq{devid, msg}
+			sendHttpReq(brk, dev, https, srcAddr, destAddr, b[:n])
 		}
 	} else {
 		for {
