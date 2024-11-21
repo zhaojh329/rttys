@@ -39,6 +39,8 @@ func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
 		*opt = val
 	case *int:
 		*opt, _ = strconv.Atoi(val)
+	case *bool:
+		*opt, _ = strconv.ParseBool(val)
 	}
 }
 
