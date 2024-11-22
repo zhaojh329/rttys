@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -229,6 +230,17 @@ func listenHttpProxy(brk *broker) {
 		log.Fatal().Msg(err.Error())
 	}
 
+	if cfg.WebUISslCert != "" && cfg.WebUISslKey != "" {
+		crt, err := tls.LoadX509KeyPair(cfg.SslCert, cfg.SslKey)
+		if err != nil {
+			log.Fatal().Msg(err.Error())
+		}
+
+		tlsConfig := &tls.Config{Certificates: []tls.Certificate{crt}}
+
+		ln = tls.NewListener(ln, tlsConfig)
+	}
+
 	cfg.HttpProxyPort = ln.Addr().(*net.TCPAddr).Port
 
 	log.Info().Msgf("Listen http proxy on: %s", ln.Addr().(*net.TCPAddr))
@@ -302,7 +314,13 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 		if err != nil {
 			host = c.Request.Host
 		}
-		location = "http://" + host
+
+		if cfg.WebUISslCert != "" && cfg.WebUISslKey != "" {
+			location = "https://" + host
+		} else {
+			location = "http://" + host
+		}
+
 		if cfg.HttpProxyPort != 80 {
 			location += fmt.Sprintf(":%d", cfg.HttpProxyPort)
 		}
