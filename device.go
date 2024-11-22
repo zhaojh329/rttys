@@ -8,8 +8,8 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"io"
-	"io/ioutil"
 	"net"
+	"os"
 	"rttys/client"
 	"strings"
 	"sync/atomic"
@@ -370,7 +370,7 @@ func listenDevice(br *broker) {
 		if cfg.SslCacert == "" {
 			log.Warn().Msgf("mTLS not enabled")
 		} else {
-			caCert, err := ioutil.ReadFile(cfg.SslCacert)
+			caCert, err := os.ReadFile(cfg.SslCacert)
 			if err != nil {
 				log.Error().Msgf("mTLS not enabled: %s", err.Error())
 			} else {
