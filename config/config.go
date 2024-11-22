@@ -15,6 +15,7 @@ type Config struct {
 	AddrDev           string
 	AddrUser          string
 	AddrHttpProxy     string
+	DisableSignUp	   	  bool
 	HttpProxyRedirURL string
 	HttpProxyPort     int
 	SslCert           string
@@ -51,13 +52,14 @@ func Parse(c *cli.Context) *Config {
 		AddrDev:           c.String("addr-dev"),
 		AddrUser:          c.String("addr-user"),
 		AddrHttpProxy:     c.String("addr-http-proxy"),
+		DisableSignUp:      c.Bool("disable-sign-up"),
 		HttpProxyRedirURL: c.String("http-proxy-redir-url"),
 		SslCert:           c.String("ssl-cert"),
 		SslKey:            c.String("ssl-key"),
 		SslCacert:         c.String("ssl-cacert"),
 		SeparateSslConfig: c.Bool("separate-ssl-config"),
-		WebUISslCert:       c.String("webui-ssl-cert"),
-		WebUISslKey:        c.String("webui-ssl-key"),
+		WebUISslCert:      c.String("webui-ssl-cert"),
+		WebUISslKey:       c.String("webui-ssl-key"),
 		Token:             c.String("token"),
 		DB:                c.String("db"),
 		LocalAuth:         c.Bool("local-auth"),
@@ -80,6 +82,7 @@ func Parse(c *cli.Context) *Config {
 		getConfigOpt(yamlCfg, "addr-dev", &cfg.AddrDev)
 		getConfigOpt(yamlCfg, "addr-user", &cfg.AddrUser)
 		getConfigOpt(yamlCfg, "addr-http-proxy", &cfg.AddrHttpProxy)
+		getConfigOpt(yamlCfg, "disable-sign-up", &cfg.DisableSignUp)
 		getConfigOpt(yamlCfg, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
 		getConfigOpt(yamlCfg, "ssl-cert", &cfg.SslCert)
 		getConfigOpt(yamlCfg, "ssl-key", &cfg.SslKey)
