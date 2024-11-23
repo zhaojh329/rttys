@@ -66,6 +66,10 @@ func (br *broker) run() {
 	for {
 		select {
 		case c := <-br.register:
+			if c.Closed() {
+				break
+			}
+
 			devid := c.DeviceID()
 
 			if c.IsDevice() {

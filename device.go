@@ -131,10 +131,15 @@ func (dev *device) WriteMsg(typ int, data []byte) {
 	dev.send <- append(b, data...)
 }
 
+func (dev *device) Closed() bool {
+	return atomic.LoadUint32(&dev.closed) == 1
+}
+
 func (dev *device) Close() {
-	if atomic.LoadUint32(&dev.closed) == 1 {
+	if dev.Closed() {
 		return
 	}
+
 	atomic.StoreUint32(&dev.closed, 1)
 
 	log.Debug().Msgf("Device '%s' disconnected", dev.conn.RemoteAddr())

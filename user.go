@@ -55,10 +55,15 @@ func (u *user) WriteMsg(typ int, data []byte) {
 	}
 }
 
+func (u *user) Closed() bool {
+	return atomic.LoadUint32(&u.closed) == 1
+}
+
 func (u *user) Close() {
-	if atomic.LoadUint32(&u.closed) == 1 {
+	if u.Closed() {
 		return
 	}
+
 	atomic.StoreUint32(&u.closed, 1)
 
 	u.conn.Close()

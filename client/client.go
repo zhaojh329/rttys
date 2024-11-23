@@ -11,4 +11,6 @@ type Client interface {
 	IsDevice() bool
 
 	Close()
+
+	Closed() bool
 }
