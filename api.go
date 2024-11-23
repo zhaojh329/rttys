@@ -55,7 +55,7 @@ func httpLogin(cfg *config.Config, creds *credentials) bool {
 	return cnt != 0
 }
 
-func authorizedDev(devid string, cfg *config.Config) bool {
+func devInWhiteList(devid string, cfg *config.Config) bool {
 	if cfg.WhiteList == nil {
 		return true
 	}
@@ -105,6 +105,31 @@ func isAdminUsername(cfg *config.Config, username string) bool {
 	return isAdmin
 }
 
+func devMatchUser(devid string, username string, cfg *config.Config) bool {
+	if username == "" {
+		return false
+	}
+
+	if isAdminUsername(cfg, username) {
+		return true
+	}
+
+	db, err := instanceDB(cfg.DB)
+	if err != nil {
+		log.Error().Msg(err.Error())
+		return false
+	}
+	defer db.Close()
+
+	cnt := 0
+
+	if db.QueryRow("SELECT count(id) FROM device WHERE id = ? AND username == ?", devid, username).Scan(&cnt) == sql.ErrNoRows {
+		return false
+	}
+
+	return cnt > 0
+}
+
 func getLoginUsername(c *gin.Context) string {
 	cookie, err := c.Cookie("sid")
 	if err != nil {
@@ -131,12 +156,29 @@ func apiStart(br *broker) {
 	r.Use(gin.Recovery())
 
 	authorized := r.Group("/", func(c *gin.Context) {
-		devid := c.Param("devid")
-		if devid != "" && authorizedDev(devid, cfg) {
-			return
+		isConnect := false
+		devid := ""
+
+		if strings.HasPrefix(c.Request.URL.Path, "/connect/") {
+			devid = c.Param("devid")
+			if devid == "" {
+				c.AbortWithStatus(http.StatusBadRequest)
+				return
+			}
+
+			if devInWhiteList(devid, cfg) {
+				return
+			}
+
+			isConnect = true
 		}
 
 		if !httpAuth(cfg, c) {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		if isConnect && !devMatchUser(devid, getLoginUsername(c), cfg) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		}
 	})
@@ -297,7 +339,18 @@ func apiStart(br *broker) {
 	})
 
 	r.GET("/authorized/:devid", func(c *gin.Context) {
-		authorized := authorizedDev(c.Param("devid"), cfg) || httpAuth(cfg, c)
+		devid := c.Param("devid")
+		authorized := false
+
+		if devInWhiteList(devid, cfg) {
+			authorized = true
+		}
+
+		if !authorized && httpAuth(cfg, c) {
+			username := getLoginUsername(c)
+			authorized = devMatchUser(devid, username, cfg)
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"authorized": authorized,
 		})
