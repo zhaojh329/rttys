@@ -1,20 +1,22 @@
-import Vue from 'vue'
+/* SPDX-License-Identifier: MIT */
+/*
+ * Author: Jianhui Zhao <zhaojh329@gmail.com>
+ */
+
+import { createApp } from 'vue'
+import VueAxios from 'vue-axios'
+import axios from 'axios'
 import App from './App.vue'
 import router from './router'
-import axios from 'axios'
-import VueAxios from 'vue-axios'
-import VueClipboard from 'vue-clipboard2'
-import i18n from './plugins/vue-i18n'
-import './plugins/view-design'
+import i18n from './i18n'
+import ElementPlus from './element-plus'
 import './assets/iconfont/iconfont.css'
 
-Vue.config.productionTip = false
+const app = createApp(App)
 
-Vue.use(VueClipboard)
-Vue.use(VueAxios, axios);
+app.use(VueAxios, axios)
+app.use(router)
+app.use(i18n)
+app.use(ElementPlus)
 
-new Vue({
-  router,
-  i18n,
-  render: h => h(App)
-}).$mount('#app')
+app.mount('#app')

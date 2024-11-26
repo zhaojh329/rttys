@@ -1,13 +1,11 @@
 <template>
-  <div id="app">
+  <el-config-provider :locale="locale">
     <router-view/>
-  </div>
+  </el-config-provider>
 </template>
 
-<script>
-  export default {
-    name: 'app'
-  }
+<script setup>
+import { locale } from './element-plus'
 </script>
 
 <style>

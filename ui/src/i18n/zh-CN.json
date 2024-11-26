@@ -25,6 +25,7 @@
   "Description": "描述",
   "Please select the devices you want to operate": "请选择您要操作的设备",
   "Command": "命令",
+  "Cancel": "取消",
   "OK": "确定",
   "Ignore": "忽略",
   "command is required": "命令为必填项",
@@ -56,7 +57,7 @@
   "Please execute command \"rtty -R\" or \"rtty -S\" in current terminal!": "请在当前终端中执行命令 \"rtty -R\" 或者 \"rtty -S\"",
   "Access your device's Shell": "访问您的设备的 Shell",
   "Access your devices's Web": "访问您的设备的 Web",
-  "Please enter the address you want to access": "请输入您要访问的地址",
+  "Please enter the address you want to access": "请输入您要访问的地址:",
   "The file you will upload is too large(> 4294967295 Byte)": "您要上传的文件太大了(> 4294967295 Byte)",
   "Bind user": "绑定用户",
   "Unbind": "解绑",
@@ -70,5 +71,6 @@
   "Invalid address": "无效的地址",
   "Already copied to clipboard": "已复制到剪切板",
   "Please use shortcut \"Shift+Insert\"": "请使用快捷键 \"Shift+Insert\"",
-  "Your device's rtty does not support https proxy, please upgrade it.": "你的设备的 rtty 不支持 https 代理，请升级"
+  "Your device's rtty does not support https proxy, please upgrade it.": "你的设备的 rtty 不支持 https 代理，请升级",
+  "Invalid Address": "无效的地址"
 }
