@@ -18,6 +18,15 @@
 
 This is the server program of [rtty](https://github.com/zhaojh329/rtty)
 
+## Build from source
+golang and node 20+ is required
+
+    cd ui
+    npm install
+    npm run build
+    cd ..
+    go build
+
 ## Authorization(optional)
 ### Token
 Generate a token

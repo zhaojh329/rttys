@@ -18,6 +18,15 @@
 
 这是[rtty](https://github.com/zhaojh329/rtty)的服务器程序。
 
+## 从源码构建
+golang and node 20+ is required
+
+    cd ui
+    npm install
+    npm run build
+    cd ..
+    go build
+
 ## 认证(可选)
 ### Token
 生成一个 token

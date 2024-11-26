@@ -1,95 +1,137 @@
 <template>
   <div style="padding:5px;">
-    <Button style="margin-right: 4px;" type="primary" shape="circle" icon="ios-refresh" @click="handleRefresh" :disabled="loading">{{ $t('Refresh List') }}</Button>
-    <Input style="margin-right: 4px;width:200px" v-model="filterString" search @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
-    <Button style="margin-right: 4px;" @click="showCmdForm" type="primary" :disabled="cmdStatus.execing > 0">{{ $t('Execute command') }}</Button>
-    <Button v-if="isadmin" style="margin-right: 4px;" @click="showBindForm" type="primary">{{ $t('Bind user') }}</Button>
-    <Tooltip :content="$t('Delete offline devices')">
-      <Button @click="deleteDevices" type="primary">{{ $t('Delete') }}</Button>
-    </Tooltip>
-    <div style="float: right; margin-right: 50px">
-      <span style="margin-right: 20px; color: #3399ff; font-size: 24px">{{ $t('device-count', {count: devlists.filter(dev => dev.online).length}) }}</span>
-      <Dropdown @on-click="handleUserCommand">
-        <a href="javascript:void(0)">
-            <span style="color: #3399ff; font-size: 24px">{{ username }}</span>
-            <Icon type="ios-arrow-down"/>
-        </a>
-        <DropdownMenu slot="list">
-          <DropdownItem name="logout">{{ $t('Sign out') }}</DropdownItem>
-        </DropdownMenu>
-      </Dropdown>
+    <div style="display: flex; justify-content: space-between;">
+      <el-space>
+        <el-button type="primary" round icon="Refresh" @click="handleRefresh" :disabled="loading">{{ $t('Refresh List') }}</el-button>
+        <el-input style="width:200px" v-model="filterString" search @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
+        <el-button @click="showCmdForm" type="primary" :disabled="cmdStatus.execing > 0">{{ $t('Execute command') }}</el-button>
+        <el-button v-if="isadmin" @click="showBindForm" type="primary">{{ $t('Bind user') }}</el-button>
+        <el-tooltip :content="$t('Delete offline devices')">
+          <el-button @click="deleteDevices" type="primary">{{ $t('Delete') }}</el-button>
+        </el-tooltip>
+      </el-space>
+      <el-space style="float: right;">
+        <span style="color: var(--el-color-primary); font-size: 24px">{{ $t('device-count', {count: devlists.filter(dev => dev.online).length}) }}</span>
+        <el-divider direction="vertical" />
+        <el-dropdown @command="handleUserCommand">
+          <span style="color: var(--el-color-primary);">
+            <span style="font-size: 24px">{{ username }}</span>
+            <el-icon class="el-icon--right"><arrow-down/></el-icon>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="logout">{{ $t('Sign out') }}</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </el-space>
     </div>
-    <Table :loading="loading" :columns="columnsDevices" :data="filteredDevices" style="margin-top: 10px; width: 100%" :no-data-text="$t('No devices connected')" @on-selection-change='handleSelection'>
-      <template v-slot:connected="{ row }">
-        <span v-if="row.online">{{ row.connected | formatTime }}</span>
+    <el-table :loading="loading" :data="pagedevlists" style="margin-top: 10px; margin-bottom: 10px; width: 100%" :empty-text="$t('No devices connected')" @selection-change='handleSelection'>
+      <el-table-column type="selection" width="60" />
+      <el-table-column prop="id" :label="$t('Device ID')" width="200" />
+      <el-table-column :label="$t('Connected time')" width="200">
+        <template #default="{ row }">
+          <span>{{ formatTime(row.connected) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column :label="$t('Uptime')" width="200">
+        <template #default="{ row }">
+          <span>{{ formatTime(row.uptime) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip />
+      <el-table-column width="200">
+        <template #default="{ row }">
+          <el-space>
+            <el-button v-if="isadmin && row.bound" type="warning" size="small" @click="unBindUser(row.id)">{{ $t('Unbind') }}</el-button>
+            <el-tooltip v-if="row.online" placement="top" :content="$t('Access your device\'s Shell')">
+              <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
+            </el-tooltip>
+            <el-tooltip v-if="row.online" placement="top" :content="$t('Access your devices\'s Web')">
+              <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
+            </el-tooltip>
+            <span v-if="!row.online" style="margin-left: 10px; color: red">{{ $t('Device offline') }}</span>
+          </el-space>
+        </template>
+      </el-table-column>
+    </el-table>
+    <el-pagination background layout="prev, pager, next, total,sizes" :total="filteredDevices.length" @change="handlePageChange"/>
+    <el-dialog v-model="cmdModal" :title="$t('Execute command')" width="500">
+      <el-form ref="cmdForm" :model="cmdData" :rules="cmdRuleValidate" :label-width="100" label-position="left">
+        <el-form-item :label="$t('Username')" prop="username">
+          <el-input v-model="cmdData.username"/>
+        </el-form-item>
+        <el-form-item :label="$t('Password')" prop="password">
+          <el-input type="password" v-model="cmdData.password" show-password/>
+        </el-form-item>
+        <el-form-item :label="$t('Command')" prop="cmd">
+          <el-input v-model.trim="cmdData.cmd"/>
+        </el-form-item>
+        <el-form-item :label="$t('Parameter')" prop="params">
+          <el-tag v-for="tag in cmdData.params" :key="tag" closable @close="delCmdParam(tag)">{{ tag }}</el-tag>
+          <el-input v-if="inputParamVisible" style="width: 90px; margin-left: 10px;" v-model="inputParamValue"
+                ref="inputParam" size="small" @keyup.enter="handleInputParamConfirm" @blur="handleInputParamConfirm"/>
+          <el-button v-else style="width: 40px; margin-left: 10px;" size="small" icon="plus" type="primary" @click="showInputParam"/>
+        </el-form-item>
+        <el-form-item :label="$t('Wait Time')" prop="wait">
+          <el-input v-model.number="cmdData.wait" placeholder="30">
+            <template #append>s</template>
+          </el-input>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="cmdModal = false">{{ $t('Cancel') }}</el-button>
+        <el-button type="primary" @click="doCmd">{{ $t('OK') }}</el-button>
       </template>
-      <template v-slot:uptime="{ row }">
-        <span v-if="row.online">{{ row.uptime  | formatTime }}</span>
-      </template>
-      <template v-slot:action="{ row }">
-        <Button v-if="isadmin && row.bound" type="warning" size="small" style="vertical-align: bottom;" @click="unBindUser(row.id)">{{ $t('Unbind') }}</Button>
-        <Tooltip v-if="row.online" placement="top" :content="$t('Access your device\'s Shell')">
-          <i class="iconfont icon-shell" style="font-size: 40px; color: black; cursor:pointer;" @click="connectDevice(row.id)"/>
-        </Tooltip>
-        <Tooltip v-if="row.online" placement="top" :content="$t('Access your devices\'s Web')">
-          <i class="iconfont icon-web" style="font-size: 40px; color: #409EFF; cursor:pointer;" @click="connectDeviceWeb(row)"/>
-        </Tooltip>
-        <span v-if="!row.online" style="margin-left: 10px; color: red">{{ $t('Device offline') }}</span>
-      </template>
-    </Table>
-    <Modal v-model="cmdModal" :title="$t('Execute command')" @on-ok="doCmd">
-      <Form ref="cmdForm" :model="cmdData" :rules="cmdRuleValidate" :label-width="100" label-position="left">
-        <FormItem :label="$t('Username')" prop="username">
-          <Input v-model="cmdData.username"/>
-        </FormItem>
-        <FormItem :label="$t('Password')" prop="password">
-          <Input type="password" v-model="cmdData.password" password/>
-        </FormItem>
-        <FormItem :label="$t('Command')" prop="cmd">
-          <Input v-model.trim="cmdData.cmd"/>
-        </FormItem>
-        <FormItem :label="$t('Parameter')" prop="params">
-          <Tag :key="i" v-for="(tag, i) in cmdData.params" closable @on-close="delCmdParam(tag)">{{ tag }}</Tag>
-          <Input v-if="inputParamVisible" style="width: 90px; margin-left: 10px;" v-model="inputParamValue"
-                ref="inputParam" size="small" @on-enter="handleInputParamConfirm" @on-blur="handleInputParamConfirm"/>
-          <Button v-else style="width: 40px; margin-left: 10px;" size="small" icon="ios-add" type="primary" @click="showInputParam"/>
-        </FormItem>
-        <FormItem :label="$t('Wait Time')" prop="wait">
-          <Input v-model.number="cmdData.wait" placeholder="30">
-            <template slot="append">s</template>
-          </Input>
-        </FormItem>
-      </Form>
-    </Modal>
-    <Modal v-model="cmdStatus.modal" :title="$t('Status of executive command')" :closable="false" :mask-closable="false">
-      <Progress text-inside :stroke-width="20" :percent="cmdStatusPercent"/>
+    </el-dialog>
+    <el-dialog v-model="cmdStatus.modal" :title="$t('Status of executive command')" :width="800"
+      :show-close="false" :close-on-press-escape="false" :close-on-click-modal="false">
+      <el-progress text-inside :stroke-width="20" :percentage="cmdStatusPercent"/>
       <p>{{ $t('cmd-status-total', {count: cmdStatus.total}) }}</p>
       <p>{{ $t('cmd-status-fail', {count: cmdStatus.fail}) }}</p>
-      <div slot="footer">
-        <Button type="primary" size="large" :disabled="cmdStatus.execing > 0" @click="showCmdResp">{{ $t('OK') }}</Button>
-        <Button type="error" size="large" :disabled="cmdStatus.execing === 0" @click="ignoreCmdResp">{{ $t('Ignore') }}</Button>
-      </div>
-    </Modal>
-    <Modal v-model="cmdStatus.respModal" :title="$t('Response of executive command')" :width="800">
-      <Table :columns="columnsCmdResp" :data="cmdStatus.responses" :no-data-text="$t('No Response')"/>
-      <div slot="footer"/>
-    </Modal>
-    <Modal v-model="bindUserData.modal" :title="$t('Bind user')" :width="300">
-      <Select v-model="bindUserData.currentUser">
-        <Option v-for="u in bindUserData.users" :key="u" :value="u"/>
-      </Select>
-      <span slot="footer" class="dialog-footer">
-        <Button type="primary" :disabled="!bindUserData.currentUser" @click="bindUser">{{ $t('OK') }}</Button>
-      </span>
-    </Modal>
+      <template #footer>
+        <el-button type="primary" :disabled="cmdStatus.execing > 0" @click="showCmdResp">{{ $t('OK') }}</el-button>
+        <el-button type="error" :disabled="cmdStatus.execing === 0" @click="ignoreCmdResp">{{ $t('Ignore') }}</el-button>
+      </template>
+    </el-dialog>
+    <el-dialog v-model="cmdStatus.respModal" :title="$t('Response of executive command')" :width="800">
+      <el-table :data="cmdStatus.responses" :empty-text="$t('No Response')">
+        <el-table-column type="expand" width="50">
+          <template #default="{ row }">
+            <p>{{ $t('Stdout') + ':' }}</p>
+            <el-input type="textarea" :value="row.stdout" readonly :autosize="{minRows: 1, maxRows: 20}"/>
+            <p style="margin-top: 10px">{{ $t('Stderr') + ':' }}</p>
+            <el-input type="textarea" :value="row.stderr" readonly :autosize="{minRows: 1, maxRows: 20}"/>
+          </template>
+        </el-table-column>
+        <el-table-column type="index" label="#" width="100" />
+        <el-table-column prop="id" :label="$t('Device ID')" width="200" />
+        <el-table-column prop="code" :label="$t('Status Code')" width="70" />
+        <el-table-column prop="err" :label="$t('Error Code')" width="70" />
+        <el-table-column prop="msg" :label="$t('Error Message')" width="200" />
+      </el-table>
+    </el-dialog>
+    <el-dialog v-model="bindUserData.modal" :title="$t('Bind user')" :width="300">
+      <el-select v-model="bindUserData.currentUser">
+        <el-option v-for="u in bindUserData.users" :key="u" :value="u"/>
+      </el-select>
+      <template #footer>
+        <el-button type="primary" :disabled="!bindUserData.currentUser" @click="bindUser">{{ $t('OK') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import ExpandCmdResp from '@/components/ExpandCmdResp'
+import { InternetExplorer as IEIcon } from '@vicons/fa'
+import { Terminal as TerminalIcon } from '@vicons/ionicons5'
 
 export default {
   name: 'Home',
+  components: {
+    IEIcon,
+    TerminalIcon
+  },
   data() {
     return {
       username: '',
@@ -99,6 +141,8 @@ export default {
       devlists: [],
       filteredDevices: [],
       selection: [],
+      currentPage: 1,
+      pageSize: 10,
       cmdModal: false,
       inputParamVisible: false,
       inputParamValue: '',
@@ -129,327 +173,233 @@ export default {
         wait: [{validator: (rule, value, callback) => {
           if (!value) {
             callback()
-            return;
+            return
           }
 
           if (!Number.isInteger(value) || value < 0 || value > 30) {
-            callback(new Error(this.$t('must be an integer between 0 and 30')));
+            callback(new Error(this.$t('must be an integer between 0 and 30')))
           }
 
           callback()
         }}]
-      },
-      columnsDevices: [
-        {
-          title: '#',
-          type: 'index',
-          width: 100
-        },
-        {
-          type: 'selection',
-          width: 60
-        },
-        {
-          title: this.$t('Device ID'),
-          key: 'id',
-          width: 200
-        },
-        {
-          title: this.$t('Connected time'),
-          slot: 'connected',
-          width: 200
-        },
-        {
-          title: this.$t('Uptime'),
-          slot: 'uptime',
-          width: 200
-        },
-        {
-          title: this.$t('Description'),
-          key: 'description',
-          tooltip: true
-        },
-        {
-          slot: 'action',
-          width: 200
-        }
-      ],
-      columnsCmdResp: [
-        {
-          type: 'expand',
-          width: 50,
-          render: (h, params) => {
-            return h(ExpandCmdResp, {
-              props: {
-                stdout: params.row.stdout,
-                stderr: params.row.stderr
-              }
-            })
-          }
-        },
-        {
-          title: '#',
-          type: 'index',
-          width: 100
-        },
-        {
-          title: this.$t('Device ID'),
-          key: 'id'
-        },
-        {
-          title: this.$t('Status Code'),
-          key: 'code'
-        },
-        {
-          title: this.$t('Error Code'),
-          key: 'err'
-        },
-        {
-          title: this.$t('Error Message'),
-          key: 'msg'
-        }
-      ]
-    }
-  },
-  filters: {
-    formatTime(t) {
-      let ts = t || 0;
-      let tm = 0;
-      let th = 0;
-      let td = 0;
-
-      if (ts > 59) {
-        tm = Math.floor(ts / 60);
-        ts = ts % 60;
       }
-
-      if (tm > 59) {
-        th = Math.floor(tm / 60);
-        tm = tm % 60;
-      }
-
-      if (th > 23) {
-        td = Math.floor(th / 24);
-        th = th % 24;
-      }
-
-      let s = '';
-
-      if (td > 0)
-        s = `${td}d `;
-
-      return s + `${th}h ${tm}m ${ts}s`;
     }
   },
   computed: {
     cmdStatusPercent() {
       if (this.cmdStatus.total === 0)
-        return 0;
-      return (this.cmdStatus.total - this.cmdStatus.execing) / this.cmdStatus.total * 100;
+        return 0
+      return (this.cmdStatus.total - this.cmdStatus.execing) / this.cmdStatus.total * 100
+    },
+    pagedevlists() {
+      return this.filteredDevices.slice((this.currentPage - 1) * this.pageSize, this.currentPage * this.pageSize)
     }
   },
   methods: {
-    parseIPv4(x) {
-      if (!x.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/))
-        return null;
+    formatTime(t) {
+      let ts = t || 0
+      let tm = 0
+      let th = 0
+      let td = 0
 
-      if (RegExp.$1 > 255 || RegExp.$2 > 255 || RegExp.$3 > 255 || RegExp.$4 > 255)
-        return null;
+      if (ts > 59) {
+        tm = Math.floor(ts / 60)
+        ts = ts % 60
+      }
 
-      return [ +RegExp.$1, +RegExp.$2, +RegExp.$3, +RegExp.$4 ];
+      if (tm > 59) {
+        th = Math.floor(tm / 60)
+        tm = tm % 60
+      }
+
+      if (th > 23) {
+        td = Math.floor(th / 24)
+        th = th % 24
+      }
+
+      let s = ''
+
+      if (td > 0)
+        s = `${td}d `
+
+      return s + `${th}h ${tm}m ${ts}s`
+    },
+    handlePageChange(page, size) {
+      this.currentPage = page
+      this.pageSize = size
     },
     handleUserCommand(command) {
       if (command === 'logout') {
         this.axios.get('/signout').then(() => {
-          this.$router.push('/login');
-        });
+          this.$router.push('/login')
+        })
       }
     },
     handleSearch() {
       this.filteredDevices = this.devlists.filter((d) => {
-        const filterString = this.filterString.toLowerCase();
-        return d.id.toLowerCase().indexOf(filterString) > -1 || d.description.toLowerCase().indexOf(filterString) > -1;
-      });
+        const filterString = this.filterString.toLowerCase()
+        return d.id.toLowerCase().indexOf(filterString) > -1 || d.description.toLowerCase().indexOf(filterString) > -1
+      })
     },
     getDevices() {
       this.axios.get('/devs').then(res => {
-        this.loading = false;
-        this.devlists = res.data;
-        this.selection = [];
-        this.handleSearch();
+        this.loading = false
+        this.devlists = res.data
+        this.selection = []
+        this.handleSearch()
       }).catch(() => {
-        this.$router.push('/login');
-      });
+        this.$router.push('/login')
+      })
     },
     handleRefresh() {
-      this.loading = true;
+      this.loading = true
       setTimeout(() => {
-        this.getDevices();
-      }, 500);
+        this.getDevices()
+      }, 500)
     },
     handleSelection(selection) {
-      this.selection = selection;
+      this.selection = selection
     },
     showBindForm() {
       if (this.selection.length < 1) {
-        this.$Message.error(this.$t('Please select the devices you want to bind'));
-        return;
+        this.$message.error(this.$t('Please select the devices you want to bind'))
+        return
       }
 
       this.axios.get('/users').then(res => {
-        this.bindUserData.users = res.data.users;
-        this.bindUserData.modal = true;
-      });
+        this.bindUserData.users = res.data.users
+        this.bindUserData.modal = true
+      })
     },
     bindUser() {
-      this.bindUserData.modal = false;
+      this.bindUserData.modal = false
 
       this.axios.post('/bind', {
         devices: this.selection.map(s => s.id),
         username: this.bindUserData.currentUser
       }).then(() => {
-        this.getDevices();
-        this.$Message.success(this.$t('Bind success'));
-      });
+        this.getDevices()
+        this.$message.success(this.$t('Bind success'))
+      })
     },
     unBindUser(id) {
       this.axios.post('/unbind', {
         devices: [id]
       }).then(() => {
-        this.getDevices();
-        this.$Message.success(this.$t('Unbind success'));
-      });
+        this.getDevices()
+        this.$message.success(this.$t('Unbind success'))
+      })
     },
     deleteDevices() {
       if (this.selection.length < 1) {
-        this.$Message.error(this.$t('Please select the devices you want to operate'));
-        return;
+        this.$message.error(this.$t('Please select the devices you want to operate'))
+        return
       }
 
-      const offlines = this.selection.filter(s => !s.online);
+      const offlines = this.selection.filter(s => !s.online)
 
       if (offlines.length < 1) {
-        this.$Message.info(this.$t('There are no offline devices in selected devices'));
-        return;
+        this.$message.info(this.$t('There are no offline devices in selected devices'))
+        return
       }
 
       this.axios.post('/delete', {
         devices: offlines.map(s => s.id)
       }).then(() => {
-        this.getDevices();
-        this.$Message.success(this.$t('Delete success'));
-      });
+        this.getDevices()
+        this.$message.success(this.$t('Delete success'))
+      })
     },
     connectDevice(devid) {
-      window.open('/rtty/' + devid);
+      window.open('/rtty/' + devid)
+    },
+    isValidURL(url) {
+      const ipv4Pattern = '(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
+      const urlPattern = new RegExp(`^https?:\\/\\/${ipv4Pattern}(?::\\d{1,5})?(?:\\/[^\\s]*)?$`)
+      return urlPattern.test(url)
+    },
+    parseURL(url) {
+      const result = {
+        proto: 'http',
+        ip: '',
+        port: '80',
+        path: '/'
+      }
+
+      if (url.startsWith('https://')) {
+        result.proto = 'https'
+        url = url.substring(8)
+        result.port = '443'
+      } else if (url.startsWith('http://')) {
+        url = url.substring(7)
+      }
+
+      const [address, ...pathParts] = url.split('/')
+
+      result.path = pathParts.length > 0 ? '/' + pathParts.join('/') : '/'
+
+      const [ip, port] = address.split(':')
+      result.ip = ip
+      if (port) {
+        result.port = port
+      }
+
+      return result
     },
     connectDeviceWeb(dev) {
-      let addr = '127.0.0.1';
+      this.$prompt(this.$t('Please enter the address you want to access'), '', {
+        confirmButtonText: this.$t('OK'),
+        cancelButtonText: this.$t('Cancel'),
+        inputValue: 'http://127.0.0.1',
+        inputValidator: this.isValidURL,
+        inputErrorMessage: this.$t('Invalid Address')
+      }).then(({ value }) => {
+        const url = this.parseURL(value)
 
-      this.$Modal.confirm({
-        render: h => {
-          const input = h('Input', {
-              props: {
-                value: addr,
-                autofocus: true,
-                placeholder: this.$t('Please enter the address you want to access')
-              },
-              on: {
-                input: val => {
-                  addr = val;
-                }
-              }
-          });
-          return h('div', [
-            input,
-            h('p', '127.0.0.1, 127.0.0.1:8080, 127.0.0.1/test.html?a=1'),
-            h('p', 'http://127.0.0.1, https://127.0.0.1')
-          ]);
-        },
-        onOk: () => {
-          let proto = 'http';
-
-          if (addr.startsWith('http://'))
-            addr = addr.substring(7);
-
-          if (addr.startsWith('https://')) {
-            addr = addr.substring(8);
-            proto = 'https';
-          }
-
-          if (dev.proto < 4 && proto === 'https') {
-            this.$Message.error(this.$t('Your device\'s rtty does not support https proxy, please upgrade it.'));
-            return;
-          }
-
-          let [addrs, ...path] = addr.split('/');
-
-          path = '/' + path.join('/');
-
-          let [ip, ...port] = addrs.split(':');
-
-          if (!this.parseIPv4(ip)) {
-            this.$Message.error(this.$t('Invalid address'));
-            return;
-          }
-
-          if (port.length !== 0 && port.length !== 1) {
-            this.$Message.error(this.$t('Invalid port'));
-            return;
-          }
-
-          if (port.length === 1) {
-            port = Number(port[0]);
-            if (port <= 0 || port > 65535) {
-              this.$Message.error(this.$t('Invalid port'));
-              return;
-            }
-          } else {
-            port = 80;
-            if (proto === 'https')
-              port = 443;
-          }
-
-          addr = encodeURIComponent(`${ip}:${port}${path}`);
-          window.open(`/web/${dev.id}/${proto}/${addr}`);
+        if (dev.proto < 4 && url.proto === 'https') {
+          this.$message.error(this.$t('Your device\'s rtty does not support https proxy, please upgrade it.'))
+          return
         }
-      });
+
+        const addr = encodeURIComponent(`${url.ip}:${url.port}${url.path}`)
+        window.open(`/web/${dev.id}/${url.proto}/${addr}`)
+      })
     },
     showCmdForm() {
       if (this.selection.length < 1) {
-        this.$Message.error(this.$t('Please select the devices you want to operate'));
-        return;
+        this.$message.error(this.$t('Please select the devices you want to operate'))
+        return
       }
-      this.cmdModal = true;
+      this.cmdModal = true
     },
     delCmdParam(tag) {
-      this.cmdData.params.splice(this.cmdData.params.indexOf(tag), 1);
+      this.cmdData.params.splice(this.cmdData.params.indexOf(tag), 1)
     },
     showInputParam() {
-      this.inputParamVisible = true;
+      this.inputParamVisible = true
       this.$nextTick(() => {
-        (this.$refs.inputParam).focus();
-      });
+        (this.$refs.inputParam).focus()
+      })
     },
     handleInputParamConfirm() {
-      const value = this.inputParamValue;
+      const value = this.inputParamValue
       if (value) {
-        this.cmdData.params.push(value);
+        this.cmdData.params.push(value)
       }
-      this.inputParamVisible = false;
-      this.inputParamValue = '';
+      this.inputParamVisible = false
+      this.inputParamValue = ''
     },
     doCmd() {
       (this.$refs['cmdForm']).validate(valid => {
         if (valid) {
-          const selection = this.selection.filter(dev => dev.online);
+          const selection = this.selection.filter(dev => dev.online)
 
-          this.cmdModal = false;
-          this.cmdStatus.modal = true;
-          this.cmdStatus.total = selection.length;
-          this.cmdStatus.execing = selection.length;
-          this.cmdStatus.fail = 0;
-          this.cmdStatus.responses = [];
+          this.cmdModal = false
+          this.cmdStatus.modal = true
+          this.cmdStatus.total = selection.length
+          this.cmdStatus.execing = selection.length
+          this.cmdStatus.fail = 0
+          this.cmdStatus.responses = []
 
           selection.forEach(item => {
             const data = {
@@ -457,7 +407,7 @@ export default {
               password: this.cmdData.password,
               cmd: this.cmdData.cmd,
               params: this.cmdData.params
-            };
+            }
 
             this.axios.post(`/cmd/${item.id}?wait=${this.cmdData.wait}`, data).then((response) => {
               if (this.cmdData.wait === 0) {
@@ -468,50 +418,60 @@ export default {
                   code: 0,
                   stdout: '',
                   stderr: ''
-                });
+                })
               } else {
-                const resp = response.data;
+                const resp = response.data
 
                 if (resp.err && resp.err !== 0) {
-                    this.cmdStatus.fail++;
-                    resp.stdout = '';
-                    resp.stderr = '';
+                  this.cmdStatus.fail++
+                  resp.stdout = ''
+                  resp.stderr = ''
                 } else {
-                  resp.stdout = window.atob(resp.stdout || '');
-                  resp.stderr = window.atob(resp.stderr || '');
+                  resp.stdout = window.atob(resp.stdout || '')
+                  resp.stderr = window.atob(resp.stderr || '')
                 }
 
-                resp.id = item.id;
-                this.cmdStatus.responses.push(resp);
+                resp.id = item.id
+                this.cmdStatus.responses.push(resp)
               }
-              this.cmdStatus.execing--;
-            });
-          });
+              this.cmdStatus.execing--
+            })
+          })
         }
-      });
+      })
     },
     resetCmdData() {
-      (this.$refs['cmdForm']).resetFields();
+      (this.$refs['cmdForm']).resetFields()
     },
     ignoreCmdResp() {
-      this.cmdStatus.execing = 0;
-      this.cmdStatus.respModal = true;
-      this.cmdStatus.modal = false;
+      this.cmdStatus.execing = 0
+      this.cmdStatus.respModal = true
+      this.cmdStatus.modal = false
     },
     showCmdResp() {
-      this.cmdStatus.modal = false;
+      this.cmdStatus.modal = false
       if (this.cmdStatus.responses.length > 0)
-        this.cmdStatus.respModal = true;
+        this.cmdStatus.respModal = true
     }
   },
   mounted() {
-    this.username = sessionStorage.getItem('rttys-username') || '';
+    this.username = sessionStorage.getItem('rttys-username') || ''
 
     this.axios.get('/isadmin').then(res => {
-      this.isadmin = res.data.admin;
-    });
+      this.isadmin = res.data.admin
+    })
 
-    this.getDevices();
+    this.getDevices()
   }
 }
 </script>
+
+<style scoped>
+  :deep(.el-pagination) .el-pagination__total {
+    color: white;
+  }
+
+  :deep(.el-pagination) {
+    justify-content: center;
+  }
+</style>

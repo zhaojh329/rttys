@@ -1,10 +1,14 @@
-import Vue from 'vue'
-import VueRouter from 'vue-router'
+/* SPDX-License-Identifier: MIT */
+/*
+ * Author: Jianhui Zhao <zhaojh329@gmail.com>
+ */
+
+import { createWebHistory, createRouter } from 'vue-router'
+import axios from 'axios'
+
 import Login from '../views/Login.vue'
 import Home from '../views/Home.vue'
 import Rtty from '../views/Rtty.vue'
-
-Vue.use(VueRouter)
 
 const routes = [
   {
@@ -14,7 +18,7 @@ const routes = [
   },
   {
     path: '/',
-    name: 'home',
+    name: 'Home',
     component: Home
   },
   {
@@ -23,34 +27,33 @@ const routes = [
     component: Rtty,
     props: true
   }
-];
+]
 
-const router = new VueRouter({
-  mode: 'history',
-  base: process.env.BASE_URL,
+const router = createRouter({
+  history: createWebHistory(),
   routes
 })
 
 router.beforeEach((to, from, next) => {
   if (to.matched.length > 0 && to.matched[0].path === '/rtty/:devid') {
-    const devid = to.params['devid'];
-    Vue.axios.get(`/authorized/${devid}`).then(r => {
+    const devid = to.params['devid']
+    axios.get(`/authorized/${devid}`).then(r => {
       if (r.data.authorized)
-        next();
+        next()
       else
-        router.push('/login');
-    });
-    return;
+        next({ name: 'login' })
+    })
+    return
   }
 
   if (to.path !== '/login') {
-    Vue.axios.get('/alive').then(() => {
-      next();
+    axios.get('/alive').then(() => {
+      next()
     }).catch(() => {
-      router.push('/login');
-    });
+      next({ name: 'Login' })
+    })
   } else {
-    next();
+    next()
   }
 })
 

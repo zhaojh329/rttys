@@ -10,12 +10,12 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: true
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
-          go-version: 1.18.1
+          go-version: 1.23.3
       - uses: actions/setup-node@v3
         with:
-          node-version: '12'
+          node-version: '20'
       - name: ui
         run: |
           cd ui

@@ -1,4 +1,4 @@
-FROM node:12 AS ui
+FROM node:20 AS ui
 WORKDIR /rttys-ui
 COPY ui .
 RUN npm install && npm run build
