@@ -1,35 +1,25 @@
-const CompressionPlugin = require('compression-webpack-plugin')
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import eslint from '@nabla/vite-plugin-eslint'
+import vueI18n from '@intlify/unplugin-vue-i18n/vite'
+import compression from 'vite-plugin-compression2'
 
-module.exports = {
-  productionSourceMap: false,
-  chainWebpack: config => {
-    config.plugin('html')
-      .tap(args => {
-        args[0].title = 'Rttys';
-        return args;
-      })
-  },
-  configureWebpack: config => {
-    if (process.env.NODE_ENV === 'production') {
-      return {
-        plugins: [new CompressionPlugin({
-          test: /\.js$|\.css$/,
-          threshold: 4096,
-          deleteOriginalAssets: true,
-          filename: '[path][base]?gz'
-        })]
-      }
-    }
-  },
-  pluginOptions: {
-    i18n: {
-      locale: 'en',
-      fallbackLocale: 'en',
-      localeDir: 'locales',
-      enableInSFC: false
-    }
-  },
-  devServer: {
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [
+    vue(),
+    eslint(),
+    compression({
+      deleteOriginalAssets: true,
+      skipIfLargerOrEqual: true,
+      threshold: 10240,
+      filename: '[path][base]'
+    }),
+    vueI18n({
+      compositionOnly: false
+    })
+  ],
+  server: {
     proxy: {
       '/devs': {
         target: 'http://127.0.0.1:5913'
@@ -38,6 +28,9 @@ module.exports = {
         target: 'http://127.0.0.1:5913'
       },
       '/signout': {
+        target: 'http://127.0.0.1:5913'
+      },
+      '/allowsignup': {
         target: 'http://127.0.0.1:5913'
       },
       '/alive': {
@@ -61,25 +54,25 @@ module.exports = {
       '/delete': {
         target: 'http://127.0.0.1:5913'
       },
-      '/cmd/*': {
+      '^/cmd/.*': {
         target: 'http://127.0.0.1:5913'
       },
-      '/connect/*': {
+      '^/connect/.*': {
         ws: true,
         target: 'http://127.0.0.1:5913'
       },
-      '/fontsize/*': {
+      '^/fontsize': {
         target: 'http://127.0.0.1:5913'
       },
-      '/authorized/*': {
+      '^/authorized/.*': {
         target: 'http://127.0.0.1:5913'
       },
-      '/web/*': {
+      '^/web/*': {
         target: 'http://127.0.0.1:5913'
       },
-      '/file/*': {
+      '^/file/.*': {
         target: 'http://127.0.0.1:5913'
       }
     }
   }
-}
+})

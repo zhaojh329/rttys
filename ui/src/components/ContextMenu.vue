@@ -22,43 +22,43 @@ export default {
   watch: {
     visibility(val) {
       if (!val)
-        document.removeEventListener('mousedown', this.close);
+        document.removeEventListener('mousedown', this.close)
     }
   },
   methods: {
     close(e) {
-      const el = this.$refs.content;
+      const el = this.$refs.content
 
       if (e.clientX >= this.axis.x && e.clientX <= this.axis.x + el.clientWidth &&
         e.clientY >= this.axis.y && e.clientY <= this.axis.y + el.clientHeight) {
-        return;
+        return
       }
 
-      this.visibility = false;
+      this.visibility = false
     },
     updated() {
       if (this.$refs.content) {
-        const bw = document.body.offsetWidth;
-        const bh = document.body.offsetHeight;
-        const element = this.$refs.content;
-        const width = element.offsetWidth;
-        const height = element.offsetHeight;
+        const bw = document.body.offsetWidth
+        const bh = document.body.offsetHeight
+        const element = this.$refs.content
+        const width = element.offsetWidth
+        const height = element.offsetHeight
 
         if (this.axis.x + width >= bw)
-          this.axis.x = bw - width;
+          this.axis.x = bw - width
 
         if (this.axis.y + height >= bh)
-          this.axis.y = bh - height;
+          this.axis.y = bh - height
       }
     },
     show(e) {
-      document.addEventListener('mousedown', this.close);
-      this.axis = {x: e.clientX, y: e.clientY};
-      this.visibility = true;
+      document.addEventListener('mousedown', this.close)
+      this.axis = {x: e.clientX, y: e.clientY}
+      this.visibility = true
     },
     onMenuClick(name) {
-      this.visibility = false;
-      this.$emit('click', name);
+      this.visibility = false
+      this.$emit('click', name)
     }
   }
 }
