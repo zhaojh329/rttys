@@ -1,86 +1,118 @@
 <template>
-  <Card :title="signup ? $t('Sign up') : $t('Authorization Required')" class="login-container">
-    <Form ref="login" :model="formData" :rules="ruleValidate" :label-width="100" label-position="left">
-      <FormItem :label="$t('Username')" prop="username">
-        <Input v-model="formData.username" prefix="ios-person-outline" :placeholder="$t('Enter username...')" @on-enter="handleSubmit"/>
-      </FormItem>
-      <FormItem :label="$t('Password')" prop="password">
-        <Input type="password" v-model="formData.password" prefix="ios-lock-outline" :placeholder="$t('Enter password...')" password @on-enter="handleSubmit"/>
-      </FormItem>
-      <FormItem>
-        <Button type="primary" size="large" long @click="handleSubmit">{{ signup ? $t('Sign up') : $t('Sign in') }}</Button>
-      </FormItem>
-    </Form>
-    <p v-if="signup" style="text-align: center">{{ $t('Already have an account?') }}<a href="/login" style="text-decoration: none; color: #1c7cd6">{{ $t('Sign in') }}</a></p>
-    <p v-else-if="allowSignup" style="text-align: center">{{ $t('New to Rttys?') }}<a href="/login?signup=1" style="text-decoration: none; color: #1c7cd6">{{ $t('Sign up') }}</a></p>
-  </Card>
+  <el-card class="login">
+    <template #header>
+      {{ signup ? $t('Sign up') : $t('Authorization Required') }}
+    </template>
+    <el-form ref="form" :model="formValue" :rules="rules" label-width="80px" label-suffix=":" size="large">
+      <el-form-item :label="$t('Username')" prop="username">
+        <el-input v-model="formValue.username" prefix-icon="user" :placeholder="$t('Enter username...')" @keyup.enter="handleSubmit" autofocus/>
+      </el-form-item>
+      <el-form-item :label="$t('Password')" prop="password">
+        <el-input type="password" v-model="formValue.password" prefix-icon="lock" :placeholder="$t('Enter password...')" @keyup.enter="handleSubmit" show-password/>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" :loading="loading" @click="handleSubmit" class="login-button">{{ signup ? $t('Sign up') : $t('Sign in') }}</el-button>
+      </el-form-item>
+    </el-form>
+    <el-divider/>
+    <p v-if="signup" style="text-align: center">{{ $t('Already have an account?') }}
+      <a href="#" @click.prevent="toggleSignup" style="text-decoration: none; color: #1c7cd6">{{ $t('Sign in') }}</a>
+    </p>
+    <p v-else-if="allowSignup" style="text-align: center">{{ $t('New to Rttys?') }}
+      <a href="#" @click.prevent="toggleSignup" style="text-decoration: none; color: #1c7cd6">{{ $t('Sign up') }}</a>
+    </p>
+  </el-card>
 </template>
 
 <script>
 export default {
-  name: 'Login',
   data() {
     return {
       signup: false,
       allowSignup: false,
-      formData: {
+      loading: false,
+      formValue: {
         username: '',
         password: ''
       },
-      ruleValidate: {
-        username: [{required: true, trigger: 'blur', message: this.$t('username is required')}],
-        password: [{required: true, trigger: 'blur', message: this.$t('password is required')}]
+      rules: {
+        username: {
+          required: true,
+          trigger: 'blur',
+          message: () => this.$t('username is required')
+        },
+        password: {
+          required: true,
+          trigger: 'blur',
+          message: () => this.$t('password is required')
+        }
       }
     }
   },
   methods: {
+    toggleSignup() {
+      this.signup = !this.signup
+    },
     handleSubmit() {
-      (this.$refs['login']).validate(valid => {
+      this.$refs.form.validate(valid => {
         if (valid) {
           const params = {
-            username: this.formData.username,
-            password: this.formData.password
-          };
+            username: this.formValue.username,
+            password: this.formValue.password
+          }
 
           if (this.signup) {
             this.axios.post('/signup', params).then(() => {
-              this.signup = false;
-              this.$router.push('/login');
+              this.signup = false
+              this.$router.push('/login')
             }).catch(() => {
-              this.$Message.error(this.$t('Sign up Fail.').toString());
-            });
+              this.$message.error(this.$t('Sign up Fail.'))
+            })
           } else {
             this.axios.post('/signin', params).then(res => {
-              sessionStorage.setItem('rttys-sid', res.data.sid);
-              sessionStorage.setItem('rttys-username', res.data.username);
-              sessionStorage.setItem('rttys-admin', res.data.admin);
-              this.$router.push('/');
+              sessionStorage.setItem('rttys-sid', res.data.sid)
+              sessionStorage.setItem('rttys-username', res.data.username)
+              sessionStorage.setItem('rttys-admin', res.data.admin)
+              this.$router.push('/')
             }).catch(() => {
-              this.$Message.error(this.$t('Signin Fail! username or password wrong.').toString());
-            });
+              this.$message.error(this.$t('Signin Fail! username or password wrong.'))
+            })
           }
         }
-      });
+      })
     }
   },
   created() {
-    this.signup = this.$route.query.signup === '1';
-    sessionStorage.removeItem('rttys-sid');
+    sessionStorage.removeItem('rttys-sid')
     this.axios.get('/allowsignup').then(response => {
-      this.allowSignup = response.data.allow;
+      this.allowSignup = response.data.allow
     }).catch(() => {
-      this.allowSignup = false;
-    });
+      this.allowSignup = false
+    })
   }
 }
 </script>
 
 <style scoped>
-  .login-container {
-    width: 500px;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  }
+.header {
+  text-align: center;
+}
+
+.login {
+  width: 500px;
+  top: 40%;
+  left: 50%;
+  position: fixed;
+  transform: translate(-50%, -50%);
+}
+
+.login-button {
+  width: 100%;
+}
+
+.copyright {
+  text-align: right;
+  font-size: 1.2em;
+  color: #888;
+}
 </style>
