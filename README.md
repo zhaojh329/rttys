@@ -75,7 +75,7 @@ Quit from database console by exit.
 
 ## Docker
 
-    sudo docker run -it -p 5912:5912 -p 5913:5913 zhaojh329/rttys:latest
+    sudo docker run -it -p 5912:5912 -p 5913:5913 -p 5914:5914 zhaojh329/rttys:latest run --addr-http-proxy :5914
 
 ## Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,

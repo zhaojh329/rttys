@@ -75,7 +75,7 @@ FLUSH PRIVILEGES;
 
 ## Docker
 
-    sudo docker run -it -p 5912:5912 -p 5913:5913 zhaojh329/rttys:latest
+    sudo docker run -it -p 5912:5912 -p 5913:5913 -p 5914:5914 zhaojh329/rttys:latest run --addr-http-proxy :5914
 
 ## 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
