@@ -159,6 +159,10 @@ func apiStart(br *broker) {
 		isConnect := false
 		devid := ""
 
+		if !cfg.LocalAuth && isLocalRequest(c) {
+			return
+		}
+
 		if strings.HasPrefix(c.Request.URL.Path, "/connect/") {
 			devid = c.Param("devid")
 			if devid == "" {
@@ -340,9 +344,9 @@ func apiStart(br *broker) {
 
 	r.GET("/authorized/:devid", func(c *gin.Context) {
 		devid := c.Param("devid")
-		authorized := false
+		authorized := !cfg.LocalAuth && isLocalRequest(c)
 
-		if devInWhiteList(devid, cfg) {
+		if !authorized && devInWhiteList(devid, cfg) {
 			authorized = true
 		}
 
