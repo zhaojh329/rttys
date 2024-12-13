@@ -15,14 +15,14 @@ type Config struct {
 	AddrDev           string
 	AddrUser          string
 	AddrHttpProxy     string
-	DisableSignUp	   	  bool
+	DisableSignUp     bool
 	HttpProxyRedirURL string
 	HttpProxyPort     int
 	SslCert           string
 	SslKey            string
 	SslCacert         string // mTLS for device
-	WebUISslCert       string
-	WebUISslKey        string
+	WebUISslCert      string
+	WebUISslKey       string
 	Token             string
 	WhiteList         map[string]bool
 	DB                string
@@ -52,7 +52,7 @@ func Parse(c *cli.Context) *Config {
 		AddrDev:           c.String("addr-dev"),
 		AddrUser:          c.String("addr-user"),
 		AddrHttpProxy:     c.String("addr-http-proxy"),
-		DisableSignUp:      c.Bool("disable-sign-up"),
+		DisableSignUp:     c.Bool("disable-sign-up"),
 		HttpProxyRedirURL: c.String("http-proxy-redir-url"),
 		SslCert:           c.String("ssl-cert"),
 		SslKey:            c.String("ssl-key"),

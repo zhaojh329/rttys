@@ -37,7 +37,7 @@ golang and node 20+ is required
 
 使用 token
 
-    $rttys -t 34762d07637276694b938d23f10d7164
+    $ rttys -t 34762d07637276694b938d23f10d7164
 
 ### SSL 双向认证(mTLS)
 您可以在配置文件中指定设备 CA 存储(有效文件)或在 CLI 中指定设备 CA 存储(参数 ssl-cacert) 来启用 mTLS。
