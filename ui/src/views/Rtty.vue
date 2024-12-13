@@ -221,6 +221,8 @@ export default {
       this.disposables.push({
         dispose: () => window.removeEventListener('resize', this.fitTerm)
       })
+
+      this.fitTerm()
     },
     dispose() {
       this.disposables.forEach(d => d.dispose())
