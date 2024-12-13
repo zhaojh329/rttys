@@ -162,6 +162,7 @@ func main() {
 					},
 					&cli.BoolFlag{
 						Name:  "local-auth",
+						Value: true,
 						Usage: "need auth for local",
 					},
 					&cli.BoolFlag{
