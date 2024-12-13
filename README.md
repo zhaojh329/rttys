@@ -39,6 +39,19 @@ Use token
 
     $ rttys run -t 34762d07637276694b938d23f10d7164
 
+### Use your own authentication server
+If the device authentication URL is configured, when the device connecting,
+rttys will initiate an authentication request to this URL, and the authentication
+server will return whether the authentication has been passed.
+
+Request data format:
+
+    {"devid":"test", "token":"34762d07637276694b938d23f10d7164"}
+
+Authentication Server Response Format:
+
+    {"auth": true}
+
 ### mTLS
 You can enable mTLS by specifying device CA storage (valid file) in config file or from CLI (variable ssl-cacert).
 Device(s) without valid CA in storage will be disconnected in TLS handshake.

@@ -24,6 +24,7 @@ type Config struct {
 	WebUISslCert      string
 	WebUISslKey       string
 	Token             string
+	DevAuthUrl        string
 	WhiteList         map[string]bool
 	DB                string
 	LocalAuth         bool
@@ -61,6 +62,7 @@ func Parse(c *cli.Context) *Config {
 		WebUISslCert:      c.String("webui-ssl-cert"),
 		WebUISslKey:       c.String("webui-ssl-key"),
 		Token:             c.String("token"),
+		DevAuthUrl:        c.String("dev-auth-url"),
 		DB:                c.String("db"),
 		LocalAuth:         c.Bool("local-auth"),
 	}
@@ -96,6 +98,7 @@ func Parse(c *cli.Context) *Config {
 			cfg.WebUISslKey = cfg.SslKey
 		}
 		getConfigOpt(yamlCfg, "token", &cfg.Token)
+		getConfigOpt(yamlCfg, "dev-auth-url", &cfg.DevAuthUrl)
 		getConfigOpt(yamlCfg, "db", &cfg.DB)
 		getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
 		val, err := yamlCfg.Get("white-list")

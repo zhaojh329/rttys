@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -62,6 +64,32 @@ func newBroker(cfg *config.Config) *broker {
 	}
 }
 
+func devAuth(cfg *config.Config, dev *device) bool {
+	if cfg.DevAuthUrl == "" {
+		return cfg.Token == "" || dev.token == cfg.Token
+	}
+
+	cli := &http.Client{
+		Timeout: 3 * time.Second,
+	}
+
+	data := fmt.Sprintf(`{"devid":"%s", "token":"%s"}`, dev.id, dev.token)
+	resp, err := cli.Post(cfg.DevAuthUrl, "application/json", strings.NewReader(data))
+	if err != nil {
+		log.Error().Msg("device auth fail:" + err.Error())
+		return false
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Error().Msg("device auth fail:" + err.Error())
+		return false
+	}
+
+	return jsoniter.Get(body, "auth").ToBool()
+}
+
 func (br *broker) run() {
 	for {
 		select {
@@ -81,7 +109,7 @@ func (br *broker) run() {
 					log.Error().Msg("Device ID conflicting: " + devid)
 					msg = "ID conflicting"
 					err = 1
-				} else if br.cfg.Token != "" && dev.token != br.cfg.Token {
+				} else if !devAuth(br.cfg, dev) {
 					log.Error().Msg("Invalid token from terminal device")
 					msg = "Invalid token"
 					err = 1

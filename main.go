@@ -146,6 +146,11 @@ func main() {
 						Usage:   "token to use",
 					},
 					&cli.StringFlag{
+						Name:  "dev-auth-url",
+						Value: "",
+						Usage: "using device auth url instead of token",
+					},
+					&cli.StringFlag{
 						Name:  "white-list",
 						Value: "",
 						Usage: "white list(device IDs separated by spaces or *)",
