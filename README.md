@@ -86,6 +86,44 @@ FLUSH PRIVILEGES;
 
 Quit from database console by exit.
 
+## nginx proxy
+
+```
+# rttys.conf
+
+addr-user: 127.0.0.1:5913
+addr-http-proxy: 127.0.0.1:5914
+http-proxy-redir-url: http://your-server.com:5954
+```
+
+```
+# nginx.conf
+
+server {
+    listen 8080;
+
+    location /connect/ {
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_pass http://127.0.0.1:5913;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:5913;
+    }
+}
+
+server {
+    listen 5954;
+
+    location / {
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_pass http://127.0.0.1:5914;
+    }
+}
+```
+
 ## Docker
 
     sudo docker run -it -p 5912:5912 -p 5913:5913 -p 5914:5914 zhaojh329/rttys:latest run --addr-http-proxy :5914
