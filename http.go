@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
-	"time"
 
 	"rttys/client"
 	"rttys/utils"
@@ -328,10 +327,17 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 
 	location += path.Path
 
-	location += fmt.Sprintf("?_=%d", time.Now().Unix())
-
-	if path.RawQuery != "" {
-		location += "&" + path.RawQuery
+	qsi := 0
+	qs := c.Request.URL.Query()
+	for k, v := range qs {
+		for _, vv := range v {
+			if qsi == 0 {
+				location += fmt.Sprintf("?%s=%s", k, vv)
+				qsi++
+			} else {
+				location += fmt.Sprintf("&%s=%s", k, vv)
+			}
+		}
 	}
 
 	sid, err := c.Cookie("rtty-http-sid")
