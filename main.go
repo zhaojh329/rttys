@@ -125,6 +125,11 @@ func main() {
 						Usage: "url to redirect for HTTP proxy",
 					},
 					&cli.StringFlag{
+						Name:  "http-proxy-redir-domain",
+						Value: "",
+						Usage: "domain for HTTP proxy set cookie",
+					},
+					&cli.StringFlag{
 						Name:  "ssl-cert",
 						Value: "",
 						Usage: "ssl cert file Path",

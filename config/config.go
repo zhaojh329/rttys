@@ -12,23 +12,24 @@ import (
 
 // Config struct
 type Config struct {
-	AddrDev           string
-	AddrUser          string
-	AddrHttpProxy     string
-	DisableSignUp     bool
-	HttpProxyRedirURL string
-	HttpProxyPort     int
-	SslCert           string
-	SslKey            string
-	SslCacert         string // mTLS for device
-	WebUISslCert      string
-	WebUISslKey       string
-	Token             string
-	DevAuthUrl        string
-	WhiteList         map[string]bool
-	DB                string
-	LocalAuth         bool
-	SeparateSslConfig bool
+	AddrDev              string
+	AddrUser             string
+	AddrHttpProxy        string
+	DisableSignUp        bool
+	HttpProxyRedirURL    string
+	HttpProxyRedirDomain string
+	HttpProxyPort        int
+	SslCert              string
+	SslKey               string
+	SslCacert            string // mTLS for device
+	WebUISslCert         string
+	WebUISslKey          string
+	Token                string
+	DevAuthUrl           string
+	WhiteList            map[string]bool
+	DB                   string
+	LocalAuth            bool
+	SeparateSslConfig    bool
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
@@ -50,21 +51,22 @@ func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
 // Parse config
 func Parse(c *cli.Context) *Config {
 	cfg := &Config{
-		AddrDev:           c.String("addr-dev"),
-		AddrUser:          c.String("addr-user"),
-		AddrHttpProxy:     c.String("addr-http-proxy"),
-		DisableSignUp:     c.Bool("disable-sign-up"),
-		HttpProxyRedirURL: c.String("http-proxy-redir-url"),
-		SslCert:           c.String("ssl-cert"),
-		SslKey:            c.String("ssl-key"),
-		SslCacert:         c.String("ssl-cacert"),
-		SeparateSslConfig: c.Bool("separate-ssl-config"),
-		WebUISslCert:      c.String("webui-ssl-cert"),
-		WebUISslKey:       c.String("webui-ssl-key"),
-		Token:             c.String("token"),
-		DevAuthUrl:        c.String("dev-auth-url"),
-		DB:                c.String("db"),
-		LocalAuth:         c.Bool("local-auth"),
+		AddrDev:              c.String("addr-dev"),
+		AddrUser:             c.String("addr-user"),
+		AddrHttpProxy:        c.String("addr-http-proxy"),
+		DisableSignUp:        c.Bool("disable-sign-up"),
+		HttpProxyRedirURL:    c.String("http-proxy-redir-url"),
+		HttpProxyRedirDomain: c.String("http-proxy-redir-domain"),
+		SslCert:              c.String("ssl-cert"),
+		SslKey:               c.String("ssl-key"),
+		SslCacert:            c.String("ssl-cacert"),
+		SeparateSslConfig:    c.Bool("separate-ssl-config"),
+		WebUISslCert:         c.String("webui-ssl-cert"),
+		WebUISslKey:          c.String("webui-ssl-key"),
+		Token:                c.String("token"),
+		DevAuthUrl:           c.String("dev-auth-url"),
+		DB:                   c.String("db"),
+		LocalAuth:            c.Bool("local-auth"),
 	}
 
 	cfg.WhiteList = make(map[string]bool)
@@ -86,6 +88,7 @@ func Parse(c *cli.Context) *Config {
 		getConfigOpt(yamlCfg, "addr-http-proxy", &cfg.AddrHttpProxy)
 		getConfigOpt(yamlCfg, "disable-sign-up", &cfg.DisableSignUp)
 		getConfigOpt(yamlCfg, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
+		getConfigOpt(yamlCfg, "http-proxy-redir-domain", &cfg.HttpProxyRedirDomain)
 		getConfigOpt(yamlCfg, "ssl-cert", &cfg.SslCert)
 		getConfigOpt(yamlCfg, "ssl-key", &cfg.SslKey)
 		getConfigOpt(yamlCfg, "ssl-cacert", &cfg.SslCacert)
