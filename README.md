@@ -92,15 +92,19 @@ Quit from database console by exit.
 # rttys.conf
 
 addr-user: 127.0.0.1:5913
+
 addr-http-proxy: 127.0.0.1:5914
-http-proxy-redir-url: http://your-server.com:5954
+http-proxy-redir-url: http://web.your-server.com
+http-proxy-redir-domain: .your-server.com
 ```
 
 ```
 # nginx.conf
 
 server {
-    listen 8080;
+    listen 80;
+
+    server_name rtty.your-server.com;
 
     location /connect/ {
         proxy_set_header Upgrade $http_upgrade;
@@ -114,7 +118,9 @@ server {
 }
 
 server {
-    listen 5954;
+    listen 80;
+
+    server_name web.your-server.com;
 
     location / {
         proxy_set_header Upgrade $http_upgrade;
