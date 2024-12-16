@@ -9,6 +9,7 @@ import axios from 'axios'
 import Login from '../views/Login.vue'
 import Home from '../views/Home.vue'
 import Rtty from '../views/Rtty.vue'
+import Error from '../views/Error.vue'
 
 const routes = [
   {
@@ -25,6 +26,12 @@ const routes = [
     path: '/rtty/:devid',
     name: 'Rtty',
     component: Rtty,
+    props: true
+  },
+  {
+    path: '/error/:err',
+    name: 'Error',
+    component: Error,
     props: true
   }
 ]

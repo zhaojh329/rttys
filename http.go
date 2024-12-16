@@ -303,7 +303,7 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 
 	_, ok := br.devices[devid]
 	if !ok {
-		c.Status(http.StatusNotFound)
+		c.Redirect(http.StatusFound, "/error/offline")
 		return
 	}
 

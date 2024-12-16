@@ -242,12 +242,10 @@ export default {
         const msg = JSON.parse(data)
         if (msg.type === 'login') {
           if (msg.err === LoginErrorOffline) {
-            this.$message.error(this.$t('Device offline'))
-            this.$router.push('/')
+            this.$router.push('/error/offline')
             return
           } else if (msg.err === LoginErrorBusy) {
-            this.$message.error(this.$t('Sessions is full'))
-            this.$router.push('/')
+            this.$router.push('/error/full')
             return
           }
 

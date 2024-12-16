@@ -251,7 +251,13 @@ func apiStart(br *broker) {
 
 	authorized.GET("/connect/:devid", func(c *gin.Context) {
 		if c.GetHeader("Upgrade") != "websocket" {
-			c.Redirect(http.StatusFound, "/rtty/"+c.Param("devid"))
+			devid := c.Param("devid")
+			if _, ok := br.devices[devid]; !ok {
+				c.Redirect(http.StatusFound, "/error/offline")
+				return
+			}
+
+			c.Redirect(http.StatusFound, "/rtty/"+devid)
 			return
 		}
 		serveUser(br, c)
