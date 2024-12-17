@@ -116,48 +116,39 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:  "addr-http-proxy",
-						Value: "",
 						Usage: "address to listen for HTTP proxy (default auto)",
 					},
 					&cli.StringFlag{
 						Name:  "http-proxy-redir-url",
-						Value: "",
 						Usage: "url to redirect for HTTP proxy",
 					},
 					&cli.StringFlag{
 						Name:  "http-proxy-redir-domain",
-						Value: "",
 						Usage: "domain for HTTP proxy set cookie",
 					},
 					&cli.StringFlag{
 						Name:  "ssl-cert",
-						Value: "",
 						Usage: "ssl cert file Path",
 					},
 					&cli.StringFlag{
 						Name:  "ssl-key",
-						Value: "",
 						Usage: "ssl key file Path",
 					},
 					&cli.StringFlag{
 						Name:  "ssl-cacert",
-						Value: "",
 						Usage: "mtls CA storage in PEM file Path",
 					},
 					&cli.StringFlag{
 						Name:    "token",
 						Aliases: []string{"t"},
-						Value:   "",
 						Usage:   "token to use",
 					},
 					&cli.StringFlag{
 						Name:  "dev-auth-url",
-						Value: "",
 						Usage: "using device auth url instead of token",
 					},
 					&cli.StringFlag{
 						Name:  "white-list",
-						Value: "",
 						Usage: "white list(device IDs separated by spaces or *)",
 					},
 					&cli.StringFlag{
