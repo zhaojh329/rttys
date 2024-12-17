@@ -130,7 +130,15 @@ server {
 
 ## Docker
 
-    sudo docker run -it -p 5912:5912 -p 5913:5913 -p 5914:5914 zhaojh329/rttys:latest run --addr-http-proxy :5914
+    sudo docker run -it -p 5912:5912 -p 5913:5913 -p 5914:5914 zhaojh329/rttys:latest \
+        run --addr-http-proxy :5914
+
+使用配置文件
+
+    sudo mkdir -p /opt/rttys
+    sudo sh -c 'echo "addr-http-proxy: :5914" > /opt/rttys/rttys.conf'
+    sudo docker run -it -p 5912:5912 -p 5913:5913 -p 5914:5914 -v /opt/rttys:/etc/rttys \
+        zhaojh329/rttys:latest run -conf /etc/rttys/rttys.conf
 
 ## 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
