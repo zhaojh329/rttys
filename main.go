@@ -37,14 +37,17 @@ func initDb(cfg *config.Config) error {
 	return err
 }
 
-func runRttys(c *cli.Context) {
+func runRttys(c *cli.Context) error {
 	xlog.SetPath(c.String("log"))
 
 	if c.Bool("verbose") {
 		xlog.Verbose()
 	}
 
-	cfg := config.Parse(c)
+	cfg, err := config.Parse(c)
+	if err != nil {
+		return err
+	}
 
 	log.Info().Msg("Go Version: " + runtime.Version())
 	log.Info().Msgf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
@@ -62,10 +65,9 @@ func runRttys(c *cli.Context) {
 		log.Info().Msg("Build Time: " + version.BuildTime())
 	}
 
-	err := initDb(cfg)
+	err = initDb(cfg)
 	if err != nil {
-		log.Error().Msg("Init database fail:" + err.Error())
-		return
+		return fmt.Errorf(`init database: %s`, err.Error())
 	}
 
 	br := newBroker(cfg)
@@ -101,7 +103,6 @@ func main() {
 					&cli.StringFlag{
 						Name:    "conf",
 						Aliases: []string{"c"},
-						Value:   "./rttys.conf",
 						Usage:   "config file to load",
 					},
 					&cli.StringFlag{
@@ -168,8 +169,7 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					runRttys(c)
-					return nil
+					return runRttys(c)
 				},
 			},
 			{
@@ -182,8 +182,7 @@ func main() {
 			},
 		},
 		Action: func(c *cli.Context) error {
-			c.App.Command("run").Run(c)
-			return nil
+			return c.App.Command("run").Run(c)
 		},
 	}
 
