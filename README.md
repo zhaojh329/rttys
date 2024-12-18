@@ -107,6 +107,7 @@ server {
     server_name rtty.your-server.com;
 
     location /connect/ {
+        proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
         proxy_pass http://127.0.0.1:5913;
@@ -123,6 +124,7 @@ server {
     server_name web.your-server.com;
 
     location / {
+        proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
         proxy_pass http://127.0.0.1:5914;
