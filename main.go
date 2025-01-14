@@ -11,6 +11,7 @@ import (
 
 	xlog "rttys/log"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
 )
@@ -39,6 +40,17 @@ func initDb(cfg *config.Config) error {
 
 func runRttys(c *cli.Context) error {
 	xlog.SetPath(c.String("log"))
+
+	switch c.String("log-level") {
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "warn":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	default:
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
 
 	if c.Bool("verbose") {
 		xlog.Verbose()
@@ -99,6 +111,11 @@ func main() {
 						Name:  "log",
 						Value: defaultLogPath,
 						Usage: "log file path",
+					},
+					&cli.StringFlag{
+						Name:  "log-level",
+						Value: "info",
+						Usage: "log level(debug, info, warn, error)",
 					},
 					&cli.StringFlag{
 						Name:    "conf",
