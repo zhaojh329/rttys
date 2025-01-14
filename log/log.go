@@ -11,7 +11,7 @@ import (
 	"github.com/mattn/go-colorable"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 type logFileHook struct {
@@ -54,7 +54,7 @@ func init() {
 	out := consoleEx.ConsoleWriterEx{Out: colorable.NewColorableStdout()}
 	logger := zerolog.New(out).With().Timestamp().Logger()
 
-	if !terminal.IsTerminal(int(os.Stdout.Fd())) {
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
 		logger = logger.Hook(logFile)
 	}
 
