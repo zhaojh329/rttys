@@ -243,7 +243,11 @@ func listenHttpProxy(brk *broker) {
 
 	cfg.HttpProxyPort = ln.Addr().(*net.TCPAddr).Port
 
-	log.Info().Msgf("Listen http proxy on: %s", ln.Addr().(*net.TCPAddr))
+	if cfg.WebUISslCert != "" && cfg.WebUISslKey != "" {
+		log.Info().Msgf("Listen http proxy on: %s SSL on", ln.Addr().(*net.TCPAddr))
+	} else {
+		log.Info().Msgf("Listen http proxy on: %s SSL off", ln.Addr().(*net.TCPAddr))
+	}
 
 	go func() {
 		defer ln.Close()
@@ -310,6 +314,11 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 	location := c.Request.Header.Get("HttpProxyRedir")
 	if location == "" {
 		location = cfg.HttpProxyRedirURL
+		if location != "" {
+			log.Debug().Msgf("use HttpProxyRedirURL from config:%s", location)
+		}
+	} else {
+		log.Debug().Msgf("use HttpProxyRedir from HTTP header:%s", location)
 	}
 
 	if location == "" {
