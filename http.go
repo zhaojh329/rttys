@@ -307,7 +307,10 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 		return
 	}
 
-	location := cfg.HttpProxyRedirURL
+	location := c.Request.Header.Get("HttpProxyRedir")
+	if location == "" {
+		location = cfg.HttpProxyRedirURL
+	}
 
 	if location == "" {
 		host, _, err := net.SplitHostPort(c.Request.Host)

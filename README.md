@@ -132,6 +132,33 @@ server {
 }
 ```
 
+The parameter 'http-proxy-redir-url' in rttys.conf can also be configured
+by setting a new HTTP header 'HttpProxyRedir' in nginx.
+
+```
+server {
+    listen 80;
+
+    server_name rtty.your-server.com;
+
+    location /connect/ {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_pass http://127.0.0.1:5913;
+    }
+
+    location /web/ {
+        proxy_set_header HttpProxyRedir http://$server_name;
+        proxy_pass http://127.0.0.1:5913;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:5913;
+    }
+}
+```
+
 ## Docker
 ### Simple run
 
