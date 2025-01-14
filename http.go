@@ -225,7 +225,7 @@ func listenHttpProxy(brk *broker) {
 		log.Info().Msg("Automatically select an available port for http proxy")
 	}
 
-	ln, err := net.Listen("tcp", cfg.AddrHttpProxy)
+	ln, err := net.Listen("tcp4", cfg.AddrHttpProxy)
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
