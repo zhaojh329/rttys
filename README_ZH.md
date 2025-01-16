@@ -147,7 +147,7 @@ server {
     }
 
     location /web/ {
-        proxy_set_header HttpProxyRedir http://$server_name;
+        proxy_set_header HttpProxyRedir http://web.your-server.com;
         proxy_pass http://127.0.0.1:5913;
     }
 

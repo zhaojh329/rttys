@@ -149,12 +149,25 @@ server {
     }
 
     location /web/ {
-        proxy_set_header HttpProxyRedir http://$server_name;
+        proxy_set_header HttpProxyRedir http://web.your-server.com;
         proxy_pass http://127.0.0.1:5913;
     }
 
     location / {
         proxy_pass http://127.0.0.1:5913;
+    }
+}
+
+server {
+    listen 80;
+
+    server_name web.your-server.com;
+
+    location / {
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_pass http://127.0.0.1:5914;
     }
 }
 ```
