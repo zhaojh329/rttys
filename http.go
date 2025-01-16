@@ -124,17 +124,20 @@ func doHttpProxy(brk *broker, c net.Conn) {
 
 	cookie, err := req.Cookie("rtty-http-devid")
 	if err != nil {
+		log.Debug().Msg(`not found cookie "rtty-http-devid"`)
 		return
 	}
 	devid := cookie.Value
 
 	dev, ok := brk.devices[devid]
 	if !ok {
+		log.Debug().Msgf(`device "%s" offline`, devid)
 		return
 	}
 
 	cookie, err = req.Cookie("rtty-http-sid")
 	if err != nil {
+		log.Debug().Msgf(`not found cookie "rtty-http-sid", devid "%s"`, devid)
 		return
 	}
 	sid := cookie.Value
@@ -176,8 +179,11 @@ func doHttpProxy(brk *broker, c net.Conn) {
 			}
 		}()
 	} else {
+		log.Debug().Msgf(`not found session "%s", devid "%s"`, sid, devid)
 		return
 	}
+
+	log.Debug().Msgf("doHttpProxy devid: %s, https: %v, destaddr: %s", devid, https, hostHeaderRewrite)
 
 	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, brk, dev.(*device), https}
 
@@ -293,14 +299,18 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 	addr := c.Param("addr")
 	rawPath := c.Param("path")
 
+	log.Debug().Msgf("httpProxyRedirect devid: %s, proto: %s, addr: %s, path: %s", devid, proto, addr, rawPath)
+
 	_, _, err := httpProxyVaildAddr(addr)
 	if err != nil {
+		log.Debug().Msgf("invalid addr: %s", addr)
 		c.Status(http.StatusBadRequest)
 		return
 	}
 
 	path, err := url.Parse(rawPath)
 	if err != nil {
+		log.Debug().Msgf("invalid path: %s", rawPath)
 		c.Status(http.StatusBadRequest)
 		return
 	}
@@ -359,6 +369,8 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 	httpProxySessions.Store(sid, make(chan struct{}))
 
 	domain := cfg.HttpProxyRedirDomain
+
+	log.Debug().Msgf("set cookie domain: %s", domain)
 
 	c.SetCookie("rtty-http-sid", sid, 0, "", domain, false, true)
 	c.SetCookie("rtty-http-devid", devid, 0, "", domain, false, true)
