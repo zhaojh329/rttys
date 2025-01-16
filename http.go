@@ -325,10 +325,10 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 	if location == "" {
 		location = cfg.HttpProxyRedirURL
 		if location != "" {
-			log.Debug().Msgf("use HttpProxyRedirURL from config:%s", location)
+			log.Debug().Msgf("use HttpProxyRedirURL from config: %s", location)
 		}
 	} else {
-		log.Debug().Msgf("use HttpProxyRedir from HTTP header:%s", location)
+		log.Debug().Msgf("use HttpProxyRedir from HTTP header: %s", location)
 	}
 
 	if location == "" {
