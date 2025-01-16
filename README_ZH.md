@@ -130,8 +130,8 @@ server {
 }
 ```
 
-在 rttys.conf 中的参数 http-proxy-redir-url 也可以通过在 nginx 中设置一个新
-的 HTTP header HttpProxyRedir 来配置.
+在 rttys.conf 中的参数 http-proxy-redir-url 和 http-proxy-redir-domain 也可以通过在 nginx 中设置新
+的 HTTP headers 来配置.
 
 ```
 server {
@@ -148,6 +148,7 @@ server {
 
     location /web/ {
         proxy_set_header HttpProxyRedir http://web.your-server.com;
+        proxy_set_header HttpProxyRedirDomain .your-server.com
         proxy_pass http://127.0.0.1:5913;
     }
 

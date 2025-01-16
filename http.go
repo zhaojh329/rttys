@@ -368,9 +368,15 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 
 	httpProxySessions.Store(sid, make(chan struct{}))
 
-	domain := cfg.HttpProxyRedirDomain
-
-	log.Debug().Msgf("set cookie domain: %s", domain)
+	domain := c.Request.Header.Get("HttpProxyRedirDomain")
+	if domain == "" {
+		domain = cfg.HttpProxyRedirDomain
+		if domain != "" {
+			log.Debug().Msgf("set cookie domain from config: %s", domain)
+		}
+	} else {
+		log.Debug().Msgf("set cookie domain from HTTP header: %s", domain)
+	}
 
 	c.SetCookie("rtty-http-sid", sid, 0, "", domain, false, true)
 	c.SetCookie("rtty-http-devid", devid, 0, "", domain, false, true)

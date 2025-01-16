@@ -132,8 +132,8 @@ server {
 }
 ```
 
-The parameter 'http-proxy-redir-url' in rttys.conf can also be configured
-by setting a new HTTP header 'HttpProxyRedir' in nginx.
+The parameter 'http-proxy-redir-url' and 'http-proxy-redir-domain' in rttys.conf can also be configured
+by setting new HTTP headers in nginx.
 
 ```
 server {
@@ -150,6 +150,7 @@ server {
 
     location /web/ {
         proxy_set_header HttpProxyRedir http://web.your-server.com;
+        proxy_set_header HttpProxyRedirDomain .your-server.com
         proxy_pass http://127.0.0.1:5913;
     }
 
