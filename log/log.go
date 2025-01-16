@@ -37,9 +37,9 @@ func (h *logFileHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 	f.WriteString(zerolog.TimestampFunc().Format(zerolog.TimeFieldFormat) + " |")
 	f.WriteString(strings.ToUpper(level.String()) + "| ")
 
-	_, file, line, ok := runtime.Caller(3)
+	pc, file, line, ok := runtime.Caller(3)
 	if ok {
-		f.WriteString(zerolog.CallerMarshalFunc(file, line) + " |")
+		f.WriteString(zerolog.CallerMarshalFunc(pc, file, line) + " |")
 	}
 
 	f.WriteString(msg)
@@ -47,7 +47,7 @@ func (h *logFileHook) Run(e *zerolog.Event, level zerolog.Level, msg string) {
 }
 
 func init() {
-	zerolog.CallerMarshalFunc = func(file string, line int) string {
+	zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string {
 		return filepath.Base(file) + ":" + strconv.Itoa(line)
 	}
 
