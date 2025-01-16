@@ -179,7 +179,7 @@ func parseDeviceInfo(dev *device, b []byte) bool {
 	fields := bytes.Split(b, []byte{0})
 
 	if len(fields) < 3 {
-		log.Error().Msg("msgTypeRegister: invalid")
+		log.Error().Msgf("%s: msgTypeRegister: invalid", dev.conn.RemoteAddr())
 		return false
 	}
 
@@ -199,13 +199,15 @@ func (dev *device) readLoop() {
 		dev.br.unregister <- dev
 	}()
 
+	logPrefix := dev.conn.RemoteAddr().String()
+
 	br := bufio.NewReader(dev.conn)
 
 	for {
 		b, err := br.Peek(3)
 		if err != nil {
 			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				log.Error().Msg(err.Error())
+				log.Error().Msgf("%s: %s", logPrefix, err.Error())
 			}
 			return
 		}
@@ -215,7 +217,7 @@ func (dev *device) readLoop() {
 		typ := b[0]
 
 		if typ > msgTypeMax {
-			log.Error().Msgf("invalid msg type: %d", typ)
+			log.Error().Msgf("%s: invalid msg type: %d", logPrefix, typ)
 			return
 		}
 
@@ -233,7 +235,7 @@ func (dev *device) readLoop() {
 		switch typ {
 		case msgTypeRegister:
 			if msgLen < 2 {
-				log.Error().Msg("msgTypeRegister: invalid")
+				log.Error().Msgf("%s: msgTypeRegister: invalid", logPrefix)
 				return
 			}
 
@@ -241,11 +243,18 @@ func (dev *device) readLoop() {
 				return
 			}
 
+			if dev.id == "" {
+				log.Error().Msgf("%s: msgTypeRegister: devid is empty", logPrefix)
+				return
+			}
+
+			logPrefix = dev.id
+
 			dev.br.register <- dev
 
 		case msgTypeLogin:
 			if msgLen < 33 {
-				log.Error().Msg("msgTypeLogin: invalid")
+				log.Error().Msgf("%s: msgTypeLogin: invalid", logPrefix)
 				return
 			}
 
@@ -256,7 +265,7 @@ func (dev *device) readLoop() {
 
 		case msgTypeLogout:
 			if msgLen < 32 {
-				log.Error().Msg("msgTypeLogout: invalid")
+				log.Error().Msgf("%s: msgTypeLogout: invalid", logPrefix)
 				return
 			}
 
@@ -266,7 +275,7 @@ func (dev *device) readLoop() {
 			fallthrough
 		case msgTypeFile:
 			if msgLen < 32 {
-				log.Error().Msg("msgTypeTermData|msgTypeFile: invalid")
+				log.Error().Msgf("%s: msgTypeTermData|msgTypeFile: invalid", logPrefix)
 				return
 			}
 
@@ -280,7 +289,7 @@ func (dev *device) readLoop() {
 
 		case msgTypeCmd:
 			if msgLen < 1 {
-				log.Error().Msg("msgTypeCmd: invalid")
+				log.Error().Msgf("%s: msgTypeCmd: invalid", logPrefix)
 				return
 			}
 
@@ -288,7 +297,7 @@ func (dev *device) readLoop() {
 
 		case msgTypeHttp:
 			if msgLen < 18 {
-				log.Error().Msg("msgTypeHttp: invalid")
+				log.Error().Msgf("%s: msgTypeHttp: invalid", logPrefix)
 				return
 			}
 
@@ -298,7 +307,7 @@ func (dev *device) readLoop() {
 			parseHeartbeat(dev, b)
 
 		default:
-			log.Error().Msgf("invalid msg type: %d", typ)
+			log.Error().Msgf("%s: invalid msg type: %d", logPrefix, typ)
 		}
 	}
 }

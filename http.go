@@ -325,10 +325,10 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 	if location == "" {
 		location = cfg.HttpProxyRedirURL
 		if location != "" {
-			log.Debug().Msgf("use HttpProxyRedirURL from config: %s", location)
+			log.Debug().Msgf("use HttpProxyRedirURL from config: %s, devid: %s", location, devid)
 		}
 	} else {
-		log.Debug().Msgf("use HttpProxyRedir from HTTP header: %s", location)
+		log.Debug().Msgf("use HttpProxyRedir from HTTP header: %s, devid: %s", location, devid)
 	}
 
 	if location == "" {
@@ -361,6 +361,7 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 		if v, ok := httpProxySessions.Load(sid); ok {
 			close(v.(chan struct{}))
 			httpProxySessions.Delete(sid)
+			log.Debug().Msgf(`del old httpProxySession "%s" for device "%s"`, sid, devid)
 		}
 	}
 
@@ -368,14 +369,16 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 
 	httpProxySessions.Store(sid, make(chan struct{}))
 
+	log.Debug().Msgf(`new httpProxySession "%s" for device "%s"`, sid, devid)
+
 	domain := c.Request.Header.Get("HttpProxyRedirDomain")
 	if domain == "" {
 		domain = cfg.HttpProxyRedirDomain
 		if domain != "" {
-			log.Debug().Msgf("set cookie domain from config: %s", domain)
+			log.Debug().Msgf("set cookie domain from config: %s, devid: %s", domain, devid)
 		}
 	} else {
-		log.Debug().Msgf("set cookie domain from HTTP header: %s", domain)
+		log.Debug().Msgf("set cookie domain from HTTP header: %s, devid: %s", domain, devid)
 	}
 
 	c.SetCookie("rtty-http-sid", sid, 0, "", domain, false, true)
