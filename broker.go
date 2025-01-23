@@ -138,6 +138,8 @@ func (br *broker) run() {
 				if dev, ok := br.devices[devid]; ok {
 					sid := utils.GenUniqueID("sid")
 
+					c.(*user).sid = sid
+
 					s := &session{
 						dev:  dev,
 						user: c,
@@ -205,9 +207,6 @@ func (br *broker) run() {
 					log.Error().Msg("login fail, device busy")
 				} else {
 					atomic.StoreUint32(&s.confirmed, 1)
-
-					u := s.user.(*user)
-					u.sid = msg.sid
 
 					userLoginAck(loginErrorNone, s.user)
 				}
