@@ -237,7 +237,7 @@ func listenHttpProxy(brk *broker) {
 	}
 
 	if cfg.WebUISslCert != "" && cfg.WebUISslKey != "" {
-		crt, err := tls.LoadX509KeyPair(cfg.SslCert, cfg.SslKey)
+		crt, err := tls.LoadX509KeyPair(cfg.WebUISslCert, cfg.WebUISslKey)
 		if err != nil {
 			log.Fatal().Msg(err.Error())
 		}
