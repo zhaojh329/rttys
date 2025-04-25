@@ -135,6 +135,10 @@ func (dev *device) Closed() bool {
 	return atomic.LoadUint32(&dev.closed) == 1
 }
 
+func (dev *device) CloseConn() {
+	dev.conn.Close()
+}
+
 func (dev *device) Close() {
 	if dev.Closed() {
 		return
@@ -144,7 +148,7 @@ func (dev *device) Close() {
 
 	log.Debug().Msgf("Device '%s' disconnected", dev.conn.RemoteAddr())
 
-	dev.conn.Close()
+	dev.CloseConn()
 
 	close(dev.send)
 }

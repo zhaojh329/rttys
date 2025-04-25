@@ -12,5 +12,7 @@ type Client interface {
 
 	Close()
 
+	CloseConn()
+
 	Closed() bool
 }

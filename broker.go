@@ -147,7 +147,8 @@ func (br *broker) run() {
 
 					time.AfterFunc(time.Second*3, func() {
 						if atomic.LoadUint32(&s.confirmed) == 0 {
-							c.Close()
+							log.Error().Msgf("Session '%s' confirm timeout", sid)
+							c.CloseConn()
 						}
 					})
 

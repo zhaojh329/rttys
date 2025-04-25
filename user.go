@@ -59,6 +59,10 @@ func (u *user) Closed() bool {
 	return atomic.LoadUint32(&u.closed) == 1
 }
 
+func (u *user) CloseConn() {
+	u.conn.Close()
+}
+
 func (u *user) Close() {
 	if u.Closed() {
 		return
@@ -66,7 +70,8 @@ func (u *user) Close() {
 
 	atomic.StoreUint32(&u.closed, 1)
 
-	u.conn.Close()
+	u.CloseConn()
+
 	close(u.send)
 }
 
