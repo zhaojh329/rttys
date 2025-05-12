@@ -180,8 +180,8 @@ func (br *broker) run() {
 
 				for sid, s := range br.sessions {
 					if s.dev == c {
-						s.user.Close()
 						delete(br.sessions, sid)
+						s.user.Close()
 						log.Info().Msg("Delete session: " + sid)
 					}
 				}
