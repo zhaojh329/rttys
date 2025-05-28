@@ -254,7 +254,7 @@ func (br *broker) run() {
 				case msgTypeFileSend:
 					pipereader, pipewriter := io.Pipe()
 					br.fileProxy.Store(sid, &fileProxy{pipereader, pipewriter})
-					s.user.WriteMsg(websocket.TextMessage, []byte(fmt.Sprintf(`{"type":"sendfile", "name": "%s"}`, string(data))))
+					s.user.WriteMsg(websocket.TextMessage, fmt.Appendf(nil, `{"type":"sendfile", "name": "%s"}`, string(data)))
 
 				case msgTypeFileRecv:
 					s.user.WriteMsg(websocket.TextMessage, []byte(`{"type":"recvfile"}`))
