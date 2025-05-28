@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -78,7 +78,7 @@ func handleCmdReq(br *broker, c *gin.Context) {
 		return
 	}
 
-	content, err := ioutil.ReadAll(c.Request.Body)
+	content, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.Status(http.StatusBadRequest)
 		return
