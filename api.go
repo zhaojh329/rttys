@@ -252,7 +252,7 @@ func apiStart(br *broker) {
 	authorized.GET("/connect/:devid", func(c *gin.Context) {
 		if c.GetHeader("Upgrade") != "websocket" {
 			devid := c.Param("devid")
-			if _, ok := br.devices[devid]; !ok {
+			if _, ok := br.getDevice(devid); !ok {
 				c.Redirect(http.StatusFound, "/error/offline")
 				return
 			}
@@ -322,8 +322,7 @@ func apiStart(br *broker) {
 				Bound:       username != "",
 			}
 
-			if dev, ok := br.devices[id]; ok {
-				dev := dev.(*device)
+			if dev, ok := br.getDevice(id); ok {
 				di.Connected = uint32(time.Now().Unix() - dev.timestamp)
 				di.Uptime = dev.uptime
 				di.Online = true
@@ -623,7 +622,7 @@ func apiStart(br *broker) {
 		}
 
 		for _, devid := range data.Devices {
-			if _, ok := br.devices[devid]; !ok {
+			if _, ok := br.getDevice(devid); !ok {
 				sql := fmt.Sprintf("DELETE FROM device WHERE id = '%s'", devid)
 
 				if username != "" {
@@ -641,8 +640,10 @@ func apiStart(br *broker) {
 		sid := c.Param("sid")
 		if fp, ok := br.fileProxy.Load(sid); ok {
 			fp := fp.(*fileProxy)
-			s := br.sessions[sid]
-			fp.Ack(s.dev, sid)
+
+			if s, ok := br.getSession(sid); ok {
+				fp.Ack(s.dev, sid)
+			}
 
 			defer func() {
 				if err := recover(); err != nil {

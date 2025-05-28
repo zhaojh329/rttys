@@ -73,8 +73,7 @@ func handleCmdReq(br *broker, c *gin.Context) {
 		devid:  devid,
 	}
 
-	_, ok := br.devices[devid]
-	if !ok {
+	if _, ok := br.getDevice(devid); !ok {
 		cmdErrReply(rttyCmdErrOffline, req)
 		return
 	}

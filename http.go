@@ -129,7 +129,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 	}
 	devid := cookie.Value
 
-	dev, ok := brk.devices[devid]
+	dev, ok := brk.getDevice(devid)
 	if !ok {
 		log.Debug().Msgf(`device "%s" offline`, devid)
 		return
@@ -185,7 +185,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 
 	log.Debug().Msgf("doHttpProxy devid: %s, https: %v, destaddr: %s", devid, https, hostHeaderRewrite)
 
-	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, brk, dev.(*device), https}
+	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, brk, dev, https}
 
 	req.Host = hostHeaderRewrite
 	hpw.WriteRequest(req)
@@ -315,8 +315,7 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 		return
 	}
 
-	_, ok := br.devices[devid]
-	if !ok {
+	if _, ok := br.getDevice(devid); !ok {
 		c.Redirect(http.StatusFound, "/error/offline")
 		return
 	}
