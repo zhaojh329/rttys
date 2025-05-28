@@ -32,7 +32,7 @@ type Config struct {
 	SeparateSslConfig    bool
 }
 
-func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
+func getConfigOpt(yamlCfg *yaml.File, name string, opt any) {
 	val, err := yamlCfg.Get(name)
 	if err != nil {
 		return
@@ -89,7 +89,7 @@ func parseYamlCfg(cfg *Config, conf string) error {
 	return nil
 }
 
-func getFlagOpt(c *cli.Context, name string, opt interface{}) {
+func getFlagOpt(c *cli.Context, name string, opt any) {
 	if !c.IsSet(name) {
 		return
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 type Item struct {
-	value      interface{}
+	value      any
 	expiration int64
 }
 
@@ -22,7 +22,7 @@ type Cache struct {
 func (c *Cache) DeleteExpired() {
 	now := time.Now().UnixNano()
 
-	c.items.Range(func(key, value interface{}) bool {
+	c.items.Range(func(key, value any) bool {
 		if value := value.(*Item); value.expiration > 0 && now > value.expiration {
 			c.items.Delete(key)
 		}
@@ -58,7 +58,7 @@ func New(defaultExpiration, gcInterval time.Duration) *Cache {
 	return c
 }
 
-func (c *Cache) Active(key interface{}, d time.Duration) {
+func (c *Cache) Active(key any, d time.Duration) {
 	v, ok := c.items.Load(key)
 	if ok {
 		v := v.(*Item)
@@ -77,7 +77,7 @@ func (c *Cache) Active(key interface{}, d time.Duration) {
 	}
 }
 
-func (c *Cache) Set(key, value interface{}, d time.Duration) {
+func (c *Cache) Set(key, value any, d time.Duration) {
 	var e int64
 
 	if d == 0 {
@@ -91,7 +91,7 @@ func (c *Cache) Set(key, value interface{}, d time.Duration) {
 	c.items.Store(key, &Item{value, e})
 }
 
-func (c *Cache) Get(key interface{}) (interface{}, bool) {
+func (c *Cache) Get(key any) (any, bool) {
 	v, ok := c.items.Load(key)
 	if ok {
 		v := v.(*Item)
@@ -101,7 +101,7 @@ func (c *Cache) Get(key interface{}) (interface{}, bool) {
 	return nil, false
 }
 
-func (c *Cache) Del(key interface{}) {
+func (c *Cache) Del(key any) {
 	c.items.Delete(key)
 }
 
