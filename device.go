@@ -55,6 +55,7 @@ type device struct {
 	token      string
 	conn       net.Conn
 	active     time.Time
+	ninactive  int
 	registered bool
 	closed     uint32
 	send       chan []byte // Buffered channel of outbound messages.
@@ -235,6 +236,7 @@ func (dev *device) readLoop() {
 		}
 
 		dev.active = time.Now()
+		dev.ninactive = 0
 
 		switch typ {
 		case msgTypeRegister:
@@ -324,7 +326,6 @@ func (dev *device) writeLoop() {
 		dev.br.unregister <- dev
 	}()
 
-	ninactive := 0
 	lastHeartbeat := time.Now()
 
 	for {
@@ -348,11 +349,12 @@ func (dev *device) writeLoop() {
 				}
 
 				log.Error().Msgf("Inactive device in long time: %s", dev.id)
-				if ninactive > 1 {
+				if dev.ninactive > 1 {
 					log.Error().Msgf("Inactive 3 times, now kill it: %s", dev.id)
 					return
 				}
-				ninactive = ninactive + 1
+				dev.ninactive = dev.ninactive + 1
+				dev.active = time.Now()
 			}
 
 			if now.Sub(lastHeartbeat) > heartbeatInterval-1 {
