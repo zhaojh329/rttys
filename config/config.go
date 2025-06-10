@@ -15,7 +15,6 @@ type Config struct {
 	AddrDev              string
 	AddrUser             string
 	AddrHttpProxy        string
-	DisableSignUp        bool
 	HttpProxyRedirURL    string
 	HttpProxyRedirDomain string
 	HttpProxyPort        int
@@ -30,6 +29,7 @@ type Config struct {
 	DB                   string
 	LocalAuth            bool
 	SeparateSslConfig    bool
+	Password             string
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt any) {
@@ -57,7 +57,6 @@ func parseYamlCfg(cfg *Config, conf string) error {
 	getConfigOpt(yamlCfg, "addr-dev", &cfg.AddrDev)
 	getConfigOpt(yamlCfg, "addr-user", &cfg.AddrUser)
 	getConfigOpt(yamlCfg, "addr-http-proxy", &cfg.AddrHttpProxy)
-	getConfigOpt(yamlCfg, "disable-sign-up", &cfg.DisableSignUp)
 	getConfigOpt(yamlCfg, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
 	getConfigOpt(yamlCfg, "http-proxy-redir-domain", &cfg.HttpProxyRedirDomain)
 	getConfigOpt(yamlCfg, "ssl-cert", &cfg.SslCert)
@@ -85,6 +84,8 @@ func parseYamlCfg(cfg *Config, conf string) error {
 			}
 		}
 	}
+
+	getConfigOpt(yamlCfg, "password", &cfg.Password)
 
 	return nil
 }
@@ -126,11 +127,11 @@ func Parse(c *cli.Context) (*Config, error) {
 	getFlagOpt(c, "addr-http-proxy", &cfg.AddrHttpProxy)
 	getFlagOpt(c, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
 	getFlagOpt(c, "http-proxy-redir-domain", &cfg.HttpProxyRedirDomain)
-	getFlagOpt(c, "disable-sign-up", &cfg.DisableSignUp)
 	getFlagOpt(c, "dev-auth-url", &cfg.DevAuthUrl)
 	getFlagOpt(c, "local-auth", &cfg.LocalAuth)
 	getFlagOpt(c, "token", &cfg.Token)
 	getFlagOpt(c, "db", &cfg.DB)
+	getFlagOpt(c, "password", &cfg.Password)
 
 	getFlagOpt(c, "ssl-cacert", &cfg.SslCacert)
 	getFlagOpt(c, "ssl-cert", &cfg.SslCert)

@@ -5,7 +5,6 @@
         <el-button type="primary" round icon="Refresh" @click="handleRefresh" :disabled="loading">{{ $t('Refresh List') }}</el-button>
         <el-input style="width:200px" v-model="filterString" search @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
         <el-button @click="showCmdForm" type="primary" :disabled="cmdStatus.execing > 0">{{ $t('Execute command') }}</el-button>
-        <el-button v-if="isadmin" @click="showBindForm" type="primary">{{ $t('Bind user') }}</el-button>
         <el-tooltip :content="$t('Delete offline devices')">
           <el-button @click="deleteDevices" type="primary">{{ $t('Delete') }}</el-button>
         </el-tooltip>
@@ -13,17 +12,7 @@
       <el-space style="float: right;">
         <span style="color: var(--el-color-primary); font-size: 24px">{{ $t('device-count', {count: devlists.filter(dev => dev.online).length}) }}</span>
         <el-divider direction="vertical" />
-        <el-dropdown @command="handleUserCommand">
-          <span style="color: var(--el-color-primary);">
-            <span style="font-size: 24px">{{ username }}</span>
-            <el-icon class="el-icon--right"><arrow-down/></el-icon>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="logout">{{ $t('Sign out') }}</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+        <el-button type="primary" @click="handleLogout">{{ $t('Sign out') }}</el-button>
       </el-space>
     </div>
     <el-table :loading="loading" :data="pagedevlists" style="margin-top: 10px; margin-bottom: 10px; width: 100%" :empty-text="$t('No devices connected')" @selection-change='handleSelection'>
@@ -43,7 +32,6 @@
       <el-table-column width="200">
         <template #default="{ row }">
           <el-space>
-            <el-button v-if="isadmin && row.bound" type="warning" size="small" @click="unBindUser(row.id)">{{ $t('Unbind') }}</el-button>
             <el-tooltip v-if="row.online" placement="top" :content="$t('Access your device\'s Shell')">
               <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
             </el-tooltip>
@@ -111,14 +99,6 @@
         <el-table-column prop="msg" :label="$t('Error Message')" width="200" />
       </el-table>
     </el-dialog>
-    <el-dialog v-model="bindUserData.modal" :title="$t('Bind user')" :width="300">
-      <el-select v-model="bindUserData.currentUser">
-        <el-option v-for="u in bindUserData.users" :key="u" :value="u"/>
-      </el-select>
-      <template #footer>
-        <el-button type="primary" :disabled="!bindUserData.currentUser" @click="bindUser">{{ $t('OK') }}</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -134,8 +114,6 @@ export default {
   },
   data() {
     return {
-      username: '',
-      isadmin: false,
       filterString: '',
       loading: true,
       devlists: [],
@@ -161,11 +139,6 @@ export default {
         params: [],
         currentParam: '',
         wait: 30
-      },
-      bindUserData: {
-        modal: false,
-        users:[],
-        currentUser: ''
       },
       cmdRuleValidate: {
         username: [{required: true, message: this.$t('username is required')}],
@@ -228,12 +201,10 @@ export default {
       this.currentPage = page
       this.pageSize = size
     },
-    handleUserCommand(command) {
-      if (command === 'logout') {
-        this.axios.get('/signout').then(() => {
-          this.$router.push('/login')
-        })
-      }
+    handleLogout() {
+      this.axios.get('/signout').then(() => {
+        this.$router.push('/login')
+      })
     },
     handleSearch() {
       this.filteredDevices = this.devlists.filter((d) => {
@@ -259,36 +230,6 @@ export default {
     },
     handleSelection(selection) {
       this.selection = selection
-    },
-    showBindForm() {
-      if (this.selection.length < 1) {
-        this.$message.error(this.$t('Please select the devices you want to bind'))
-        return
-      }
-
-      this.axios.get('/users').then(res => {
-        this.bindUserData.users = res.data.users
-        this.bindUserData.modal = true
-      })
-    },
-    bindUser() {
-      this.bindUserData.modal = false
-
-      this.axios.post('/bind', {
-        devices: this.selection.map(s => s.id),
-        username: this.bindUserData.currentUser
-      }).then(() => {
-        this.getDevices()
-        this.$message.success(this.$t('Bind success'))
-      })
-    },
-    unBindUser(id) {
-      this.axios.post('/unbind', {
-        devices: [id]
-      }).then(() => {
-        this.getDevices()
-        this.$message.success(this.$t('Unbind success'))
-      })
     },
     deleteDevices() {
       if (this.selection.length < 1) {
@@ -455,12 +396,6 @@ export default {
     }
   },
   mounted() {
-    this.username = sessionStorage.getItem('rttys-username') || ''
-
-    this.axios.get('/isadmin').then(res => {
-      this.isadmin = res.data.admin
-    })
-
     this.getDevices()
   }
 }

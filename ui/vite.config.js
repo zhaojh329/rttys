@@ -30,25 +30,7 @@ export default defineConfig({
       '/signout': {
         target: 'http://127.0.0.1:5913'
       },
-      '/allowsignup': {
-        target: 'http://127.0.0.1:5913'
-      },
       '/alive': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '/signup': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '/isadmin': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '/users': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '/bind': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '/unbind': {
         target: 'http://127.0.0.1:5913'
       },
       '/delete': {

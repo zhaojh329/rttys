@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -19,11 +18,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 var httpSessions *cache.Cache
 
 //go:embed ui/dist
@@ -35,23 +29,8 @@ func allowOrigin(w http.ResponseWriter) {
 	w.Header().Set("content-type", "application/json")
 }
 
-func httpLogin(cfg *config.Config, creds *credentials) bool {
-	if creds.Username == "" || creds.Password == "" {
-		return false
-	}
-
-	db, err := instanceDB(cfg.DB)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return false
-	}
-	defer db.Close()
-
-	cnt := 0
-
-	db.QueryRow("SELECT COUNT(*) FROM account WHERE username = ? AND password = ?", creds.Username, creds.Password).Scan(&cnt)
-
-	return cnt != 0
+func httpLogin(cfg *config.Config, password string) bool {
+	return cfg.Password == "" || cfg.Password == password
 }
 
 func devInWhiteList(devid string, cfg *config.Config) bool {
@@ -83,66 +62,6 @@ func httpAuth(cfg *config.Config, c *gin.Context) bool {
 	return true
 }
 
-func isAdminUsername(cfg *config.Config, username string) bool {
-	if username == "" {
-		return false
-	}
-
-	db, err := instanceDB(cfg.DB)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return false
-	}
-	defer db.Close()
-
-	isAdmin := false
-
-	if db.QueryRow("SELECT admin FROM account WHERE username = ?", username).Scan(&isAdmin) == sql.ErrNoRows {
-		return false
-	}
-
-	return isAdmin
-}
-
-func devMatchUser(devid string, username string, cfg *config.Config) bool {
-	if username == "" {
-		return false
-	}
-
-	if isAdminUsername(cfg, username) {
-		return true
-	}
-
-	db, err := instanceDB(cfg.DB)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return false
-	}
-	defer db.Close()
-
-	cnt := 0
-
-	if db.QueryRow("SELECT count(id) FROM device WHERE id = ? AND username == ?", devid, username).Scan(&cnt) == sql.ErrNoRows {
-		return false
-	}
-
-	return cnt > 0
-}
-
-func getLoginUsername(c *gin.Context) string {
-	cookie, err := c.Cookie("sid")
-	if err != nil {
-		return ""
-	}
-
-	username, ok := httpSessions.Get(cookie)
-	if ok {
-		return username.(string)
-	}
-
-	return ""
-}
-
 func apiStart(br *broker) {
 	cfg := br.cfg
 
@@ -155,7 +74,6 @@ func apiStart(br *broker) {
 	r.Use(gin.Recovery())
 
 	authorized := r.Group("/", func(c *gin.Context) {
-		isConnect := false
 		devid := ""
 
 		if !cfg.LocalAuth && isLocalRequest(c) {
@@ -172,17 +90,11 @@ func apiStart(br *broker) {
 			if devInWhiteList(devid, cfg) {
 				return
 			}
-
-			isConnect = true
 		}
 
 		if !httpAuth(cfg, c) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
-		}
-
-		if isConnect && !devMatchUser(devid, getLoginUsername(c), cfg) {
-			c.AbortWithStatus(http.StatusUnauthorized)
 		}
 	})
 
@@ -206,7 +118,6 @@ func apiStart(br *broker) {
 			Connected   uint32 `json:"connected"`
 			Uptime      uint32 `json:"uptime"`
 			Description string `json:"description"`
-			Bound       bool   `json:"bound"`
 			Online      bool   `json:"online"`
 			Proto       uint8  `json:"proto"`
 		}
@@ -219,19 +130,7 @@ func apiStart(br *broker) {
 		}
 		defer db.Close()
 
-		sql := "SELECT id, description, username FROM device"
-
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			username := getLoginUsername(c)
-			if username == "" {
-				c.Status(http.StatusUnauthorized)
-				return
-			}
-
-			if !isAdminUsername(cfg, username) {
-				sql += fmt.Sprintf(" WHERE username = '%s'", username)
-			}
-		}
+		sql := "SELECT id, description FROM device"
 
 		devs := make([]DeviceInfo, 0)
 
@@ -245,9 +144,8 @@ func apiStart(br *broker) {
 		for rows.Next() {
 			id := ""
 			desc := ""
-			username := ""
 
-			err := rows.Scan(&id, &desc, &username)
+			err := rows.Scan(&id, &desc)
 			if err != nil {
 				log.Error().Msg(err.Error())
 				break
@@ -256,7 +154,6 @@ func apiStart(br *broker) {
 			di := DeviceInfo{
 				ID:          id,
 				Description: desc,
-				Bound:       username != "",
 			}
 
 			if dev, ok := br.getDevice(id); ok {
@@ -293,8 +190,7 @@ func apiStart(br *broker) {
 		}
 
 		if !authorized && httpAuth(cfg, c) {
-			username := getLoginUsername(c)
-			authorized = devMatchUser(devid, username, cfg)
+			authorized = httpAuth(cfg, c)
 		}
 
 		c.JSON(http.StatusOK, gin.H{
@@ -303,7 +199,11 @@ func apiStart(br *broker) {
 	})
 
 	r.POST("/signin", func(c *gin.Context) {
-		var creds credentials
+		type credentials struct {
+			Password string `json:"password"`
+		}
+
+		creds := credentials{}
 
 		err := c.BindJSON(&creds)
 		if err != nil {
@@ -311,15 +211,14 @@ func apiStart(br *broker) {
 			return
 		}
 
-		if httpLogin(cfg, &creds) {
+		if httpLogin(cfg, creds.Password) {
 			sid := utils.GenUniqueID("http")
-			httpSessions.Set(sid, creds.Username, 0)
+			httpSessions.Set(sid, true, 0)
 
 			c.SetCookie("sid", sid, 0, "", "", false, true)
 
 			c.JSON(http.StatusOK, gin.H{
-				"sid":      sid,
-				"username": creds.Username,
+				"sid": sid,
 			})
 			return
 		}
@@ -346,191 +245,7 @@ func apiStart(br *broker) {
 		c.Status(http.StatusOK)
 	})
 
-	r.POST("/signup", func(c *gin.Context) {
-		var creds credentials
-
-		err := c.BindJSON(&creds)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		if cfg.DisableSignUp {
-			c.Status(http.StatusForbidden)
-			return
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		isAdmin := 0
-
-		cnt := 0
-		db.QueryRow("SELECT COUNT(*) FROM account").Scan(&cnt)
-		if cnt == 0 {
-			isAdmin = 1
-		}
-
-		db.QueryRow("SELECT COUNT(*) FROM account WHERE username = ?", creds.Username).Scan(&cnt)
-		if cnt > 0 {
-			c.Status(http.StatusForbidden)
-			return
-		}
-
-		_, err = db.Exec("INSERT INTO account values(?,?,?)", creds.Username, creds.Password, isAdmin)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		c.Status(http.StatusOK)
-	})
-
-	r.GET("/isadmin", func(c *gin.Context) {
-		isAdmin := true
-
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			isAdmin = isAdminUsername(cfg, getLoginUsername(c))
-		}
-
-		c.JSON(http.StatusOK, gin.H{"admin": isAdmin})
-	})
-
-	r.GET("/allowsignup", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"allow": !cfg.DisableSignUp})
-	})
-
-	r.GET("/users", func(c *gin.Context) {
-		loginUsername := getLoginUsername(c)
-		isAdmin := isAdminUsername(cfg, loginUsername)
-
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			if !isAdmin {
-				c.Status(http.StatusUnauthorized)
-				return
-			}
-		}
-
-		users := []string{}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		rows, err := db.Query("SELECT username FROM account")
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		for rows.Next() {
-			username := ""
-			err := rows.Scan(&username)
-			if err != nil {
-				log.Error().Msg(err.Error())
-				break
-			}
-
-			if isAdmin && username == loginUsername {
-				continue
-			}
-
-			users = append(users, username)
-		}
-
-		c.JSON(http.StatusOK, gin.H{"users": users})
-	})
-
-	r.POST("/bind", func(c *gin.Context) {
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			username := getLoginUsername(c)
-			if !isAdminUsername(cfg, username) {
-				c.Status(http.StatusUnauthorized)
-				return
-			}
-		}
-
-		type binddata struct {
-			Username string   `json:"username"`
-			Devices  []string `json:"devices"`
-		}
-
-		data := binddata{}
-
-		err := c.BindJSON(&data)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			return
-		}
-		defer db.Close()
-
-		isAdmin := false
-
-		if db.QueryRow("SELECT admin FROM account WHERE username = ?", data.Username).Scan(&isAdmin) == sql.ErrNoRows || isAdmin {
-			c.Status(http.StatusOK)
-			return
-		}
-
-		for _, devid := range data.Devices {
-			db.Exec("UPDATE device SET username = ? WHERE id = ?", data.Username, devid)
-		}
-
-		c.Status(http.StatusOK)
-	})
-
-	r.POST("/unbind", func(c *gin.Context) {
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			username := getLoginUsername(c)
-			if !isAdminUsername(cfg, username) {
-				c.Status(http.StatusUnauthorized)
-				return
-			}
-		}
-
-		type binddata struct {
-			Devices []string `json:"devices"`
-		}
-
-		data := binddata{}
-
-		err := c.BindJSON(&data)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			return
-		}
-		defer db.Close()
-
-		for _, devid := range data.Devices {
-			db.Exec("UPDATE device SET username = '' WHERE id = ?", devid)
-		}
-
-		c.Status(http.StatusOK)
-	})
-
-	r.POST("/delete", func(c *gin.Context) {
+	authorized.POST("/delete", func(c *gin.Context) {
 		type deldata struct {
 			Devices []string `json:"devices"`
 		}
@@ -550,22 +265,9 @@ func apiStart(br *broker) {
 		}
 		defer db.Close()
 
-		username := ""
-		if cfg.LocalAuth || !isLocalRequest(c) {
-			username = getLoginUsername(c)
-			if isAdminUsername(cfg, username) {
-				username = ""
-			}
-		}
-
 		for _, devid := range data.Devices {
 			if _, ok := br.getDevice(devid); !ok {
 				sql := fmt.Sprintf("DELETE FROM device WHERE id = '%s'", devid)
-
-				if username != "" {
-					sql += fmt.Sprintf(" AND username = '%s'", username)
-				}
-
 				db.Exec(sql)
 			}
 		}

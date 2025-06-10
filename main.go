@@ -23,12 +23,7 @@ func initDb(cfg *config.Config) error {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS account(username VARCHAR(512) PRIMARY KEY NOT NULL, password TEXT NOT NULL, admin INT NOT NULL)")
-	if err != nil {
-		return err
-	}
-
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS device(id VARCHAR(512) PRIMARY KEY NOT NULL, description TEXT NOT NULL, online DATETIME NOT NULL, username TEXT NOT NULL)")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS device(id VARCHAR(512) PRIMARY KEY NOT NULL, description TEXT NOT NULL, online DATETIME NOT NULL)")
 
 	return err
 }
@@ -173,6 +168,10 @@ func main() {
 						Name:  "local-auth",
 						Value: true,
 						Usage: "need auth for local",
+					},
+					&cli.StringFlag{
+						Name:  "password",
+						Usage: "web management password",
 					},
 					&cli.BoolFlag{
 						Name:    "verbose",
