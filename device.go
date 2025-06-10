@@ -199,6 +199,33 @@ func parseHeartbeat(dev *device, b []byte) {
 	dev.uptime = binary.BigEndian.Uint32(b[:4])
 }
 
+func msgTypeName(typ byte) string {
+	switch typ {
+	case msgTypeRegister:
+		return "register"
+	case msgTypeLogin:
+		return "login"
+	case msgTypeLogout:
+		return "logout"
+	case msgTypeTermData:
+		return "termdata"
+	case msgTypeWinsize:
+		return "winsize"
+	case msgTypeCmd:
+		return "cmd"
+	case msgTypeHeartbeat:
+		return "heartbeat"
+	case msgTypeFile:
+		return "file"
+	case msgTypeHttp:
+		return "http"
+	case msgTypeAck:
+		return "ack"
+	default:
+		return "unknown"
+	}
+}
+
 func (dev *device) readLoop() {
 	defer func() {
 		dev.br.unregister <- dev
@@ -225,6 +252,8 @@ func (dev *device) readLoop() {
 			log.Error().Msgf("%s: invalid msg type: %d", logPrefix, typ)
 			return
 		}
+
+		log.Debug().Msgf("%s: recv msg: %s", logPrefix, msgTypeName(typ))
 
 		msgLen := binary.BigEndian.Uint16(b[1:])
 
