@@ -43,19 +43,17 @@ const (
 
 // Minimum protocol version requirements of rtty
 const rttyProtoRequired uint8 = 3
-const heartbeatInterval = time.Second * 5
 
 type device struct {
 	br         *broker
 	proto      uint8
+	heartbeat  time.Duration
 	id         string
 	desc       string /* description of the device */
 	timestamp  int64  /* Connection time */
 	uptime     uint32
 	token      string
 	conn       net.Conn
-	active     time.Time
-	ninactive  int
 	registered bool
 	closed     uint32
 	send       chan []byte // Buffered channel of outbound messages.
@@ -179,7 +177,12 @@ func (dev *device) UpdateDb() {
 func parseDeviceInfo(dev *device, b []byte) bool {
 	dev.proto = b[0]
 
-	b = b[1:]
+	if dev.proto > 4 {
+		dev.heartbeat = time.Duration(binary.BigEndian.Uint16(b[1:3])) * time.Second
+		b = b[3:]
+	} else {
+		b = b[1:]
+	}
 
 	fields := bytes.Split(b, []byte{0})
 
@@ -227,11 +230,17 @@ func msgTypeName(typ byte) string {
 }
 
 func (dev *device) readLoop() {
+	logPrefix := dev.conn.RemoteAddr().String()
+
+	tmr := time.AfterFunc(time.Second*5, func() {
+		log.Error().Msgf("%s: timeout", logPrefix)
+		dev.Close()
+	})
+
 	defer func() {
 		dev.br.unregister <- dev
+		tmr.Stop()
 	}()
-
-	logPrefix := dev.conn.RemoteAddr().String()
 
 	br := bufio.NewReader(dev.conn)
 
@@ -263,9 +272,6 @@ func (dev *device) readLoop() {
 			log.Error().Msg(err.Error())
 			return
 		}
-
-		dev.active = time.Now()
-		dev.ninactive = 0
 
 		switch typ {
 		case msgTypeRegister:
@@ -340,58 +346,25 @@ func (dev *device) readLoop() {
 
 		case msgTypeHeartbeat:
 			parseHeartbeat(dev, b)
-
+			dev.br.heartbeat <- dev.id
 		default:
 			log.Error().Msgf("%s: invalid msg type: %d", logPrefix, typ)
 		}
+
+		tmr.Reset(dev.heartbeat * 3 / 2)
 	}
 }
 
 func (dev *device) writeLoop() {
-	ticker := time.NewTicker(time.Second)
-
 	defer func() {
-		ticker.Stop()
 		dev.br.unregister <- dev
 	}()
 
-	lastHeartbeat := time.Now()
-
-	for {
-		select {
-		case msg, ok := <-dev.send:
-			if !ok {
-				return
-			}
-
-			_, err := dev.conn.Write(msg)
-			if err != nil {
-				log.Error().Msg(err.Error())
-				return
-			}
-
-		case <-ticker.C:
-			now := time.Now()
-			if now.Sub(dev.active) > heartbeatInterval*3/2 {
-				if dev.id == "" {
-					return
-				}
-
-				log.Error().Msgf("Inactive device in long time: %s", dev.id)
-				if dev.ninactive > 1 {
-					log.Error().Msgf("Inactive 3 times, now kill it: %s", dev.id)
-					return
-				}
-				dev.ninactive = dev.ninactive + 1
-				dev.active = time.Now()
-			}
-
-			if now.Sub(lastHeartbeat) > heartbeatInterval-1 {
-				lastHeartbeat = now
-				if len(dev.send) < 1 {
-					dev.WriteMsg(msgTypeHeartbeat, []byte{})
-				}
-			}
+	for msg := range dev.send {
+		_, err := dev.conn.Write(msg)
+		if err != nil {
+			log.Error().Msg(err.Error())
+			return
 		}
 	}
 }
@@ -453,7 +426,7 @@ func listenDevice(br *broker) {
 			dev := &device{
 				br:        br,
 				conn:      conn,
-				active:    time.Now(),
+				heartbeat: time.Second * 5,
 				timestamp: time.Now().Unix(),
 				send:      make(chan []byte, 256),
 			}
