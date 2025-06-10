@@ -104,7 +104,6 @@ export default {
     updateFontSize(size) {
       this.term.options.fontSize = size
       this.fitAddon.fit()
-      this.axios.post('/fontsize', {size})
     },
     onUploadDialogClosed() {
       this.term.focus()
@@ -252,13 +251,6 @@ export default {
           this.sid = msg.sid
 
           this.openTerm()
-
-          this.axios.get('/fontsize').then(r => {
-            if (!r.data.size)
-              return
-            this.term.options.fontSize = r.data.size
-            this.fitTerm()
-          })
 
           socket.addEventListener('close', () => this.closed())
           socket.addEventListener('error', () => this.closed())

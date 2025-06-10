@@ -61,9 +61,6 @@ export default defineConfig({
         ws: true,
         target: 'http://127.0.0.1:5913'
       },
-      '^/fontsize': {
-        target: 'http://127.0.0.1:5913'
-      },
       '^/authorized/.*': {
         target: 'http://127.0.0.1:5913'
       },

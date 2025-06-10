@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -185,68 +184,6 @@ func apiStart(br *broker) {
 		if isConnect && !devMatchUser(devid, getLoginUsername(c), cfg) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		}
-	})
-
-	authorized.GET("/fontsize", func(c *gin.Context) {
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		value := "16"
-
-		db.QueryRow("SELECT value FROM config WHERE name = 'FontSize'").Scan(&value)
-
-		FontSize, _ := strconv.Atoi(value)
-
-		c.JSON(http.StatusOK, gin.H{"size": FontSize})
-	})
-
-	authorized.POST("/fontsize", func(c *gin.Context) {
-		data := make(map[string]int)
-
-		err := c.BindJSON(&data)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		size, ok := data["size"]
-		if !ok {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		if size < 12 {
-			size = 12
-		}
-
-		_, err = db.Exec("DELETE FROM config WHERE name = 'FontSize'")
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		_, err = db.Exec("INSERT INTO config values('FontSize',?)", fmt.Sprintf("%d", size))
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		c.Status(http.StatusOK)
 	})
 
 	authorized.GET("/connect/:devid", func(c *gin.Context) {
