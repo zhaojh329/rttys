@@ -126,11 +126,9 @@ func (br *broker) run() {
 					msg = "auth failed"
 					err = 1
 				} else if dev.proto < rttyProtoRequired {
-					if dev.proto < rttyProtoRequired {
-						log.Error().Msgf("%s: unsupported protocol version: %d, need %d", dev.id, dev.proto, rttyProtoRequired)
-						msg = "unsupported protocol"
-						err = 1
-					}
+					log.Error().Msgf("%s: unsupported protocol version: %d, need %d", dev.id, dev.proto, rttyProtoRequired)
+					msg = "unsupported protocol"
+					err = 1
 				} else {
 					dev.registered = true
 					br.devices.Store(devid, c)
