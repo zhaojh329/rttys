@@ -153,19 +153,27 @@ func (dev *device) Close() {
 }
 
 func parseDeviceInfo(dev *device, b []byte) bool {
+	if len(b) < 2 {
+		return false
+	}
+
 	dev.proto = b[0]
 
 	if dev.proto > 4 {
+		if len(b) < 4 {
+			return false
+		}
+
 		dev.heartbeat = time.Duration(binary.BigEndian.Uint16(b[1:3])) * time.Second
 		b = b[3:]
 	} else {
+
 		b = b[1:]
 	}
 
 	fields := bytes.Split(b, []byte{0})
 
 	if len(fields) < 3 {
-		log.Error().Msgf("%s: msgTypeRegister: invalid", dev.conn.RemoteAddr())
 		return false
 	}
 
@@ -253,12 +261,8 @@ func (dev *device) readLoop() {
 
 		switch typ {
 		case msgTypeRegister:
-			if msgLen < 2 {
-				log.Error().Msgf("%s: msgTypeRegister: invalid", logPrefix)
-				return
-			}
-
 			if !parseDeviceInfo(dev, b) {
+				log.Error().Msgf("%s: msgTypeRegister: invalid", logPrefix)
 				return
 			}
 
@@ -323,6 +327,10 @@ func (dev *device) readLoop() {
 			dev.br.httpResp <- &httpResp{b, dev}
 
 		case msgTypeHeartbeat:
+			if msgLen < 4 {
+				log.Error().Msgf("%s: msgTypeHeartbeat: invalid", logPrefix)
+				return
+			}
 			parseHeartbeat(dev, b)
 			dev.br.heartbeat <- dev.id
 		default:
