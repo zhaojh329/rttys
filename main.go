@@ -138,10 +138,6 @@ func main() {
 						Name:  "dev-auth-url",
 						Usage: "using device auth url instead of token",
 					},
-					&cli.StringFlag{
-						Name:  "white-list",
-						Usage: "white list(device IDs separated by spaces or *)",
-					},
 					&cli.BoolFlag{
 						Name:  "local-auth",
 						Value: true,

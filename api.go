@@ -32,15 +32,6 @@ func httpLogin(cfg *config.Config, password string) bool {
 	return cfg.Password == "" || cfg.Password == password
 }
 
-func devInWhiteList(devid string, cfg *config.Config) bool {
-	if cfg.WhiteList == nil {
-		return true
-	}
-
-	_, ok := cfg.WhiteList[devid]
-	return ok
-}
-
 func isLocalRequest(c *gin.Context) bool {
 	addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
 	return addr.IP.IsLoopback()
@@ -73,22 +64,8 @@ func apiStart(br *broker) {
 	r.Use(gin.Recovery())
 
 	authorized := r.Group("/", func(c *gin.Context) {
-		devid := ""
-
 		if !cfg.LocalAuth && isLocalRequest(c) {
 			return
-		}
-
-		if strings.HasPrefix(c.Request.URL.Path, "/connect/") {
-			devid = c.Param("devid")
-			if devid == "" {
-				c.AbortWithStatus(http.StatusBadRequest)
-				return
-			}
-
-			if devInWhiteList(devid, cfg) {
-				return
-			}
 		}
 
 		if !httpAuth(cfg, c) {
@@ -147,25 +124,45 @@ func apiStart(br *broker) {
 		handleCmdReq(br, c)
 	})
 
-	r.Any("/web/:devid/:proto/:addr/*path", func(c *gin.Context) {
+	authorized.Any("/web/:devid/:proto/:addr/*path", func(c *gin.Context) {
 		httpProxyRedirect(br, c)
 	})
 
-	r.GET("/authorized/:devid", func(c *gin.Context) {
-		devid := c.Param("devid")
-		authorized := !cfg.LocalAuth && isLocalRequest(c)
-
-		if !authorized && devInWhiteList(devid, cfg) {
-			authorized = true
+	authorized.GET("/signout", func(c *gin.Context) {
+		cookie, err := c.Cookie("sid")
+		if err != nil || !httpSessions.Have(cookie) {
+			return
 		}
 
-		if !authorized && httpAuth(cfg, c) {
-			authorized = httpAuth(cfg, c)
-		}
+		httpSessions.Del(cookie)
 
-		c.JSON(http.StatusOK, gin.H{
-			"authorized": authorized,
-		})
+		c.Status(http.StatusOK)
+	})
+
+	authorized.GET("/file/:sid", func(c *gin.Context) {
+		sid := c.Param("sid")
+		if fp, ok := br.fileProxy.Load(sid); ok {
+			fp := fp.(*fileProxy)
+
+			if s, ok := br.getSession(sid); ok {
+				fp.Ack(s.dev, sid)
+			}
+
+			defer func() {
+				if err := recover(); err != nil {
+					if ne, ok := err.(*net.OpError); ok {
+						if se, ok := ne.Err.(*os.SyscallError); ok {
+							if strings.Contains(strings.ToLower(se.Error()), "broken pipe") || strings.Contains(strings.ToLower(se.Error()), "connection reset by peer") {
+								fp.reader.Close()
+							}
+						}
+					}
+				}
+			}()
+
+			c.DataFromReader(http.StatusOK, -1, "application/octet-stream", fp.reader, nil)
+			br.fileProxy.Delete(sid)
+		}
 	})
 
 	r.POST("/signin", func(c *gin.Context) {
@@ -201,43 +198,6 @@ func apiStart(br *broker) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		} else {
 			c.Status(http.StatusOK)
-		}
-	})
-
-	r.GET("/signout", func(c *gin.Context) {
-		cookie, err := c.Cookie("sid")
-		if err != nil || !httpSessions.Have(cookie) {
-			return
-		}
-
-		httpSessions.Del(cookie)
-
-		c.Status(http.StatusOK)
-	})
-
-	r.GET("/file/:sid", func(c *gin.Context) {
-		sid := c.Param("sid")
-		if fp, ok := br.fileProxy.Load(sid); ok {
-			fp := fp.(*fileProxy)
-
-			if s, ok := br.getSession(sid); ok {
-				fp.Ack(s.dev, sid)
-			}
-
-			defer func() {
-				if err := recover(); err != nil {
-					if ne, ok := err.(*net.OpError); ok {
-						if se, ok := ne.Err.(*os.SyscallError); ok {
-							if strings.Contains(strings.ToLower(se.Error()), "broken pipe") || strings.Contains(strings.ToLower(se.Error()), "connection reset by peer") {
-								fp.reader.Close()
-							}
-						}
-					}
-				}
-			}()
-
-			c.DataFromReader(http.StatusOK, -1, "application/octet-stream", fp.reader, nil)
-			br.fileProxy.Delete(sid)
 		}
 	})
 

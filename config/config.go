@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/urfave/cli/v2"
@@ -25,7 +24,6 @@ type Config struct {
 	WebUISslKey          string
 	Token                string
 	DevAuthUrl           string
-	WhiteList            map[string]bool
 	LocalAuth            bool
 	SeparateSslConfig    bool
 	Password             string
@@ -71,18 +69,6 @@ func parseYamlCfg(cfg *Config, conf string) error {
 	getConfigOpt(yamlCfg, "token", &cfg.Token)
 	getConfigOpt(yamlCfg, "dev-auth-url", &cfg.DevAuthUrl)
 	getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
-
-	val, err := yamlCfg.Get("white-list")
-	if err == nil {
-		if val != "*" && val != "\"*\"" {
-			cfg.WhiteList = make(map[string]bool)
-
-			for _, id := range strings.Fields(val) {
-				cfg.WhiteList[id] = true
-			}
-		}
-	}
-
 	getConfigOpt(yamlCfg, "password", &cfg.Password)
 
 	return nil
@@ -140,20 +126,6 @@ func Parse(c *cli.Context) (*Config, error) {
 	} else {
 		cfg.WebUISslCert = cfg.SslCert
 		cfg.WebUISslKey = cfg.SslKey
-	}
-
-	if c.IsSet("white-list") {
-		whiteList := c.String("white-list")
-
-		if whiteList == "*" {
-			cfg.WhiteList = nil
-		} else {
-			cfg.WhiteList = make(map[string]bool)
-
-			for _, id := range strings.Fields(whiteList) {
-				cfg.WhiteList[id] = true
-			}
-		}
 	}
 
 	if cfg.SslCacert != "" {
