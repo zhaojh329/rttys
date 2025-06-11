@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"fmt"
 	"io/fs"
 	"net"
 	"net/http"
@@ -118,53 +117,24 @@ func apiStart(br *broker) {
 			Connected   uint32 `json:"connected"`
 			Uptime      uint32 `json:"uptime"`
 			Description string `json:"description"`
-			Online      bool   `json:"online"`
 			Proto       uint8  `json:"proto"`
 		}
 
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		sql := "SELECT id, description FROM device"
-
 		devs := make([]DeviceInfo, 0)
 
-		rows, err := db.Query(sql)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
+		br.devices.Range(func(key, value any) bool {
+			dev := value.(*device)
 
-		for rows.Next() {
-			id := ""
-			desc := ""
+			devs = append(devs, DeviceInfo{
+				ID:          dev.id,
+				Description: dev.desc,
+				Connected:   uint32(time.Now().Unix() - dev.timestamp),
+				Uptime:      dev.uptime,
+				Proto:       dev.proto,
+			})
 
-			err := rows.Scan(&id, &desc)
-			if err != nil {
-				log.Error().Msg(err.Error())
-				break
-			}
-
-			di := DeviceInfo{
-				ID:          id,
-				Description: desc,
-			}
-
-			if dev, ok := br.getDevice(id); ok {
-				di.Connected = uint32(time.Now().Unix() - dev.timestamp)
-				di.Uptime = dev.uptime
-				di.Online = true
-				di.Proto = dev.proto
-			}
-
-			devs = append(devs, di)
-		}
+			return true
+		})
 
 		allowOrigin(c.Writer)
 
@@ -241,36 +211,6 @@ func apiStart(br *broker) {
 		}
 
 		httpSessions.Del(cookie)
-
-		c.Status(http.StatusOK)
-	})
-
-	authorized.POST("/delete", func(c *gin.Context) {
-		type deldata struct {
-			Devices []string `json:"devices"`
-		}
-
-		data := deldata{}
-
-		err := c.BindJSON(&data)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := instanceDB(cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			return
-		}
-		defer db.Close()
-
-		for _, devid := range data.Devices {
-			if _, ok := br.getDevice(devid); !ok {
-				sql := fmt.Sprintf("DELETE FROM device WHERE id = '%s'", devid)
-				db.Exec(sql)
-			}
-		}
 
 		c.Status(http.StatusOK)
 	})

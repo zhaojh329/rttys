@@ -136,7 +136,6 @@ func (br *broker) run() {
 				} else {
 					dev.registered = true
 					br.devices.Store(devid, c)
-					dev.UpdateDb()
 					log.Info().Msgf("Device '%s' registered, proto %d, heartbeat %v", devid, dev.proto, dev.heartbeat)
 				}
 

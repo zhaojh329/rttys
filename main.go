@@ -16,18 +16,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func initDb(cfg *config.Config) error {
-	db, err := instanceDB(cfg.DB)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS device(id VARCHAR(512) PRIMARY KEY NOT NULL, description TEXT NOT NULL, online DATETIME NOT NULL)")
-
-	return err
-}
-
 func runRttys(c *cli.Context) error {
 	xlog.SetPath(c.String("log"))
 
@@ -65,11 +53,6 @@ func runRttys(c *cli.Context) error {
 
 	if buildTime != "" {
 		log.Info().Msg("Build Time: " + version.BuildTime())
-	}
-
-	err = initDb(cfg)
-	if err != nil {
-		return fmt.Errorf(`init database: %s`, err.Error())
 	}
 
 	br := newBroker(cfg)
@@ -158,11 +141,6 @@ func main() {
 					&cli.StringFlag{
 						Name:  "white-list",
 						Usage: "white list(device IDs separated by spaces or *)",
-					},
-					&cli.StringFlag{
-						Name:  "db",
-						Value: "sqlite://rttys.db",
-						Usage: "database source",
 					},
 					&cli.BoolFlag{
 						Name:  "local-auth",

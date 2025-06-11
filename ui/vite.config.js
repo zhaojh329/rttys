@@ -33,9 +33,6 @@ export default defineConfig({
       '/alive': {
         target: 'http://127.0.0.1:5913'
       },
-      '/delete': {
-        target: 'http://127.0.0.1:5913'
-      },
       '^/cmd/.*': {
         target: 'http://127.0.0.1:5913'
       },

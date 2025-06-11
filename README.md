@@ -62,36 +62,6 @@ Authentication Server Response Format:
 You can enable mTLS by specifying device CA storage (valid file) in config file or from CLI (variable ssl-cacert).
 Device(s) without valid CA in storage will be disconnected in TLS handshake.
 
-## Database Preparation
-## Sqlite
-s#qlite://rttys.db
-
-### MySql or Mariadb
-mysql://rttys:rttys@tcp(localhost)/rttys
-
-On database instance, login to database console as root:
-```
-mysql -u root -p
-```
-
-Create database user which will be used by Rttys, authenticated by password. This example uses 'rttys' as password. Please use a secure password for your instance.
-```
-CREATE USER 'rttys' IDENTIFIED BY 'rttys';
-```
-
-Create database with UTF-8 charset and collation. Make sure to use utf8mb4 charset instead of utf8 as the former supports all Unicode characters (including emojis) beyond Basic Multilingual Plane. Also, collation chosen depending on your expected content. When in doubt, use either unicode_ci or general_ci.
-```
-CREATE DATABASE rttys CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_unicode_ci';
-```
-
-Grant all privileges on the database to database user created above.
-```
-GRANT ALL PRIVILEGES ON rttys.* TO 'rttys';
-FLUSH PRIVILEGES;
-```
-
-Quit from database console by exit.
-
 ## nginx proxy
 
 ```

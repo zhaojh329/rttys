@@ -5,12 +5,9 @@
         <el-button type="primary" round icon="Refresh" @click="handleRefresh" :disabled="loading">{{ $t('Refresh List') }}</el-button>
         <el-input style="width:200px" v-model="filterString" search @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
         <el-button @click="showCmdForm" type="primary" :disabled="cmdStatus.execing > 0">{{ $t('Execute command') }}</el-button>
-        <el-tooltip :content="$t('Delete offline devices')">
-          <el-button @click="deleteDevices" type="primary">{{ $t('Delete') }}</el-button>
-        </el-tooltip>
       </el-space>
       <el-space style="float: right;">
-        <span style="color: var(--el-color-primary); font-size: 24px">{{ $t('device-count', {count: devlists.filter(dev => dev.online).length}) }}</span>
+        <span style="color: var(--el-color-primary); font-size: 24px">{{ $t('device-count', {count: devlists.length}) }}</span>
         <el-divider direction="vertical" />
         <el-button type="primary" @click="handleLogout">{{ $t('Sign out') }}</el-button>
       </el-space>
@@ -32,13 +29,12 @@
       <el-table-column width="200">
         <template #default="{ row }">
           <el-space>
-            <el-tooltip v-if="row.online" placement="top" :content="$t('Access your device\'s Shell')">
+            <el-tooltip placement="top" :content="$t('Access your device\'s Shell')">
               <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
             </el-tooltip>
-            <el-tooltip v-if="row.online" placement="top" :content="$t('Access your devices\'s Web')">
+            <el-tooltip placement="top" :content="$t('Access your devices\'s Web')">
               <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
             </el-tooltip>
-            <span v-if="!row.online" style="margin-left: 10px; color: red">{{ $t('Device offline') }}</span>
           </el-space>
         </template>
       </el-table-column>
@@ -231,26 +227,6 @@ export default {
     handleSelection(selection) {
       this.selection = selection
     },
-    deleteDevices() {
-      if (this.selection.length < 1) {
-        this.$message.error(this.$t('Please select the devices you want to operate'))
-        return
-      }
-
-      const offlines = this.selection.filter(s => !s.online)
-
-      if (offlines.length < 1) {
-        this.$message.info(this.$t('There are no offline devices in selected devices'))
-        return
-      }
-
-      this.axios.post('/delete', {
-        devices: offlines.map(s => s.id)
-      }).then(() => {
-        this.getDevices()
-        this.$message.success(this.$t('Delete success'))
-      })
-    },
     connectDevice(devid) {
       window.open('/rtty/' + devid)
     },
@@ -333,16 +309,14 @@ export default {
     doCmd() {
       (this.$refs['cmdForm']).validate(valid => {
         if (valid) {
-          const selection = this.selection.filter(dev => dev.online)
-
           this.cmdModal = false
           this.cmdStatus.modal = true
-          this.cmdStatus.total = selection.length
-          this.cmdStatus.execing = selection.length
+          this.cmdStatus.total = this.selection.length
+          this.cmdStatus.execing = this.selection.length
           this.cmdStatus.fail = 0
           this.cmdStatus.responses = []
 
-          selection.forEach(item => {
+          this.selection.forEach(item => {
             const data = {
               username: this.cmdData.username,
               password: this.cmdData.password,

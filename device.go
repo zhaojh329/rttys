@@ -152,28 +152,6 @@ func (dev *device) Close() {
 	close(dev.send)
 }
 
-func (dev *device) UpdateDb() {
-	db, err := instanceDB(dev.br.cfg.DB)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return
-	}
-	defer db.Close()
-
-	cnt := 0
-
-	db.QueryRow("SELECT COUNT(*) FROM device WHERE id = ?", dev.id).Scan(&cnt)
-	if cnt == 0 {
-		_, err = db.Exec("INSERT INTO device values(?,?,?,?)", dev.id, dev.desc, time.Now(), "")
-	} else {
-		_, err = db.Exec("UPDATE device SET description = ?, online = ? WHERE id = ?", dev.desc, time.Now(), dev.id)
-	}
-
-	if err != nil {
-		log.Error().Msg(err.Error())
-	}
-}
-
 func parseDeviceInfo(dev *device, b []byte) bool {
 	dev.proto = b[0]
 

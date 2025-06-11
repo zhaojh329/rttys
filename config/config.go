@@ -26,7 +26,6 @@ type Config struct {
 	Token                string
 	DevAuthUrl           string
 	WhiteList            map[string]bool
-	DB                   string
 	LocalAuth            bool
 	SeparateSslConfig    bool
 	Password             string
@@ -71,7 +70,6 @@ func parseYamlCfg(cfg *Config, conf string) error {
 
 	getConfigOpt(yamlCfg, "token", &cfg.Token)
 	getConfigOpt(yamlCfg, "dev-auth-url", &cfg.DevAuthUrl)
-	getConfigOpt(yamlCfg, "db", &cfg.DB)
 	getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
 
 	val, err := yamlCfg.Get("white-list")
@@ -110,7 +108,6 @@ func Parse(c *cli.Context) (*Config, error) {
 	cfg := &Config{
 		AddrDev:   ":5912",
 		AddrUser:  ":5913",
-		DB:        "sqlite://rttys.db",
 		LocalAuth: true,
 	}
 
@@ -130,7 +127,6 @@ func Parse(c *cli.Context) (*Config, error) {
 	getFlagOpt(c, "dev-auth-url", &cfg.DevAuthUrl)
 	getFlagOpt(c, "local-auth", &cfg.LocalAuth)
 	getFlagOpt(c, "token", &cfg.Token)
-	getFlagOpt(c, "db", &cfg.DB)
 	getFlagOpt(c, "password", &cfg.Password)
 
 	getFlagOpt(c, "ssl-cacert", &cfg.SslCacert)
