@@ -46,8 +46,6 @@
   "Paste - Shift+Insert": "Paste - Shift+Insert",
   "Clear Scrollback": "Clear Scrollback",
   "Font Size": "Font Size",
-  "Please input font size": "Please input font size",
-  "Please input a number from 10 to 60": "Please input a number from 10 to 60",
   "Upload or download file": "Upload or download file",
   "About": "About",
   "Please execute command \"rtty -R\" or \"rtty -S\" in current terminal!": "Please execute command \"rtty -R\" or \"rtty -S\" in current terminal!",

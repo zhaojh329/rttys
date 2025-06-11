@@ -12,6 +12,9 @@
       </template>
     </el-dialog>
     <contextmenu ref="contextmenu" :menus="contextmenus" @click="onContextmenuClick"/>
+    <el-dialog v-model="font.modal" :show-close="false" :width="180" header-class="font-size-dialog-header">
+      <el-input-number v-model="font.size" :min="10" :max="30" @change="updateFontSize"/>
+    </el-dialog>
   </div>
 </template>
 
@@ -50,6 +53,10 @@ export default {
         {name: 'file', caption: this.$t('Upload or download file')},
         {name: 'about', caption: this.$t('About')}
       ],
+      font: {
+        modal: false,
+        size: 16
+      },
       file: {
         modal: false,
         accepted: false,
@@ -84,15 +91,7 @@ export default {
       } else if (name === 'clear') {
         this.term.clear()
       } else if (name === 'font') {
-        this.$prompt(this.$t('Please input font size'), '', {
-          confirmButtonText: this.$t('OK'),
-          cancelButtonText: this.$t('Cancel'),
-          inputValue: this.term.options.fontSize,
-          inputPattern: /^(1[0-9]|[2-5][0-9]|60)$/,
-          inputErrorMessage: this.$t('Please input a number from 10 to 60')
-        }).then(({ value }) => {
-          this.updateFontSize(parseInt(value))
-        })
+        this.font.modal = true
       } else if (name === 'file') {
         this.$message.info(this.$t('Please execute command "rtty -R" or "rtty -S" in current terminal!'))
       } else if (name === 'about') {
@@ -102,6 +101,11 @@ export default {
       this.term.focus()
     },
     updateFontSize(size) {
+      if (!size) {
+        size = 16
+        this.font.size = 16
+      }
+
       this.term.options.fontSize = size
       this.fitAddon.fit()
     },
@@ -192,7 +196,7 @@ export default {
     openTerm() {
       const term = new Terminal({
         cursorBlink: true,
-        fontSize: 16
+        fontSize: this.font.size
       })
       this.term = term
 
@@ -292,5 +296,9 @@ export default {
 <style scoped>
   .xterm .xterm-viewport {
     overflow: auto;
+  }
+
+  :deep(.font-size-dialog-header) {
+    display: none;
   }
 </style>
