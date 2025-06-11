@@ -3,7 +3,7 @@
     <template #header>
       {{ $t('Authorization Required') }}
     </template>
-    <el-form :model="formValue" size="large">
+    <el-form :model="formValue" size="large" @submit.prevent="handleSubmit">
       <el-form-item prop="password">
         <el-input autofocus type="password" v-model="formValue.password" prefix-icon="lock" :placeholder="$t('Enter password...')" show-password/>
       </el-form-item>
