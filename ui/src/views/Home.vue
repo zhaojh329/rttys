@@ -45,9 +45,6 @@
         <el-form-item :label="$t('Username')" prop="username">
           <el-input v-model="cmdData.username"/>
         </el-form-item>
-        <el-form-item :label="$t('Password')" prop="password">
-          <el-input type="password" v-model="cmdData.password" show-password/>
-        </el-form-item>
         <el-form-item :label="$t('Command')" prop="cmd">
           <el-input v-model.trim="cmdData.cmd"/>
         </el-form-item>
@@ -130,7 +127,6 @@ export default {
       },
       cmdData: {
         username: '',
-        password: '',
         cmd: '',
         params: [],
         currentParam: '',
@@ -309,17 +305,18 @@ export default {
     doCmd() {
       (this.$refs['cmdForm']).validate(valid => {
         if (valid) {
+          const selection = this.selection.filter(item => item.proto > 4)
+
           this.cmdModal = false
           this.cmdStatus.modal = true
-          this.cmdStatus.total = this.selection.length
-          this.cmdStatus.execing = this.selection.length
+          this.cmdStatus.total = selection.length
+          this.cmdStatus.execing = selection.length
           this.cmdStatus.fail = 0
           this.cmdStatus.responses = []
 
-          this.selection.forEach(item => {
+          selection.forEach(item => {
             const data = {
               username: this.cmdData.username,
-              password: this.cmdData.password,
               cmd: this.cmdData.cmd,
               params: this.cmdData.params
             }

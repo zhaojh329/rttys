@@ -95,17 +95,16 @@ func handleCmdReq(br *broker, c *gin.Context) {
 
 	params := jsoniter.Get(content, "params")
 
-	data := make([]string, 5)
+	data := make([]string, 4)
 
 	data[0] = jsoniter.Get(content, "username").ToString()
-	data[1] = jsoniter.Get(content, "password").ToString()
-	data[2] = jsoniter.Get(content, "cmd").ToString()
-	data[3] = token
-	data[4] = string(byte(params.Size()))
+	data[1] = jsoniter.Get(content, "cmd").ToString()
+	data[2] = token
+	data[3] = string(byte(params.Size()))
 
 	msg := []byte(strings.Join(data, string(byte(0))))
 
-	for i := 0; i < params.Size(); i++ {
+	for i := range params.Size() {
 		msg = append(msg, params.Get(i).ToString()...)
 		msg = append(msg, 0)
 	}
