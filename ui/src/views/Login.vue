@@ -5,7 +5,7 @@
     </template>
     <el-form :model="formValue" size="large">
       <el-form-item prop="password">
-        <el-input ref="passwordInput" type="password" v-model="formValue.password" prefix-icon="lock" :placeholder="$t('Enter password...')" show-password/>
+        <el-input autofocus type="password" v-model="formValue.password" prefix-icon="lock" :placeholder="$t('Enter password...')" show-password/>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="loading" @click="handleSubmit" class="login-button">{{ $t('Sign in') }}</el-button>
@@ -40,11 +40,6 @@ export default {
   },
   created() {
     sessionStorage.removeItem('rttys-sid')
-  },
-  mounted() {
-    this.$nextTick(() => {
-      this.$refs.passwordInput.focus()
-    })
   }
 }
 </script>
