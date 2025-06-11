@@ -65,8 +65,12 @@ func newBroker(cfg *config.Config) *broker {
 }
 
 func devAuth(cfg *config.Config, dev *device) bool {
-	if cfg.DevAuthUrl == "" {
-		return cfg.Token == "" || dev.token == cfg.Token
+	if cfg.Token != "" && dev.token != cfg.Token {
+		return false
+	}
+
+	if cfg.DevHookUrl == "" {
+		return true
 	}
 
 	cli := &http.Client{
@@ -74,20 +78,14 @@ func devAuth(cfg *config.Config, dev *device) bool {
 	}
 
 	data := fmt.Sprintf(`{"devid":"%s", "token":"%s"}`, dev.id, dev.token)
-	resp, err := cli.Post(cfg.DevAuthUrl, "application/json", strings.NewReader(data))
+	resp, err := cli.Post(cfg.DevHookUrl, "application/json", strings.NewReader(data))
 	if err != nil {
-		log.Error().Msg("device auth fail:" + err.Error())
+		log.Error().Msg("call device hook url fail:" + err.Error())
 		return false
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error().Msg("device auth fail:" + err.Error())
-		return false
-	}
-
-	return jsoniter.Get(body, "auth").ToBool()
+	return resp.StatusCode == http.StatusOK
 }
 
 func (br *broker) getDevice(devid string) (*device, bool) {
@@ -124,8 +122,8 @@ func (br *broker) run() {
 					msg = "ID conflicting"
 					err = 1
 				} else if !devAuth(br.cfg, dev) {
-					log.Error().Msg("Invalid token from terminal device")
-					msg = "Invalid token"
+					log.Error().Msgf("%s: auth failed", devid)
+					msg = "auth failed"
 					err = 1
 				} else if dev.proto < rttyProtoRequired {
 					if dev.proto < rttyProtoRequired {

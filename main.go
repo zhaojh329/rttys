@@ -135,8 +135,8 @@ func main() {
 						Usage:   "token to use",
 					},
 					&cli.StringFlag{
-						Name:  "dev-auth-url",
-						Usage: "using device auth url instead of token",
+						Name:  "dev-hook-url",
+						Usage: "called when the device is connected",
 					},
 					&cli.BoolFlag{
 						Name:  "local-auth",

@@ -23,7 +23,7 @@ type Config struct {
 	WebUISslCert         string
 	WebUISslKey          string
 	Token                string
-	DevAuthUrl           string
+	DevHookUrl           string
 	LocalAuth            bool
 	SeparateSslConfig    bool
 	Password             string
@@ -67,7 +67,7 @@ func parseYamlCfg(cfg *Config, conf string) error {
 	}
 
 	getConfigOpt(yamlCfg, "token", &cfg.Token)
-	getConfigOpt(yamlCfg, "dev-auth-url", &cfg.DevAuthUrl)
+	getConfigOpt(yamlCfg, "dev-hook-url", &cfg.DevHookUrl)
 	getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
 	getConfigOpt(yamlCfg, "password", &cfg.Password)
 
@@ -110,7 +110,7 @@ func Parse(c *cli.Context) (*Config, error) {
 	getFlagOpt(c, "addr-http-proxy", &cfg.AddrHttpProxy)
 	getFlagOpt(c, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
 	getFlagOpt(c, "http-proxy-redir-domain", &cfg.HttpProxyRedirDomain)
-	getFlagOpt(c, "dev-auth-url", &cfg.DevAuthUrl)
+	getFlagOpt(c, "dev-hook-url", &cfg.DevHookUrl)
 	getFlagOpt(c, "local-auth", &cfg.LocalAuth)
 	getFlagOpt(c, "token", &cfg.Token)
 	getFlagOpt(c, "password", &cfg.Password)
