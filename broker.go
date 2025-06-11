@@ -26,6 +26,11 @@ type session struct {
 	confirmed uint32
 }
 
+type devHookResp struct {
+	dev    *device
+	result bool
+}
+
 type broker struct {
 	cfg         *config.Config
 	devices     sync.Map
@@ -33,6 +38,7 @@ type broker struct {
 	logout      chan string
 	register    chan client.Client
 	unregister  chan client.Client
+	devHookCh   chan *devHookResp
 	sessions    sync.Map
 	termMessage chan *termMessage
 	fileMessage chan *fileMessage
@@ -53,6 +59,7 @@ func newBroker(cfg *config.Config) *broker {
 		logout:      make(chan string, 1000),
 		register:    make(chan client.Client, 1000),
 		unregister:  make(chan client.Client, 1000),
+		devHookCh:   make(chan *devHookResp, 1000),
 		termMessage: make(chan *termMessage, 1000),
 		fileMessage: make(chan *fileMessage, 1000),
 		userMessage: make(chan *usrMessage, 1000),
@@ -64,28 +71,37 @@ func newBroker(cfg *config.Config) *broker {
 	}
 }
 
-func devAuth(cfg *config.Config, dev *device) bool {
-	if cfg.Token != "" && dev.token != cfg.Token {
-		return false
-	}
-
-	if cfg.DevHookUrl == "" {
-		return true
-	}
-
+func deviceHook(br *broker, dev *device, url string) {
 	cli := &http.Client{
 		Timeout: 3 * time.Second,
 	}
 
 	data := fmt.Sprintf(`{"devid":"%s", "token":"%s"}`, dev.id, dev.token)
-	resp, err := cli.Post(cfg.DevHookUrl, "application/json", strings.NewReader(data))
+
+	resp, err := cli.Post(url, "application/json", strings.NewReader(data))
 	if err != nil {
 		log.Error().Msg("call device hook url fail:" + err.Error())
-		return false
+		br.devHookCh <- &devHookResp{dev: dev, result: false}
+		return
 	}
 	defer resp.Body.Close()
 
-	return resp.StatusCode == http.StatusOK
+	br.devHookCh <- &devHookResp{dev: dev, result: resp.StatusCode == http.StatusOK}
+}
+
+func deviceRegister(br *broker, dev *device, err byte, msg string) {
+	if err == 0 {
+		dev.registered = true
+		br.devices.Store(dev.id, dev)
+		log.Info().Msgf("Device '%s' registered, proto %d, heartbeat %v", dev.id, dev.proto, dev.heartbeat)
+	} else {
+		// ensure the last packet was sent
+		time.AfterFunc(time.Millisecond*100, func() {
+			dev.Close()
+		})
+	}
+
+	dev.WriteMsg(msgTypeRegister, append([]byte{err}, msg...))
 }
 
 func (br *broker) getDevice(devid string) (*device, bool) {
@@ -121,28 +137,23 @@ func (br *broker) run() {
 					log.Error().Msg("Device ID conflicting: " + devid)
 					msg = "ID conflicting"
 					err = 1
-				} else if !devAuth(br.cfg, dev) {
-					log.Error().Msgf("%s: auth failed", devid)
-					msg = "auth failed"
-					err = 1
 				} else if dev.proto < rttyProtoRequired {
 					log.Error().Msgf("%s: unsupported protocol version: %d, need %d", dev.id, dev.proto, rttyProtoRequired)
 					msg = "unsupported protocol"
 					err = 1
 				} else {
-					dev.registered = true
-					br.devices.Store(devid, c)
-					log.Info().Msgf("Device '%s' registered, proto %d, heartbeat %v", devid, dev.proto, dev.heartbeat)
+					cfg := br.cfg
+					if cfg.Token != "" && dev.token != cfg.Token {
+						log.Error().Msgf("%s: invalid token", devid)
+						msg = "auth failed"
+						err = 1
+					} else if cfg.DevHookUrl != "" {
+						go deviceHook(br, dev, cfg.DevHookUrl)
+						break
+					}
 				}
 
-				c.WriteMsg(msgTypeRegister, append([]byte{err}, msg...))
-
-				if err > 0 {
-					// ensure the last packet was sent
-					time.AfterFunc(time.Millisecond*100, func() {
-						dev.Close()
-					})
-				}
+				deviceRegister(br, dev, err, msg)
 			} else {
 				if dev, ok := br.getDevice(devid); ok {
 					sid := utils.GenUniqueID("sid")
@@ -213,6 +224,18 @@ func (br *broker) run() {
 					log.Info().Msg("Delete session: " + sid)
 				}
 			}
+
+		case res := <-br.devHookCh:
+			err := byte(0)
+			msg := "OK"
+
+			if !res.result {
+				err = 1
+				msg = "hook failed"
+				log.Error().Msgf("%s: Device hook failed", res.dev.id)
+			}
+
+			deviceRegister(br, res.dev, err, msg)
 
 		case msg := <-br.loginAck:
 			if s, ok := br.getSession(msg.sid); ok {
