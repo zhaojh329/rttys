@@ -10,8 +10,8 @@ export default defineConfig({
     vue(),
     eslint(),
     compression({
+      algorithms: ['gzip'],
       deleteOriginalAssets: true,
-      skipIfLargerOrEqual: true,
       threshold: 10240,
       filename: '[path][base]'
     }),
