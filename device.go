@@ -52,6 +52,21 @@ const (
 	msgHeartbeatAttrUptime = iota
 )
 
+const (
+	devRegErrUnsupportedProto = iota + 1
+	devRegErrInvalidToken
+	devRegErrHookFailed
+	devRegErrIdConflicting
+)
+
+var DevRegErrMsg = map[byte]string{
+	0:                         "Success",
+	devRegErrUnsupportedProto: "Unsupported protocol",
+	devRegErrInvalidToken:     "Invalid token",
+	devRegErrHookFailed:       "Hook failed",
+	devRegErrIdConflicting:    "ID conflict",
+}
+
 // Minimum protocol version requirements of rtty
 const rttyProtoRequired uint8 = 3
 
@@ -67,6 +82,7 @@ type device struct {
 	conn       net.Conn
 	registered bool
 	closed     uint32
+	err        byte
 	send       chan []byte // Buffered channel of outbound messages.
 }
 
@@ -315,7 +331,7 @@ func (dev *device) readLoop() {
 
 			logPrefix = dev.id
 
-			dev.br.register <- dev
+			dev.br.devRegister(dev)
 
 		case msgTypeLogin:
 			if msgLen < 33 {
