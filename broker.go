@@ -363,6 +363,7 @@ func (br *broker) run() {
 			if dev, ok := br.getDevice(devid); ok {
 				dev.WriteMsg(msgTypeHeartbeat, []byte{})
 			}
+
 		case req := <-br.cmdReq:
 			if dev, ok := br.getDevice(req.devid); ok {
 				dev.WriteMsg(msgTypeCmd, req.data)
