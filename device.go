@@ -41,6 +41,17 @@ const (
 	msgTypeFileAbort
 )
 
+const (
+	msgRegAttrHeartbeat = iota
+	msgRegAttrDevid
+	msgRegAttrDescription
+	msgRegAttrToken
+)
+
+const (
+	msgHeartbeatAttrUptime = iota
+)
+
 // Minimum protocol version requirements of rtty
 const rttyProtoRequired uint8 = 3
 
@@ -153,23 +164,35 @@ func (dev *device) Close() {
 }
 
 func parseDeviceInfo(dev *device, b []byte) bool {
-	if len(b) < 2 {
+	if len(b) < 1 {
 		return false
 	}
 
 	dev.proto = b[0]
 
 	if dev.proto > 4 {
-		if len(b) < 4 {
+		attrs := parseTLV(b[1:])
+		if attrs == nil {
 			return false
 		}
 
-		dev.heartbeat = time.Duration(binary.BigEndian.Uint16(b[1:3])) * time.Second
-		b = b[3:]
-	} else {
+		for typ, val := range attrs {
+			switch typ {
+			case msgRegAttrHeartbeat:
+				dev.heartbeat = time.Duration(val[0]) * time.Second
+			case msgRegAttrDevid:
+				dev.id = string(val)
+			case msgRegAttrDescription:
+				dev.desc = string(val)
+			case msgRegAttrToken:
+				dev.token = string(val)
+			}
+		}
 
-		b = b[1:]
+		return true
 	}
+
+	b = b[1:]
 
 	fields := bytes.Split(b, []byte{0})
 
@@ -184,8 +207,27 @@ func parseDeviceInfo(dev *device, b []byte) bool {
 	return true
 }
 
-func parseHeartbeat(dev *device, b []byte) {
-	dev.uptime = binary.BigEndian.Uint32(b[:4])
+func parseHeartbeat(dev *device, b []byte) bool {
+	if dev.proto > 4 {
+		attrs := parseTLV(b)
+		if attrs == nil {
+			return false
+		}
+
+		for typ, val := range attrs {
+			switch typ {
+			case msgHeartbeatAttrUptime:
+				dev.uptime = binary.BigEndian.Uint32(val)
+			}
+		}
+	} else {
+		if len(b) < 4 {
+			return false
+		}
+		dev.uptime = binary.BigEndian.Uint32(b[:4])
+	}
+
+	return true
 }
 
 func msgTypeName(typ byte) string {
@@ -327,11 +369,10 @@ func (dev *device) readLoop() {
 			dev.br.httpResp <- &httpResp{b, dev}
 
 		case msgTypeHeartbeat:
-			if msgLen < 4 {
+			if !parseHeartbeat(dev, b) {
 				log.Error().Msgf("%s: msgTypeHeartbeat: invalid", logPrefix)
 				return
 			}
-			parseHeartbeat(dev, b)
 			dev.br.heartbeat <- dev.id
 		default:
 			log.Error().Msgf("%s: invalid msg type: %d", logPrefix, typ)
