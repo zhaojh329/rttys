@@ -118,6 +118,21 @@ func apiStart(br *broker) {
 		c.JSON(http.StatusOK, devs)
 	})
 
+	authorized.GET("/dev/:devid", func(c *gin.Context) {
+		allowOrigin(c.Writer)
+
+		if dev, ok := br.getDevice(c.Param("devid")); ok {
+			c.JSON(http.StatusOK, gin.H{
+				"description": dev.desc,
+				"connected":   uint32(time.Now().Unix() - dev.timestamp),
+				"uptime":      dev.uptime,
+				"proto":       dev.proto,
+			})
+		} else {
+			c.Status(http.StatusNotFound)
+		}
+	})
+
 	authorized.POST("/cmd/:devid", func(c *gin.Context) {
 		allowOrigin(c.Writer)
 
