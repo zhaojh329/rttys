@@ -30,16 +30,12 @@ export default {
         password: this.formValue.password
       }
 
-      this.axios.post('/signin', params).then(res => {
-        sessionStorage.setItem('rttys-sid', res.data.sid)
+      this.axios.post('/signin', params).then(() => {
         this.$router.push('/')
       }).catch(() => {
         this.$message.error(this.$t('Signin Fail! password wrong.'))
       })
     }
-  },
-  created() {
-    sessionStorage.removeItem('rttys-sid')
   }
 }
 </script>

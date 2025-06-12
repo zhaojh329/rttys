@@ -9,15 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"rttys/cache"
 	"rttys/config"
 	"rttys/utils"
 
+	"github.com/fanjindong/go-cache"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
-var httpSessions *cache.Cache
+var httpSessions = cache.NewMemCache(cache.WithClearInterval(time.Minute))
+
+const httpSessionExpire = 30 * time.Minute
 
 //go:embed ui/dist
 var staticFs embed.FS
@@ -42,20 +44,18 @@ func httpAuth(cfg *config.Config, c *gin.Context) bool {
 		return true
 	}
 
-	cookie, err := c.Cookie("sid")
-	if err != nil || !httpSessions.Have(cookie) {
+	sid, err := c.Cookie("sid")
+	if err != nil || !httpSessions.Exists(sid) {
 		return false
 	}
 
-	httpSessions.Active(cookie, 0)
+	httpSessions.Expire(sid, httpSessionExpire)
 
 	return true
 }
 
 func apiStart(br *broker) {
 	cfg := br.cfg
-
-	httpSessions = cache.New(30*time.Minute, 5*time.Second)
 
 	gin.SetMode(gin.ReleaseMode)
 
@@ -129,12 +129,12 @@ func apiStart(br *broker) {
 	})
 
 	authorized.GET("/signout", func(c *gin.Context) {
-		cookie, err := c.Cookie("sid")
-		if err != nil || !httpSessions.Have(cookie) {
+		sid, err := c.Cookie("sid")
+		if err != nil || !httpSessions.Exists(sid) {
 			return
 		}
 
-		httpSessions.Del(cookie)
+		httpSessions.Del(sid)
 
 		c.Status(http.StatusOK)
 	})
@@ -180,17 +180,15 @@ func apiStart(br *broker) {
 
 		if httpLogin(cfg, creds.Password) {
 			sid := utils.GenUniqueID("http")
-			httpSessions.Set(sid, true, 0)
+
+			httpSessions.Set(sid, true, cache.WithEx(httpSessionExpire))
 
 			c.SetCookie("sid", sid, 0, "", "", false, true)
-
-			c.JSON(http.StatusOK, gin.H{
-				"sid": sid,
-			})
+			c.Status(http.StatusOK)
 			return
 		}
 
-		c.Status(http.StatusForbidden)
+		c.Status(http.StatusUnauthorized)
 	})
 
 	r.GET("/alive", func(c *gin.Context) {

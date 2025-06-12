@@ -14,6 +14,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dwdcth/consoleEx v0.0.0-20180521133551-f56f6eb78b76 h1:eObfFy0e/9OQCd5tHy+855jrW7zTihdgIPD7hf2SOQ0=
 github.com/dwdcth/consoleEx v0.0.0-20180521133551-f56f6eb78b76/go.mod h1:WPzFRpaqRmrZAD1vMpqUGZR24FE1EBoSG9lHKQyZOMM=
+github.com/fanjindong/go-cache v0.0.6 h1:4xl8MnfW8pFLH9cRjs0uNfVbFNqV342yl/pgX3Ql9gM=
+github.com/fanjindong/go-cache v0.0.6/go.mod h1:gxehZ3SqUVta6eFBJAcDlXDT2Q9piXkUqv7s4E0Vj6o=
 github.com/gabriel-vasile/mimetype v1.4.9 h1:5k+WDwEsD9eTLL8Tz3L0VnmVh9QxGjRmjBvAG7U/oYY=
 github.com/gabriel-vasile/mimetype v1.4.9/go.mod h1:WnSQhFKJuBlRyLiKohA/2DtIlPFAbguNaG7QCHcyGok=
 github.com/gin-contrib/sse v1.1.0 h1:n0w2GMuUpWDVp7qSpvze6fAu9iRxJY4Hmj6AmBOU05w=
