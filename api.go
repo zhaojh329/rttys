@@ -13,6 +13,7 @@ import (
 	"rttys/utils"
 
 	"github.com/fanjindong/go-cache"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -23,12 +24,6 @@ const httpSessionExpire = 30 * time.Minute
 
 //go:embed ui/dist
 var staticFs embed.FS
-
-func allowOrigin(w http.ResponseWriter) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("content-type", "application/json")
-}
 
 func httpLogin(cfg *config.Config, password string) bool {
 	return cfg.Password == "" || cfg.Password == password
@@ -62,6 +57,11 @@ func apiStart(br *broker) {
 	r := gin.New()
 
 	r.Use(gin.Recovery())
+
+	if cfg.AllowOrigins {
+		log.Debug().Msg("Allow all origins")
+		r.Use(cors.Default())
+	}
 
 	authorized := r.Group("/", func(c *gin.Context) {
 		if !cfg.LocalAuth && isLocalRequest(c) {
@@ -113,14 +113,10 @@ func apiStart(br *broker) {
 			return true
 		})
 
-		allowOrigin(c.Writer)
-
 		c.JSON(http.StatusOK, devs)
 	})
 
 	authorized.GET("/dev/:devid", func(c *gin.Context) {
-		allowOrigin(c.Writer)
-
 		if dev, ok := br.getDevice(c.Param("devid")); ok {
 			c.JSON(http.StatusOK, gin.H{
 				"description": dev.desc,
@@ -134,8 +130,6 @@ func apiStart(br *broker) {
 	})
 
 	authorized.POST("/cmd/:devid", func(c *gin.Context) {
-		allowOrigin(c.Writer)
-
 		handleCmdReq(br, c)
 	})
 

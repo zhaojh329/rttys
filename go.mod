@@ -7,6 +7,7 @@ toolchain go1.24.4
 require (
 	github.com/dwdcth/consoleEx v0.0.0-20180521133551-f56f6eb78b76
 	github.com/fanjindong/go-cache v0.0.6
+	github.com/gin-contrib/cors v1.7.5
 	github.com/gin-gonic/gin v1.10.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
