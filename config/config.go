@@ -27,6 +27,7 @@ type Config struct {
 	LocalAuth            bool
 	SeparateSslConfig    bool
 	Password             string
+	AllowOrigins         bool
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt any) {
@@ -70,6 +71,7 @@ func parseYamlCfg(cfg *Config, conf string) error {
 	getConfigOpt(yamlCfg, "dev-hook-url", &cfg.DevHookUrl)
 	getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
 	getConfigOpt(yamlCfg, "password", &cfg.Password)
+	getConfigOpt(yamlCfg, "allow-origins", &cfg.AllowOrigins)
 
 	return nil
 }
@@ -114,6 +116,7 @@ func Parse(c *cli.Context) (*Config, error) {
 	getFlagOpt(c, "local-auth", &cfg.LocalAuth)
 	getFlagOpt(c, "token", &cfg.Token)
 	getFlagOpt(c, "password", &cfg.Password)
+	getFlagOpt(c, "allow-origins", &cfg.AllowOrigins)
 
 	getFlagOpt(c, "ssl-cacert", &cfg.SslCacert)
 	getFlagOpt(c, "ssl-cert", &cfg.SslCert)

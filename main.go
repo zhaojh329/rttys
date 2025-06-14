@@ -148,6 +148,10 @@ func main() {
 						Usage: "web management password",
 					},
 					&cli.BoolFlag{
+						Name:  "allow-origins",
+						Usage: "allow all origins for cross-domain request",
+					},
+					&cli.BoolFlag{
 						Name:    "verbose",
 						Aliases: []string{"V"},
 						Usage:   "more detailed output",
