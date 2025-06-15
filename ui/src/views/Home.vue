@@ -41,6 +41,7 @@
     </el-table>
     <el-pagination background layout="prev, pager, next, total,sizes" :total="filteredDevices.length" @change="handlePageChange"/>
     <RttyCmd ref="rttyCmd" :selection="selection"/>
+    <RttyWeb ref="rttyWeb"/>
   </div>
 </template>
 
@@ -48,13 +49,15 @@
 import { InternetExplorer as IEIcon } from '@vicons/fa'
 import { Terminal as TerminalIcon } from '@vicons/ionicons5'
 import RttyCmd from '../components/RttyCmd.vue'
+import RttyWeb from '../components/RttyWeb.vue'
 
 export default {
   name: 'Home',
   components: {
     IEIcon,
     TerminalIcon,
-    RttyCmd
+    RttyCmd,
+    RttyWeb
   },
   data() {
     return {
@@ -138,57 +141,8 @@ export default {
     connectDevice(devid) {
       window.open('/rtty/' + devid)
     },
-    isValidURL(url) {
-      const ipv4Pattern = '(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
-      const urlPattern = new RegExp(`^https?:\\/\\/${ipv4Pattern}(?::\\d{1,5})?(?:\\/[^\\s]*)?$`)
-      return urlPattern.test(url)
-    },
-    parseURL(url) {
-      const result = {
-        proto: 'http',
-        ip: '',
-        port: '80',
-        path: '/'
-      }
-
-      if (url.startsWith('https://')) {
-        result.proto = 'https'
-        url = url.substring(8)
-        result.port = '443'
-      } else if (url.startsWith('http://')) {
-        url = url.substring(7)
-      }
-
-      const [address, ...pathParts] = url.split('/')
-
-      result.path = pathParts.length > 0 ? '/' + pathParts.join('/') : '/'
-
-      const [ip, port] = address.split(':')
-      result.ip = ip
-      if (port) {
-        result.port = port
-      }
-
-      return result
-    },
     connectDeviceWeb(dev) {
-      this.$prompt(this.$t('Please enter the address you want to access'), '', {
-        confirmButtonText: this.$t('OK'),
-        cancelButtonText: this.$t('Cancel'),
-        inputValue: 'http://127.0.0.1',
-        inputValidator: this.isValidURL,
-        inputErrorMessage: this.$t('Invalid Address')
-      }).then(({ value }) => {
-        const url = this.parseURL(value)
-
-        if (dev.proto < 4 && url.proto === 'https') {
-          this.$message.error(this.$t('Your device\'s rtty does not support https proxy, please upgrade it.'))
-          return
-        }
-
-        const addr = encodeURIComponent(`${url.ip}:${url.port}${url.path}`)
-        window.open(`/web/${dev.id}/${url.proto}/${addr}`)
-      })
+      this.$refs.rttyWeb.show(dev)
     },
     showCmdForm() {
       this.$refs.rttyCmd.showCmdForm()

@@ -51,11 +51,18 @@
   "Please execute command \"rtty -R\" or \"rtty -S\" in current terminal!": "Please execute command \"rtty -R\" or \"rtty -S\" in current terminal!",
   "Access your device's Shell": "Access your device's Shell",
   "Access your devices's Web": "Access your devices's Web",
-  "Please enter the address you want to access": "Please enter the address you want to access:",
+  "Proto": "Proto",
+  "ipaddr": "IP address",
+  "port": "Port",
+  "path": "Path",
+  "Please input ipaddr": "Please input ipaddr",
+  "Please input port": "Please input port",
+  "Please input path": "Please input path",
   "The file you will upload is too large(> 4294967295 Byte)": "The file you will upload is too large(> 4294967295 Byte)",
-  "Invalid address": "Invalid address",
+  "Invalid IP address": "Invalid IP address",
+  "Invalid port": "Invalid port",
+  "Must start with /": "Must start with /",
   "Already copied to clipboard": "Already copied to clipboard",
   "Please use shortcut \"Shift+Insert\"": "Please use shortcut \"Shift+Insert\"",
-  "Your device's rtty does not support https proxy, please upgrade it.": "Your device's rtty does not support https proxy, please upgrade it.",
-  "Invalid Address": "Invalid Address"
+  "Your device's rtty does not support https proxy, please upgrade it.": "Your device's rtty does not support https proxy, please upgrade it."
 }
