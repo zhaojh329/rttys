@@ -37,7 +37,6 @@ type broker struct {
 	termMessage chan *termMessage
 	fileMessage chan *fileMessage
 	userMessage chan *usrMessage
-	heartbeat   chan string
 	cmdResp     chan []byte
 	cmdReq      chan *commandReq
 	httpResp    chan *httpResp
@@ -56,7 +55,6 @@ func newBroker(cfg *config.Config) *broker {
 		termMessage: make(chan *termMessage, 1000),
 		fileMessage: make(chan *fileMessage, 1000),
 		userMessage: make(chan *usrMessage, 1000),
-		heartbeat:   make(chan string, 1000),
 		cmdResp:     make(chan []byte, 1000),
 		cmdReq:      make(chan *commandReq, 1000),
 		httpResp:    make(chan *httpResp, 1000),
@@ -347,11 +345,6 @@ func (br *broker) run() {
 				}
 			} else {
 				log.Error().Msg("Not found sid: " + msg.sid)
-			}
-
-		case devid := <-br.heartbeat:
-			if dev, ok := br.getDevice(devid); ok {
-				dev.WriteMsg(msgTypeHeartbeat, []byte{})
 			}
 
 		case req := <-br.cmdReq:

@@ -150,12 +150,16 @@ func (dev *device) DeviceID() string {
 	return dev.id
 }
 
-func (dev *device) WriteMsg(typ int, data []byte) {
+func buildMsg(typ int, data []byte) []byte {
 	b := []byte{byte(typ), 0, 0}
 
 	binary.BigEndian.PutUint16(b[1:], uint16(len(data)))
 
-	dev.send <- append(b, data...)
+	return append(b, data...)
+}
+
+func (dev *device) WriteMsg(typ int, data []byte) {
+	dev.send <- buildMsg(typ, data)
 }
 
 func (dev *device) Closed() bool {
@@ -390,7 +394,13 @@ func (dev *device) readLoop() {
 				log.Error().Msgf("%s: msgTypeHeartbeat: invalid", logPrefix)
 				return
 			}
-			dev.br.heartbeat <- dev.id
+
+			_, err := dev.conn.Write(buildMsg(msgTypeHeartbeat, []byte{}))
+			if err != nil {
+				log.Error().Msg(err.Error())
+				return
+			}
+
 		default:
 			log.Error().Msgf("%s: invalid msg type: %d", logPrefix, typ)
 		}
