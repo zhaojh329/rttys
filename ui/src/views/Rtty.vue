@@ -31,7 +31,7 @@ const LoginErrorBusy = 0x02
 
 const MsgTypeFileData = 0x03
 
-const ReadFileBlkSize = 16 * 1024
+const ReadFileBlkSize = 63 * 1024
 
 const AckBlkSize = 4 * 1024
 
