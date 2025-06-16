@@ -331,6 +331,8 @@ func (dev *device) readLoop() {
 
 			logPrefix = dev.id
 
+			tmr.Stop()
+
 			dev.br.devRegister(dev)
 
 		case msgTypeLogin:
