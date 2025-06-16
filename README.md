@@ -9,8 +9,6 @@
 [7]: https://img.shields.io/badge/release-4.4.5-blue.svg?style=plastic
 [8]: https://github.com/zhaojh329/rttys/releases
 [9]: https://github.com/zhaojh329/rttys/workflows/build/badge.svg
-[10]: https://raw.githubusercontent.com/CodePhiliaX/resource-trusteeship/main/readmex.svg
-[11]: https://readmex.com/zhaojh329/rttys
 [12]: https://deepwiki.com/badge.svg
 [13]: https://deepwiki.com/zhaojh329/rttys
 
@@ -19,7 +17,6 @@
 [![Issue Welcome][5]][6]
 [![Release Version][7]][8]
 ![Build Status][9]
-[![ReadmeX][10]][11]
 [![Ask DeepWiki][12]][13]
 
 This is the server program of [rtty](https://github.com/zhaojh329/rtty)
