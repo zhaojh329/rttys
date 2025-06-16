@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"rttys/client"
@@ -24,7 +24,8 @@ type user struct {
 	sid    string
 	devid  string
 	conn   *websocket.Conn
-	closed uint32
+	closed bool
+	close  sync.Once
 	send   chan *usrMessage // Buffered channel of outbound messages.
 }
 
@@ -56,7 +57,7 @@ func (u *user) WriteMsg(typ int, data []byte) {
 }
 
 func (u *user) Closed() bool {
-	return atomic.LoadUint32(&u.closed) == 1
+	return u.closed
 }
 
 func (u *user) CloseConn() {
@@ -64,15 +65,11 @@ func (u *user) CloseConn() {
 }
 
 func (u *user) Close() {
-	if u.Closed() {
-		return
-	}
-
-	atomic.StoreUint32(&u.closed, 1)
-
-	u.CloseConn()
-
-	close(u.send)
+	u.close.Do(func() {
+		u.closed = true
+		u.CloseConn()
+		close(u.send)
+	})
 }
 
 func userLoginAck(code int, c client.Client) {

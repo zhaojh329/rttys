@@ -12,7 +12,7 @@ import (
 	"os"
 	"rttys/client"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -81,7 +81,8 @@ type device struct {
 	token      string
 	conn       net.Conn
 	registered bool
-	closed     uint32
+	closed     bool
+	close      sync.Once
 	err        byte
 	send       chan []byte // Buffered channel of outbound messages.
 }
@@ -158,7 +159,7 @@ func (dev *device) WriteMsg(typ int, data []byte) {
 }
 
 func (dev *device) Closed() bool {
-	return atomic.LoadUint32(&dev.closed) == 1
+	return dev.closed
 }
 
 func (dev *device) CloseConn() {
@@ -166,17 +167,15 @@ func (dev *device) CloseConn() {
 }
 
 func (dev *device) Close() {
-	if dev.Closed() {
-		return
-	}
+	dev.close.Do(func() {
+		dev.closed = true
 
-	atomic.StoreUint32(&dev.closed, 1)
+		log.Debug().Msgf("Device '%s' disconnected", dev.conn.RemoteAddr())
 
-	log.Debug().Msgf("Device '%s' disconnected", dev.conn.RemoteAddr())
+		dev.CloseConn()
 
-	dev.CloseConn()
-
-	close(dev.send)
+		close(dev.send)
+	})
 }
 
 func parseDeviceInfo(dev *device, b []byte) bool {
