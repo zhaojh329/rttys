@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"rttys/client"
@@ -23,7 +22,7 @@ import (
 type session struct {
 	dev       client.Client
 	user      client.Client
-	confirmed uint32
+	confirmed bool
 }
 
 type broker struct {
@@ -166,7 +165,7 @@ func (br *broker) run() {
 					}
 
 					time.AfterFunc(time.Second*3, func() {
-						if atomic.LoadUint32(&s.confirmed) == 0 {
+						if !s.confirmed {
 							log.Error().Msgf("Session '%s' confirm timeout", sid)
 							c.CloseConn()
 						}
@@ -231,7 +230,7 @@ func (br *broker) run() {
 					userLoginAck(loginErrorBusy, s.user)
 					log.Error().Msg("login fail, device busy")
 				} else {
-					atomic.StoreUint32(&s.confirmed, 1)
+					s.confirmed = true
 
 					userLoginAck(loginErrorNone, s.user)
 				}
