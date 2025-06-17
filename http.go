@@ -364,7 +364,7 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 		}
 	}
 
-	sid = utils.GenUniqueID("http-proxy")
+	sid = utils.GenUniqueID()
 
 	httpProxySessions.Store(sid, make(chan struct{}))
 

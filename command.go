@@ -91,7 +91,7 @@ func handleCmdReq(br *broker, c *gin.Context) {
 		return
 	}
 
-	token := utils.GenUniqueID("cmd")
+	token := utils.GenUniqueID()
 
 	params := jsoniter.Get(content, "params")
 

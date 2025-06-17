@@ -188,7 +188,7 @@ func apiStart(br *broker) {
 		}
 
 		if httpLogin(cfg, creds.Password) {
-			sid := utils.GenUniqueID("http")
+			sid := utils.GenUniqueID()
 
 			httpSessions.Set(sid, true, cache.WithEx(httpSessionExpire))
 

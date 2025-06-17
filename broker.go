@@ -155,7 +155,7 @@ func (br *broker) run() {
 				dev.WriteMsg(msgTypeRegister, append([]byte{dev.err}, DevRegErrMsg[dev.err]...))
 			} else {
 				if dev, ok := br.getDevice(devid); ok {
-					sid := utils.GenUniqueID("sid")
+					sid := utils.GenUniqueID()
 
 					c.(*user).sid = sid
 
