@@ -38,17 +38,15 @@ as the password for device connecting.
     $ rttys run -t 34762d07637276694b938d23f10d7164
 
 ### Use your own authentication server
-If the device authentication URL is configured, when the device connecting,
-rttys will initiate an authentication request to this URL, and the authentication
+If the device hook URL is configured, when the device connecting,
+rttys will initiate a request to this URL, and the authentication
 server will return whether the authentication has been passed.
 
 Request data format:
 
     {"devid":"test", "token":"34762d07637276694b938d23f10d7164"}
 
-Authentication Server Response Format:
-
-    {"auth": true}
+Authentication Server Response HTTP 200 to indicate that the device is allowed to connect.
 
 ### mTLS
 You can enable mTLS by specifying device CA storage (valid file) in config file or from CLI (variable ssl-cacert).

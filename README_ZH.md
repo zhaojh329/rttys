@@ -37,15 +37,13 @@ golang and node 20+ is required
     $ rttys -t 34762d07637276694b938d23f10d7164
 
 ### 使用自己的认证服务器
-如果配置了设备认证 url, 设备连接时, rttys 会向此 url 发起认证请求, 认证服务器返回是否通过认证.
+如果配置了设备 hook url, 设备连接时, rttys 会向此 url 发起请求, 认证服务器返回是否通过认证.
 
 请求数据格式:
 
     {"devid":"test", "token":"34762d07637276694b938d23f10d7164"}
 
-认证服务器响应格式:
-
-    {"auth": true}
+认证服务器响应 HTTP 200 表示允许设备连接.
 
 ### SSL 双向认证(mTLS)
 您可以在配置文件中指定设备 CA 存储(有效文件)或在 CLI 中指定设备 CA 存储(参数 ssl-cacert) 来启用 mTLS。
