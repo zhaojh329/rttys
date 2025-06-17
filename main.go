@@ -6,7 +6,6 @@ import (
 	"runtime"
 
 	"rttys/config"
-	"rttys/utils"
 	"rttys/version"
 
 	xlog "rttys/log"
@@ -75,103 +74,86 @@ func main() {
 		Name:    "rttys",
 		Usage:   "The server side for rtty",
 		Version: version.Version(),
-		Commands: []*cli.Command{
-			{
-				Name:  "run",
-				Usage: "Run rttys",
-				Flags: []cli.Flag{
-					&cli.StringFlag{
-						Name:  "log",
-						Value: defaultLogPath,
-						Usage: "log file path",
-					},
-					&cli.StringFlag{
-						Name:  "log-level",
-						Value: "info",
-						Usage: "log level(debug, info, warn, error)",
-					},
-					&cli.StringFlag{
-						Name:    "conf",
-						Aliases: []string{"c"},
-						Usage:   "config file to load",
-					},
-					&cli.StringFlag{
-						Name:  "addr-dev",
-						Value: ":5912",
-						Usage: "address to listen device",
-					},
-					&cli.StringFlag{
-						Name:  "addr-user",
-						Value: ":5913",
-						Usage: "address to listen user",
-					},
-					&cli.StringFlag{
-						Name:  "addr-http-proxy",
-						Usage: "address to listen for HTTP proxy (default auto)",
-					},
-					&cli.StringFlag{
-						Name:  "http-proxy-redir-url",
-						Usage: "url to redirect for HTTP proxy",
-					},
-					&cli.StringFlag{
-						Name:  "http-proxy-redir-domain",
-						Usage: "domain for HTTP proxy set cookie",
-					},
-					&cli.StringFlag{
-						Name:  "ssl-cert",
-						Usage: "ssl cert file Path",
-					},
-					&cli.StringFlag{
-						Name:  "ssl-key",
-						Usage: "ssl key file Path",
-					},
-					&cli.StringFlag{
-						Name:  "ssl-cacert",
-						Usage: "mtls CA storage in PEM file Path",
-					},
-					&cli.StringFlag{
-						Name:    "token",
-						Aliases: []string{"t"},
-						Usage:   "token to use",
-					},
-					&cli.StringFlag{
-						Name:  "dev-hook-url",
-						Usage: "called when the device is connected",
-					},
-					&cli.BoolFlag{
-						Name:  "local-auth",
-						Value: true,
-						Usage: "need auth for local",
-					},
-					&cli.StringFlag{
-						Name:  "password",
-						Usage: "web management password",
-					},
-					&cli.BoolFlag{
-						Name:  "allow-origins",
-						Usage: "allow all origins for cross-domain request",
-					},
-					&cli.BoolFlag{
-						Name:    "verbose",
-						Aliases: []string{"V"},
-						Usage:   "more detailed output",
-					},
-				},
-				Action: func(c *cli.Context) error {
-					return runRttys(c)
-				},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "log",
+				Value: defaultLogPath,
+				Usage: "log file path",
 			},
-			{
-				Name:  "token",
-				Usage: "Generate a token",
-				Action: func(c *cli.Context) error {
-					utils.GenToken()
-					return nil
-				},
+			&cli.StringFlag{
+				Name:  "log-level",
+				Value: "info",
+				Usage: "log level(debug, info, warn, error)",
+			},
+			&cli.StringFlag{
+				Name:    "conf",
+				Aliases: []string{"c"},
+				Usage:   "config file to load",
+			},
+			&cli.StringFlag{
+				Name:  "addr-dev",
+				Value: ":5912",
+				Usage: "address to listen device",
+			},
+			&cli.StringFlag{
+				Name:  "addr-user",
+				Value: ":5913",
+				Usage: "address to listen user",
+			},
+			&cli.StringFlag{
+				Name:  "addr-http-proxy",
+				Usage: "address to listen for HTTP proxy (default auto)",
+			},
+			&cli.StringFlag{
+				Name:  "http-proxy-redir-url",
+				Usage: "url to redirect for HTTP proxy",
+			},
+			&cli.StringFlag{
+				Name:  "http-proxy-redir-domain",
+				Usage: "domain for HTTP proxy set cookie",
+			},
+			&cli.StringFlag{
+				Name:  "ssl-cert",
+				Usage: "ssl cert file Path",
+			},
+			&cli.StringFlag{
+				Name:  "ssl-key",
+				Usage: "ssl key file Path",
+			},
+			&cli.StringFlag{
+				Name:  "ssl-cacert",
+				Usage: "mtls CA storage in PEM file Path",
+			},
+			&cli.StringFlag{
+				Name:    "token",
+				Aliases: []string{"t"},
+				Usage:   "token to use",
+			},
+			&cli.StringFlag{
+				Name:  "dev-hook-url",
+				Usage: "called when the device is connected",
+			},
+			&cli.BoolFlag{
+				Name:  "local-auth",
+				Value: true,
+				Usage: "need auth for local",
+			},
+			&cli.StringFlag{
+				Name:  "password",
+				Usage: "web management password",
+			},
+			&cli.BoolFlag{
+				Name:  "allow-origins",
+				Usage: "allow all origins for cross-domain request",
+			},
+			&cli.BoolFlag{
+				Name:    "verbose",
+				Aliases: []string{"V"},
+				Usage:   "more detailed output",
 			},
 		},
 		Action: func(c *cli.Context) error {
-			return c.App.Command("run").Run(c)
+			return runRttys(c)
 		},
 	}
 

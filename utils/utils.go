@@ -5,13 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"io"
-	"os"
 	"time"
-
-	"github.com/howeyc/gopass"
-	"github.com/rs/zerolog/log"
 )
 
 // GenUniqueID generate a unique ID
@@ -26,16 +21,4 @@ func GenUniqueID(extra string) string {
 	h.Write([]byte(extra))
 
 	return hex.EncodeToString(h.Sum(nil))
-}
-
-// GenToken generate a token
-func GenToken() {
-	password, err := gopass.GetPasswdPrompt("Please set a password:", true, os.Stdin, os.Stdout)
-	if err != nil {
-		log.Fatal().Msg(err.Error())
-	}
-
-	token := GenUniqueID(string(password))
-
-	fmt.Println("Your token is:", token)
 }

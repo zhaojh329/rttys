@@ -32,13 +32,7 @@ golang and node 20+ is required
 
 ## 认证(可选)
 ### Token
-生成一个 token
-
-    $ rttys token
-    Please set a password:******
-    Your token is: 34762d07637276694b938d23f10d7164
-
-使用 token
+一个随机字符串，由用户自己生成，可以被认为是设备连接时的密码.
 
     $ rttys -t 34762d07637276694b938d23f10d7164
 
@@ -147,14 +141,14 @@ server {
 ## Docker
 
     sudo docker run -it -p 5912:5912 -p 5913:5913 -p 5914:5914 zhaojh329/rttys:latest \
-        run --addr-http-proxy :5914
+        --addr-http-proxy :5914
 
 使用配置文件
 
     sudo mkdir -p /opt/rttys
     sudo sh -c 'echo "addr-http-proxy: :5914" > /opt/rttys/rttys.conf'
     sudo docker run -it -p 5912:5912 -p 5913:5913 -p 5914:5914 -v /opt/rttys:/etc/rttys \
-        zhaojh329/rttys:latest run -conf /etc/rttys/rttys.conf
+        zhaojh329/rttys:latest -conf /etc/rttys/rttys.conf
 
 ## 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
