@@ -104,20 +104,23 @@ func (u *user) writeLoop() {
 	}()
 
 	for {
+		var err error
+
 		select {
 		case <-ticker.C:
-			u.WriteMsg(websocket.PingMessage, []byte{})
+			err = u.conn.WriteMessage(websocket.PingMessage, []byte{})
 
 		case msg, ok := <-u.send:
 			if !ok {
 				return
 			}
 
-			err := u.conn.WriteMessage(msg.typ, msg.data)
-			if err != nil {
-				log.Error().Msg(err.Error())
-				return
-			}
+			err = u.conn.WriteMessage(msg.typ, msg.data)
+		}
+
+		if err != nil {
+			log.Error().Msg(err.Error())
+			return
 		}
 	}
 }
