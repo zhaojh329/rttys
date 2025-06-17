@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/kylelemons/go-gypsy/yaml"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // Config struct
@@ -76,7 +76,7 @@ func parseYamlCfg(cfg *Config, conf string) error {
 	return nil
 }
 
-func getFlagOpt(c *cli.Context, name string, opt any) {
+func getFlagOpt(c *cli.Command, name string, opt any) {
 	if !c.IsSet(name) {
 		return
 	}
@@ -92,7 +92,7 @@ func getFlagOpt(c *cli.Context, name string, opt any) {
 }
 
 // Parse config
-func Parse(c *cli.Context) (*Config, error) {
+func Parse(c *cli.Command) (*Config, error) {
 	cfg := &Config{
 		AddrDev:   ":5912",
 		AddrUser:  ":5913",

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
 	"runtime"
 
@@ -12,10 +12,10 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
-func runRttys(c *cli.Context) error {
+func runRttys(c *cli.Command) error {
 	xlog.SetPath(c.String("log"))
 
 	switch c.String("log-level") {
@@ -70,7 +70,7 @@ func main() {
 		defaultLogPath = "rttys.log"
 	}
 
-	app := &cli.App{
+	cmd := &cli.Command{
 		Name:    "rttys",
 		Usage:   "The server side for rtty",
 		Version: version.Version(),
@@ -152,14 +152,13 @@ func main() {
 				Usage:   "more detailed output",
 			},
 		},
-		Action: func(c *cli.Context) error {
-			return runRttys(c)
+		Action: func(c context.Context, cmd *cli.Command) error {
+			return runRttys(cmd)
 		},
 	}
 
-	err := app.Run(os.Args)
+	err := cmd.Run(context.Background(), os.Args)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal().Msg(err.Error())
 	}
 }
