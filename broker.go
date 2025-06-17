@@ -69,8 +69,8 @@ func (br *broker) getDevice(devid string) (*device, bool) {
 }
 
 func (br *broker) getSession(sid string) (*session, bool) {
-	if dev, ok := br.sessions.Load(sid); ok {
-		return dev.(*session), true
+	if s, ok := br.sessions.Load(sid); ok {
+		return s.(*session), true
 	}
 	return nil, false
 }
