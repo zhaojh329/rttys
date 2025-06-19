@@ -25,6 +25,7 @@
   "Cancel": "取消",
   "OK": "确定",
   "Ignore": "忽略",
+  "username is required": "用户名为必填项",
   "command is required": "命令为必填项",
   "must be an integer between 0 and 30": "必须是 0 到 30 之间的整数",
   "Parameter": "参数",

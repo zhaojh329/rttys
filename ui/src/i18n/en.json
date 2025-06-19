@@ -25,6 +25,7 @@
   "Cancel": "Cancel",
   "OK": "OK",
   "Ignore": "Ignore",
+  "username is required": "username is required",
   "command is required": "command is required",
   "must be an integer between 0 and 30": "must be an integer between 0 and 30",
   "Parameter": "Parameter",
