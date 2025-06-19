@@ -148,6 +148,9 @@ server {
     sudo docker run -it -p 5912:5912 -p 5913:5913 -p 5914:5914 -v /opt/rttys:/etc/rttys \
         zhaojh329/rttys:latest -conf /etc/rttys/rttys.conf
 
+## Star History
+[![Star History Chart](https://api.star-history.com/svg?repos=zhaojh329/rttys&type=Date)](https://www.star-history.com/#zhaojh329/rttys&Date)
+
 ## 贡献代码
 如果你想帮助[rttys](https://github.com/zhaojh329/rttys)变得更好，请参考
 [CONTRIBUTING_ZH.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING_ZH.md)。
