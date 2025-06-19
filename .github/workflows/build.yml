@@ -7,13 +7,13 @@ jobs:
       matrix:
         target: [ linux.amd64, linux.arm64 ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
       - uses: actions/setup-go@v5
         with:
-          go-version: 1.23.3
-      - uses: actions/setup-node@v3
+          go-version: 1.24.4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
       - name: ui
