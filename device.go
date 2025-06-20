@@ -403,6 +403,7 @@ func (dev *device) readLoop() {
 
 		default:
 			log.Error().Msgf("%s: invalid msg type: %d", logPrefix, typ)
+			return
 		}
 
 		tmr.Reset(dev.heartbeat * 3 / 2)
