@@ -179,7 +179,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 			}
 		}()
 	} else {
-		log.Debug().Msgf(`not found session "%s", devid "%s"`, sid, devid)
+		log.Debug().Msgf(`not found httpProxySession "%s", devid "%s"`, sid, devid)
 		return
 	}
 
