@@ -16,6 +16,7 @@ import (
 	"rttys/client"
 	"rttys/utils"
 
+	"github.com/fanjindong/go-cache"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -31,7 +32,10 @@ type httpReq struct {
 }
 
 var httpProxyCons sync.Map
-var httpProxySessions sync.Map
+
+var httpProxySessions = cache.NewMemCache(cache.WithClearInterval(time.Minute))
+
+const httpProxySessionsExpire = 15 * time.Minute
 
 func handleHttpProxyResp(resp *httpResp) {
 	data := resp.data
@@ -164,7 +168,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 
 	exit := make(chan struct{})
 
-	if v, ok := httpProxySessions.Load(sid); ok {
+	if v, ok := httpProxySessions.Get(sid); ok {
 		go func() {
 			select {
 			case <-v.(chan struct{}):
@@ -201,6 +205,8 @@ func doHttpProxy(brk *broker, c net.Conn) {
 			}
 
 			sendHttpReq(brk, dev, https, srcAddr, destAddr, b[:n])
+
+			httpProxySessions.Expire(sid, httpProxySessionsExpire)
 		}
 	} else {
 		for {
@@ -211,6 +217,8 @@ func doHttpProxy(brk *broker, c net.Conn) {
 			}
 
 			hpw.WriteRequest(req)
+
+			httpProxySessions.Expire(sid, httpProxySessionsExpire)
 		}
 	}
 }
@@ -357,16 +365,16 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 
 	sid, err := c.Cookie("rtty-http-sid")
 	if err == nil {
-		if v, ok := httpProxySessions.Load(sid); ok {
+		if v, ok := httpProxySessions.Get(sid); ok {
 			close(v.(chan struct{}))
-			httpProxySessions.Delete(sid)
+			httpProxySessions.Del(sid)
 			log.Debug().Msgf(`del old httpProxySession "%s" for device "%s"`, sid, devid)
 		}
 	}
 
 	sid = utils.GenUniqueID()
 
-	httpProxySessions.Store(sid, make(chan struct{}))
+	httpProxySessions.Set(sid, make(chan struct{}), cache.WithEx(httpProxySessionsExpire))
 
 	log.Debug().Msgf(`new httpProxySession "%s" for device "%s"`, sid, devid)
 
