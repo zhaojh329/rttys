@@ -6,6 +6,13 @@
 
 <script setup>
 import { locale } from './element-plus'
+import { useI18n } from 'vue-i18n'
+import { onMounted } from 'vue'
+
+onMounted(() => {
+  const i18n = useI18n()
+  document.title = i18n.t('app.title')
+})
 </script>
 
 <style>

@@ -1,4 +1,7 @@
 {
+  "app": {
+    "title": "RTTY - Remote Terminal Access"
+  },
   "Authorization Required": "Authorization Required",
   "Username": "Username",
   "Enter username...": "Enter username...",

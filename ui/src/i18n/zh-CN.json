@@ -1,4 +1,7 @@
 {
+  "app": {
+    "title": "RTTY - 远程终端访问工具"
+  },
   "Authorization Required": "需要授权",
   "Username": "用户名",
   "Enter username...": "请输入用户名...",
