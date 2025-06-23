@@ -36,21 +36,6 @@ export default {
 
       this.visibility = false
     },
-    updated() {
-      if (this.$refs.content) {
-        const bw = document.body.offsetWidth
-        const bh = document.body.offsetHeight
-        const element = this.$refs.content
-        const width = element.offsetWidth
-        const height = element.offsetHeight
-
-        if (this.axis.x + width >= bw)
-          this.axis.x = bw - width
-
-        if (this.axis.y + height >= bh)
-          this.axis.y = bh - height
-      }
-    },
     show(e) {
       document.addEventListener('mousedown', this.close)
       this.axis = {x: e.clientX, y: e.clientY}
