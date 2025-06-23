@@ -5,16 +5,16 @@
 
 import { createI18n } from 'vue-i18n'
 import en from './en.json'
-import zh from './zh-CN.json'
+import zhCN from './zh-CN.json'
 
 const i18n = createI18n({
-  locale: navigator.language,
-  fallbackLocale: 'en-US',
+  locale: navigator.language === 'zh-CN' ? 'zh-CN' : 'en',
+  fallbackLocale: 'en',
   silentTranslationWarn: true,
   silentFallbackWarn: true,
   messages: {
-    'en-US': en,
-    'zh-CN': zh
+    en,
+    'zh-CN': zhCN
   }
 })
 
