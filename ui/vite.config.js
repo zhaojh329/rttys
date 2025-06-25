@@ -15,9 +15,7 @@ export default defineConfig({
       threshold: 10240,
       filename: '[path][base]'
     }),
-    vueI18n({
-      compositionOnly: false
-    })
+    vueI18n()
   ],
   server: {
     proxy: {
