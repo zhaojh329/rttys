@@ -67,20 +67,21 @@ var DevRegErrMsg = map[byte]string{
 const rttyProtoRequired uint8 = 3
 
 type device struct {
-	br         *broker
-	proto      uint8
-	heartbeat  time.Duration
-	id         string
-	desc       string /* description of the device */
-	timestamp  int64  /* Connection time */
-	uptime     uint32
-	token      string
-	conn       net.Conn
-	registered bool
-	closed     bool
-	close      sync.Once
-	err        byte
-	send       chan []byte // Buffered channel of outbound messages.
+	br            *broker
+	proto         uint8
+	heartbeat     time.Duration
+	id            string
+	desc          string /* description of the device */
+	timestamp     int64  /* Connection time */
+	uptime        uint32
+	token         string
+	conn          net.Conn
+	registered    bool
+	closed        bool
+	close         sync.Once
+	err           byte
+	send          chan []byte // Buffered channel of outbound messages.
+	httpProxyCons sync.Map
 }
 
 type termMessage struct {
@@ -175,6 +176,8 @@ func (dev *device) Close() {
 		dev.CloseConn()
 
 		close(dev.send)
+
+		dev.httpProxyCons.Clear()
 	})
 }
 

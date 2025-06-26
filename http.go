@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"sync"
 	"time"
 
 	"rttys/client"
@@ -30,25 +29,22 @@ type httpReq struct {
 	data  []byte
 }
 
-var httpProxyCons sync.Map
-
 var httpProxySessions = cache.NewMemCache(cache.WithClearInterval(time.Minute))
 
 const httpProxySessionsExpire = 15 * time.Minute
 
 func handleHttpProxyResp(resp *httpResp) {
+	dev := resp.dev.(*device)
 	data := resp.data
 	addr := data[:18]
 	data = data[18:]
 
-	if cons, ok := httpProxyCons.Load(resp.dev.DeviceID()); ok {
-		if c, ok := cons.(*sync.Map).Load(string(addr)); ok {
-			c := c.(net.Conn)
-			if len(data) == 0 {
-				c.Close()
-			} else {
-				c.Write(data)
-			}
+	if c, ok := dev.httpProxyCons.Load(string(addr)); ok {
+		c := c.(net.Conn)
+		if len(data) == 0 {
+			c.Close()
+		} else {
+			c.Write(data)
 		}
 	}
 }
@@ -160,10 +156,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 	destAddr := genDestAddr(hostHeaderRewrite)
 	srcAddr := tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr))
 
-	if cons, _ := httpProxyCons.LoadOrStore(devid, &sync.Map{}); true {
-		cons := cons.(*sync.Map)
-		cons.Store(string(srcAddr), c)
-	}
+	dev.httpProxyCons.Store(string(srcAddr), c)
 
 	exit := make(chan struct{})
 
@@ -175,11 +168,7 @@ func doHttpProxy(brk *broker, c net.Conn) {
 			case <-exit:
 			}
 
-			cons, ok := httpProxyCons.Load(devid)
-			if ok {
-				cons := cons.(*sync.Map)
-				cons.Delete(string(srcAddr))
-			}
+			dev.httpProxyCons.Delete(string(srcAddr))
 		}()
 	} else {
 		log.Debug().Msgf(`not found httpProxySession "%s", devid "%s"`, sid, devid)
