@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"crypto/tls"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -244,24 +243,9 @@ func listenHttpProxy(brk *broker) {
 		log.Fatal().Msg(err.Error())
 	}
 
-	if cfg.WebUISslCert != "" && cfg.WebUISslKey != "" {
-		crt, err := tls.LoadX509KeyPair(cfg.WebUISslCert, cfg.WebUISslKey)
-		if err != nil {
-			log.Fatal().Msg(err.Error())
-		}
-
-		tlsConfig := &tls.Config{Certificates: []tls.Certificate{crt}}
-
-		ln = tls.NewListener(ln, tlsConfig)
-	}
-
 	cfg.HttpProxyPort = ln.Addr().(*net.TCPAddr).Port
 
-	if cfg.WebUISslCert != "" && cfg.WebUISslKey != "" {
-		log.Info().Msgf("Listen http proxy on: %s SSL on", ln.Addr().(*net.TCPAddr))
-	} else {
-		log.Info().Msgf("Listen http proxy on: %s SSL off", ln.Addr().(*net.TCPAddr))
-	}
+	log.Info().Msgf("Listen http proxy on: %s", ln.Addr().(*net.TCPAddr))
 
 	go func() {
 		defer ln.Close()
@@ -344,11 +328,7 @@ func httpProxyRedirect(br *broker, c *gin.Context) {
 			host = c.Request.Host
 		}
 
-		if cfg.WebUISslCert != "" && cfg.WebUISslKey != "" {
-			location = "https://" + host
-		} else {
-			location = "http://" + host
-		}
+		location = "http://" + host
 
 		if cfg.HttpProxyPort != 80 {
 			location += fmt.Sprintf(":%d", cfg.HttpProxyPort)

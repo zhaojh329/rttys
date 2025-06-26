@@ -238,16 +238,7 @@ func apiStart(br *broker) {
 	})
 
 	go func() {
-		var err error
-
-		if cfg.WebUISslCert != "" && cfg.WebUISslKey != "" {
-			log.Info().Msgf("Listen user on: %s SSL on", cfg.AddrUser)
-			err = r.RunTLS(cfg.AddrUser, cfg.WebUISslCert, cfg.WebUISslKey)
-		} else {
-			log.Info().Msgf("Listen user on: %s SSL off", cfg.AddrUser)
-			err = r.Run(cfg.AddrUser)
-		}
-
-		log.Fatal().Err(err)
+		log.Info().Msgf("Listen user on: %s", cfg.AddrUser)
+		log.Fatal().Err(r.Run(cfg.AddrUser))
 	}()
 }

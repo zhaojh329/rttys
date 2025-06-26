@@ -113,18 +113,6 @@ func main() {
 				Usage: "domain for HTTP proxy set cookie",
 			},
 			&cli.StringFlag{
-				Name:  "ssl-cert",
-				Usage: "ssl cert file Path",
-			},
-			&cli.StringFlag{
-				Name:  "ssl-key",
-				Usage: "ssl key file Path",
-			},
-			&cli.StringFlag{
-				Name:  "ssl-cacert",
-				Usage: "mtls CA storage in PEM file Path",
-			},
-			&cli.StringFlag{
 				Name:    "token",
 				Aliases: []string{"t"},
 				Usage:   "token to use",

@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/kylelemons/go-gypsy/yaml"
@@ -17,15 +16,9 @@ type Config struct {
 	HttpProxyRedirURL    string
 	HttpProxyRedirDomain string
 	HttpProxyPort        int
-	SslCert              string
-	SslKey               string
-	SslCacert            string // mTLS for device
-	WebUISslCert         string
-	WebUISslKey          string
 	Token                string
 	DevHookUrl           string
 	LocalAuth            bool
-	SeparateSslConfig    bool
 	Password             string
 	AllowOrigins         bool
 }
@@ -57,15 +50,6 @@ func parseYamlCfg(cfg *Config, conf string) error {
 	getConfigOpt(yamlCfg, "addr-http-proxy", &cfg.AddrHttpProxy)
 	getConfigOpt(yamlCfg, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
 	getConfigOpt(yamlCfg, "http-proxy-redir-domain", &cfg.HttpProxyRedirDomain)
-	getConfigOpt(yamlCfg, "ssl-cert", &cfg.SslCert)
-	getConfigOpt(yamlCfg, "ssl-key", &cfg.SslKey)
-	getConfigOpt(yamlCfg, "ssl-cacert", &cfg.SslCacert)
-	getConfigOpt(yamlCfg, "separate-ssl-config", &cfg.SeparateSslConfig)
-
-	if cfg.SeparateSslConfig {
-		getConfigOpt(yamlCfg, "webui-ssl-cert", &cfg.WebUISslCert)
-		getConfigOpt(yamlCfg, "webui-ssl-key", &cfg.WebUISslKey)
-	}
 
 	getConfigOpt(yamlCfg, "token", &cfg.Token)
 	getConfigOpt(yamlCfg, "dev-hook-url", &cfg.DevHookUrl)
@@ -117,49 +101,6 @@ func Parse(c *cli.Command) (*Config, error) {
 	getFlagOpt(c, "token", &cfg.Token)
 	getFlagOpt(c, "password", &cfg.Password)
 	getFlagOpt(c, "allow-origins", &cfg.AllowOrigins)
-
-	getFlagOpt(c, "ssl-cacert", &cfg.SslCacert)
-	getFlagOpt(c, "ssl-cert", &cfg.SslCert)
-	getFlagOpt(c, "ssl-key", &cfg.SslKey)
-	getFlagOpt(c, "separate-ssl-config", &cfg.SeparateSslConfig)
-
-	if cfg.SeparateSslConfig {
-		getFlagOpt(c, "webui-ssl-cert", &cfg.WebUISslCert)
-		getFlagOpt(c, "webui-ssl-key", &cfg.WebUISslKey)
-	} else {
-		cfg.WebUISslCert = cfg.SslCert
-		cfg.WebUISslKey = cfg.SslKey
-	}
-
-	if cfg.SslCacert != "" {
-		if _, err := os.Lstat(cfg.SslCacert); err != nil {
-			return nil, fmt.Errorf(`SslCacert "%s" not exist`, cfg.SslCacert)
-		}
-	}
-
-	if cfg.SslCert != "" {
-		if _, err := os.Lstat(cfg.SslCert); err != nil {
-			return nil, fmt.Errorf(`SslCert "%s" not exist`, cfg.SslCert)
-		}
-	}
-
-	if cfg.SslKey != "" {
-		if _, err := os.Lstat(cfg.SslKey); err != nil {
-			return nil, fmt.Errorf(`SslKey "%s" not exist`, cfg.SslKey)
-		}
-	}
-
-	if cfg.WebUISslCert != "" {
-		if _, err := os.Lstat(cfg.WebUISslCert); err != nil {
-			return nil, fmt.Errorf(`WebUISslCert "%s" not exist`, cfg.WebUISslCert)
-		}
-	}
-
-	if cfg.WebUISslKey != "" {
-		if _, err := os.Lstat(cfg.WebUISslKey); err != nil {
-			return nil, fmt.Errorf(`WebUISslKey "%s" not exist`, cfg.WebUISslKey)
-		}
-	}
 
 	return cfg, nil
 }

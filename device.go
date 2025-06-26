@@ -3,13 +3,9 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"crypto/rand"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/binary"
 	"io"
 	"net"
-	"os"
 	"rttys/client"
 	"strings"
 	"sync"
@@ -432,39 +428,7 @@ func listenDevice(br *broker) {
 		log.Fatal().Msg(err.Error())
 	}
 
-	if cfg.SslCert != "" && cfg.SslKey != "" {
-		crt, err := tls.LoadX509KeyPair(cfg.SslCert, cfg.SslKey)
-		if err != nil {
-			log.Fatal().Msg(err.Error())
-		}
-
-		tlsConfig := &tls.Config{}
-		tlsConfig.Certificates = []tls.Certificate{crt}
-		tlsConfig.Time = time.Now
-		tlsConfig.Rand = rand.Reader
-		tlsConfig.MinVersion = tls.VersionTLS12
-
-		if cfg.SslCacert == "" {
-			log.Warn().Msgf("mTLS not enabled")
-		} else {
-			caCert, err := os.ReadFile(cfg.SslCacert)
-			if err != nil {
-				log.Error().Msgf("mTLS not enabled: %s", err.Error())
-			} else {
-				br.devCertPool = x509.NewCertPool()
-				br.devCertPool.AppendCertsFromPEM(caCert)
-
-				// Create the TLS Config with the CA pool and enable Client certificate validation
-				tlsConfig.ClientCAs = br.devCertPool
-				tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-			}
-		}
-
-		ln = tls.NewListener(ln, tlsConfig)
-		log.Info().Msgf("Listen device on: %s SSL on", cfg.AddrDev)
-	} else {
-		log.Info().Msgf("Listen device on: %s SSL off", cfg.AddrDev)
-	}
+	log.Info().Msgf("Listen device on: %s", cfg.AddrDev)
 
 	go func() {
 		defer ln.Close()
