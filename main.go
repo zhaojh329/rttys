@@ -15,55 +15,6 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func runRttys(c *cli.Command) error {
-	xlog.SetPath(c.String("log"))
-
-	switch c.String("log-level") {
-	case "debug":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	case "warn":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "error":
-		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-	default:
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	}
-
-	if c.Bool("verbose") {
-		xlog.Verbose()
-	}
-
-	cfg, err := config.Parse(c)
-	if err != nil {
-		return err
-	}
-
-	log.Info().Msg("Go Version: " + runtime.Version())
-	log.Info().Msgf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
-
-	log.Info().Msg("Rttys Version: " + version.Version())
-
-	gitCommit := version.GitCommit()
-	buildTime := version.BuildTime()
-
-	if gitCommit != "" {
-		log.Info().Msg("Git Commit: " + version.GitCommit())
-	}
-
-	if buildTime != "" {
-		log.Info().Msg("Build Time: " + version.BuildTime())
-	}
-
-	br := newBroker(cfg)
-	go br.run()
-
-	listenDevice(br)
-	listenHttpProxy(br)
-	apiStart(br)
-
-	select {}
-}
-
 func main() {
 	defaultLogPath := "/var/log/rttys.log"
 	if runtime.GOOS == "windows" {
@@ -149,4 +100,53 @@ func main() {
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
+}
+
+func runRttys(c *cli.Command) error {
+	xlog.SetPath(c.String("log"))
+
+	switch c.String("log-level") {
+	case "debug":
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "warn":
+		zerolog.SetGlobalLevel(zerolog.WarnLevel)
+	case "error":
+		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	default:
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	}
+
+	if c.Bool("verbose") {
+		xlog.Verbose()
+	}
+
+	cfg, err := config.Parse(c)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msg("Go Version: " + runtime.Version())
+	log.Info().Msgf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
+
+	log.Info().Msg("Rttys Version: " + version.Version())
+
+	gitCommit := version.GitCommit()
+	buildTime := version.BuildTime()
+
+	if gitCommit != "" {
+		log.Info().Msg("Git Commit: " + version.GitCommit())
+	}
+
+	if buildTime != "" {
+		log.Info().Msg("Build Time: " + version.BuildTime())
+	}
+
+	br := newBroker(cfg)
+	go br.run()
+
+	listenDevice(br)
+	listenHttpProxy(br)
+	apiStart(br)
+
+	select {}
 }
