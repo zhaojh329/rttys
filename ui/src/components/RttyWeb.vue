@@ -11,7 +11,7 @@
         <el-input v-model="formData.ipaddr" placeholder="127.0.0.1"/>
       </el-form-item>
       <el-form-item :label="$t('port')" prop="port">
-        <el-input v-model.number="formData.port" placeholder="80"/>
+        <el-input v-model.number="formData.port" :placeholder="formData.proto === 'https' ? 443 : 80"/>
       </el-form-item>
       <el-form-item :label="$t('path')" prop="path">
         <el-input v-model="formData.path" placeholder="/"/>
