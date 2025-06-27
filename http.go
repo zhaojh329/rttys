@@ -112,6 +112,7 @@ func (rw *HttpProxyWriter) WriteRequest(req *http.Request) {
 }
 
 func doHttpProxy(brk *broker, c net.Conn) {
+	defer logPanic()
 	defer c.Close()
 
 	br := bufio.NewReader(c)

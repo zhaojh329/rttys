@@ -276,6 +276,8 @@ func msgTypeName(typ byte) string {
 }
 
 func (dev *device) readLoop() {
+	defer logPanic()
+
 	logPrefix := dev.conn.RemoteAddr().String()
 
 	tmr := time.AfterFunc(time.Second*5, func() {
@@ -410,6 +412,8 @@ func (dev *device) readLoop() {
 }
 
 func (dev *device) writeLoop() {
+	defer logPanic()
+
 	defer func() {
 		dev.br.unregister <- dev
 	}()

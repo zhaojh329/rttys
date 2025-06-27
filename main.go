@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"runtime"
+	"runtime/debug"
 
 	"rttys/config"
 	"rttys/version"
@@ -141,6 +142,8 @@ func runRttys(c *cli.Command) error {
 		log.Info().Msg("Build Time: " + version.BuildTime())
 	}
 
+	defer logPanic()
+
 	br := newBroker(cfg)
 	go br.run()
 
@@ -149,4 +152,16 @@ func runRttys(c *cli.Command) error {
 	apiStart(br)
 
 	select {}
+}
+
+func logPanic() {
+	if r := recover(); r != nil {
+		saveCrashLog(r, debug.Stack())
+		os.Exit(2)
+	}
+}
+
+func saveCrashLog(p any, stack []byte) {
+	log.Error().Msgf("%v", p)
+	log.Error().Msg(string(stack))
 }

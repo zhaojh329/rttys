@@ -122,6 +122,8 @@ func (br *broker) devRegister(dev *device) {
 }
 
 func (br *broker) run() {
+	defer logPanic()
+
 	for {
 		select {
 		case c := <-br.register:
