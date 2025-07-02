@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -41,7 +40,6 @@ type broker struct {
 	httpResp    chan *httpResp
 	httpReq     chan *httpReq
 	fileProxy   sync.Map
-	devCertPool *x509.CertPool
 }
 
 func newBroker(cfg *config.Config) *broker {
