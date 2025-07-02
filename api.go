@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -208,33 +209,41 @@ func apiStart(br *broker) {
 		}
 	})
 
+	fs, _ := fs.Sub(staticFs, "ui/dist")
+	root := http.FS(fs)
+	fh := http.FileServer(root)
+
 	r.NoRoute(func(c *gin.Context) {
-		fs, _ := fs.Sub(staticFs, "ui/dist")
+		upath := path.Clean(c.Request.URL.Path)
 
-		path := c.Request.URL.Path
+		if strings.HasSuffix(upath, ".js") || strings.HasSuffix(upath, ".css") {
+			if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
+				f, err := root.Open(upath + ".gz")
+				if err == nil {
+					f.Close()
 
-		if path != "/" {
-			f, err := fs.Open(path[1:])
+					c.Request.URL.Path += ".gz"
+
+					if strings.HasSuffix(upath, ".js") {
+						c.Writer.Header().Set("Content-Type", "application/javascript")
+					} else if strings.HasSuffix(upath, ".css") {
+						c.Writer.Header().Set("Content-Type", "text/css")
+					}
+
+					c.Writer.Header().Set("Content-Encoding", "gzip")
+				}
+			}
+		} else if upath != "/" {
+			f, err := root.Open(upath)
 			if err != nil {
 				c.Request.URL.Path = "/"
 				r.HandleContext(c)
 				return
 			}
-
-			if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
-				if strings.HasSuffix(path, "css") || strings.HasSuffix(path, "js") {
-					magic := make([]byte, 2)
-					f.Read(magic)
-					if magic[0] == 0x1f && magic[1] == 0x8b {
-						c.Writer.Header().Set("Content-Encoding", "gzip")
-					}
-				}
-			}
-
-			f.Close()
+			defer f.Close()
 		}
 
-		http.FileServer(http.FS(fs)).ServeHTTP(c.Writer, c.Request)
+		fh.ServeHTTP(c.Writer, c.Request)
 	})
 
 	go func() {

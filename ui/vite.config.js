@@ -12,8 +12,7 @@ export default defineConfig({
     compression({
       algorithms: ['gzip'],
       deleteOriginalAssets: true,
-      threshold: 10240,
-      filename: '[path][base]'
+      threshold: 10240
     }),
     vueI18n()
   ],
