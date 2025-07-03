@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -29,10 +28,21 @@ var cmdErrMsg = map[int]string{
 	rttyCmdErrTimeout: "timeout",
 }
 
-type commandInfo struct {
-	Cmd      string `json:"cmd"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+type CommandRespAttrs struct {
+	Code   int    `json:"code"`
+	Stdout string `json:"stdout"`
+	Stderr string `json:"stderr"`
+}
+
+type CommandRespInfo struct {
+	Token string           `json:"token"`
+	Attrs CommandRespAttrs `json:"attrs"`
+}
+
+type commandReqInfo struct {
+	Cmd      string   `json:"cmd"`
+	Username string   `json:"username"`
+	Params   []string `json:"params"`
 }
 
 type commandReq struct {
@@ -45,11 +55,13 @@ type commandReq struct {
 var commands sync.Map
 
 func handleCmdResp(data []byte) {
-	token := jsoniter.Get(data, "token").ToString()
+	info := &CommandRespInfo{}
 
-	if req, ok := commands.Load(token); ok {
+	jsoniter.Unmarshal(data, info)
+
+	if req, ok := commands.Load(info.Token); ok {
 		req := req.(*commandReq)
-		req.c.String(http.StatusOK, jsoniter.Get(data, "attrs").ToString())
+		req.c.JSON(http.StatusOK, info.Attrs)
 		req.cancel()
 	}
 }
@@ -78,34 +90,27 @@ func handleCmdReq(br *broker, c *gin.Context) {
 		return
 	}
 
-	content, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		c.Status(http.StatusBadRequest)
-		return
-	}
+	cmdInfo := commandReqInfo{}
 
-	cmdInfo := commandInfo{}
-	err = jsoniter.Unmarshal(content, &cmdInfo)
-	if err != nil || cmdInfo.Cmd == "" {
+	err := c.BindJSON(&cmdInfo)
+	if err != nil || cmdInfo.Username == "" || cmdInfo.Cmd == "" {
 		cmdErrReply(rttyCmdErrInvalid, req)
 		return
 	}
 
 	token := utils.GenUniqueID()
 
-	params := jsoniter.Get(content, "params")
-
 	data := make([]string, 4)
 
-	data[0] = jsoniter.Get(content, "username").ToString()
-	data[1] = jsoniter.Get(content, "cmd").ToString()
+	data[0] = cmdInfo.Username
+	data[1] = cmdInfo.Cmd
 	data[2] = token
-	data[3] = string(byte(params.Size()))
+	data[3] = string(byte(len(cmdInfo.Params)))
 
 	msg := []byte(strings.Join(data, string(byte(0))))
 
-	for i := range params.Size() {
-		msg = append(msg, params.Get(i).ToString()...)
+	for _, param := range cmdInfo.Params {
+		msg = append(msg, param...)
 		msg = append(msg, 0)
 	}
 
