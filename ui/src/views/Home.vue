@@ -28,13 +28,9 @@
       <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip />
       <el-table-column width="200">
         <template #default="{ row }">
-          <el-space>
-            <el-tooltip placement="top" :content="$t('Access your device\'s Shell')">
-              <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
-            </el-tooltip>
-            <el-tooltip placement="top" :content="$t('Access your devices\'s Web')">
-              <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
-            </el-tooltip>
+          <el-space size="large">
+            <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
+            <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
           </el-space>
         </template>
       </el-table-column>
