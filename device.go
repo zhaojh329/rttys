@@ -1,21 +1,85 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2019 Jianhui Zhao <zhaojh329@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 package main
 
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
-	"rttys/client"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"rttys/utils"
+
+	"github.com/gorilla/websocket"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
+	"github.com/valyala/bytebufferpool"
 )
 
+type DeviceInfo struct {
+	Group     string `json:"group"`
+	ID        string `json:"id"`
+	Connected uint32 `json:"connected"`
+	Uptime    uint32 `json:"uptime"`
+	Desc      string `json:"description"`
+	Proto     uint8  `json:"proto"`
+	IPaddr    string `json:"ipaddr"`
+}
+
+type Device struct {
+	group     string
+	id        string
+	proto     uint8
+	desc      string
+	timestamp int64
+	uptime    uint32
+	token     string
+	heartbeat time.Duration
+
+	users    sync.Map
+	pending  sync.Map
+	commands sync.Map
+	https    sync.Map
+
+	conn    net.Conn
+	br      *bufio.Reader
+	readBuf []byte
+	close   sync.Once
+	ctx     context.Context
+	cancel  context.CancelFunc
+}
+
 const (
-	msgTypeRegister = iota
+	msgTypeRegister = byte(iota)
 	msgTypeLogin
 	msgTypeLogout
 	msgTypeTermData
@@ -25,11 +89,10 @@ const (
 	msgTypeFile
 	msgTypeHttp
 	msgTypeAck
-	msgTypeMax = msgTypeAck
 )
 
 const (
-	msgTypeFileSend = iota
+	msgTypeFileSend = byte(iota)
 	msgTypeFileRecv
 	msgTypeFileInfo
 	msgTypeFileData
@@ -42,6 +105,7 @@ const (
 	msgRegAttrDevid
 	msgRegAttrDescription
 	msgRegAttrToken
+	msgRegAttrGroup
 )
 
 const (
@@ -55,6 +119,20 @@ const (
 	devRegErrIdConflicting
 )
 
+const (
+	RttyProtoRequired uint8 = 3
+	WaitRegistTimeout       = 5 * time.Second
+	DefaultHeartbeat        = 5 * time.Second
+	TermLoginTimeout        = 5 * time.Second
+	CommandTimeout          = 30
+)
+
+const (
+	loginErrorNone    = 0x00
+	loginErrorOffline = 0x01
+	loginErrorBusy    = 0x02
+)
+
 var DevRegErrMsg = map[byte]string{
 	0:                         "Success",
 	devRegErrUnsupportedProto: "Unsupported protocol",
@@ -63,189 +141,111 @@ var DevRegErrMsg = map[byte]string{
 	devRegErrIdConflicting:    "ID conflict",
 }
 
-// Minimum protocol version requirements of rtty
-const rttyProtoRequired uint8 = 3
-
-type device struct {
-	br            *broker
-	proto         uint8
-	heartbeat     time.Duration
-	id            string
-	desc          string /* description of the device */
-	timestamp     int64  /* Connection time */
-	uptime        uint32
-	token         string
-	conn          net.Conn
-	registered    bool
-	closed        bool
-	close         sync.Once
-	err           byte
-	send          chan []byte // Buffered channel of outbound messages.
-	httpProxyCons sync.Map
+var DeviceMsgHandlers = map[byte]func(*Device, []byte) error{
+	msgTypeHeartbeat: handleHeartbeatMsg,
+	msgTypeLogin:     handleLoginMsg,
+	msgTypeLogout:    handleLogoutMsg,
+	msgTypeTermData:  handleTermDataMsg,
+	msgTypeFile:      handleFileMsg,
+	msgTypeCmd:       handleCmdMsg,
+	msgTypeHttp:      handleHttpMsg,
 }
 
-type termMessage struct {
-	sid  string
-	data []byte
-}
+func (srv *RttyServer) ListenDevices() {
+	cfg := &srv.cfg
 
-type fileMessage struct {
-	sid  string
-	data []byte
-}
+	ln, err := net.Listen("tcp", cfg.AddrDev)
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+	}
+	defer ln.Close()
 
-type fileProxy struct {
-	reader *io.PipeReader
-	writer *io.PipeWriter
-}
+	log.Info().Msgf("Listen devices on: %s", ln.Addr().(*net.TCPAddr))
 
-func (fp *fileProxy) Read(b []byte) (int, error) {
-	return fp.reader.Read(b)
-}
-
-func (fp *fileProxy) Write(dev client.Client, sid string, b []byte) {
-	go func() {
-		_, err := fp.writer.Write(b)
+	for {
+		conn, err := ln.Accept()
 		if err != nil {
-			fp.Cancel(dev, sid)
-			dev.(*device).br.fileProxy.Delete(sid)
+			log.Error().Msg(err.Error())
+			continue
+		}
+
+		go handleDeviceConnection(srv, conn)
+	}
+}
+
+func handleDeviceConnection(srv *RttyServer, conn net.Conn) {
+	defer logPanic()
+
+	dev := &Device{
+		conn:      conn,
+		heartbeat: DefaultHeartbeat,
+		timestamp: time.Now().Unix(),
+		br:        bufio.NewReader(conn),
+	}
+	defer dev.Close(srv)
+
+	dev.ctx, dev.cancel = context.WithCancel(context.Background())
+
+	log.Debug().Msgf("new device '%s' connected", conn.RemoteAddr())
+
+	conn.SetReadDeadline(time.Now().Add(WaitRegistTimeout))
+
+	typ, data, err := dev.ReadMsg()
+	if err != nil {
+		log.Error().Msgf("read register msg fail: %v", err)
+		return
+	}
+
+	if typ != msgTypeRegister {
+		log.Error().Msg("register msg expected first")
+		return
+	}
+
+	if !dev.ParseRegister(data) {
+		log.Error().Msg("invalid device info")
+		return
+	}
+
+	code := dev.Register(srv)
+
+	err = dev.WriteMsg(msgTypeRegister, "", append([]byte{code}, DevRegErrMsg[code]...))
+	if err != nil {
+		log.Printf("send register to device '%s' fail: %v", dev.id, err)
+		return
+	}
+
+	if code != 0 {
+		return
+	}
+
+	log.Info().Msgf("device '%s' registered, group '%s' proto %d, heartbeat %v",
+		dev.id, dev.group, dev.proto, dev.heartbeat)
+
+	for {
+		conn.SetReadDeadline(time.Now().Add(dev.heartbeat * 3 / 2))
+
+		typ, data, err = dev.ReadMsg()
+		if err != nil {
+			if err != io.EOF {
+				log.Error().Msgf("read msg from device '%s' fail: %v", dev.id, err)
+			}
 			return
 		}
-		fp.Ack(dev, sid)
-	}()
-}
 
-func (fp *fileProxy) Close() {
-	fp.writer.Close()
-}
+		log.Debug().Msgf("device msg %s from device %s", msgTypeName(typ), dev.id)
 
-func (fp *fileProxy) Cancel(dev client.Client, sid string) {
-	b := make([]byte, 33)
-	copy(b, sid)
-	b[32] = msgTypeFileAbort
-	dev.WriteMsg(msgTypeFile, b)
-}
+		handler, ok := DeviceMsgHandlers[typ]
+		if !ok {
+			log.Error().Msgf("unexpected message '%s' from device '%s'", msgTypeName(typ), dev.id)
+			return
+		}
 
-func (fp *fileProxy) Ack(dev client.Client, sid string) {
-	b := make([]byte, 33)
-	copy(b, sid)
-	b[32] = msgTypeFileAck
-	dev.WriteMsg(msgTypeFile, b)
-}
-
-type loginAckMsg struct {
-	devid  string
-	sid    string
-	isBusy bool
-}
-
-func (dev *device) IsDevice() bool {
-	return true
-}
-
-func (dev *device) DeviceID() string {
-	return dev.id
-}
-
-func buildMsg(typ int, data []byte) []byte {
-	b := []byte{byte(typ), 0, 0}
-
-	binary.BigEndian.PutUint16(b[1:], uint16(len(data)))
-
-	return append(b, data...)
-}
-
-func (dev *device) WriteMsg(typ int, data []byte) {
-	dev.send <- buildMsg(typ, data)
-}
-
-func (dev *device) Closed() bool {
-	return dev.closed
-}
-
-func (dev *device) CloseConn() {
-	dev.conn.Close()
-}
-
-func (dev *device) Close() {
-	dev.close.Do(func() {
-		dev.closed = true
-
-		log.Debug().Msgf("Device '%s' disconnected", dev.conn.RemoteAddr())
-
-		dev.CloseConn()
-
-		close(dev.send)
-
-		dev.httpProxyCons.Clear()
-	})
-}
-
-func parseDeviceInfo(dev *device, b []byte) bool {
-	if len(b) < 1 {
-		return false
+		err = handler(dev, data)
+		if err != nil {
+			log.Error().Msg(err.Error())
+			return
+		}
 	}
-
-	dev.proto = b[0]
-
-	if dev.proto > 4 {
-		attrs := parseTLV(b[1:])
-		if attrs == nil {
-			return false
-		}
-
-		for typ, val := range attrs {
-			switch typ {
-			case msgRegAttrHeartbeat:
-				dev.heartbeat = time.Duration(val[0]) * time.Second
-			case msgRegAttrDevid:
-				dev.id = string(val)
-			case msgRegAttrDescription:
-				dev.desc = string(val)
-			case msgRegAttrToken:
-				dev.token = string(val)
-			}
-		}
-
-		return true
-	}
-
-	b = b[1:]
-
-	fields := bytes.Split(b, []byte{0})
-
-	if len(fields) < 3 {
-		return false
-	}
-
-	dev.id = string(fields[0])
-	dev.desc = string(fields[1])
-	dev.token = string(fields[2])
-
-	return true
-}
-
-func parseHeartbeat(dev *device, b []byte) bool {
-	if dev.proto > 4 {
-		attrs := parseTLV(b)
-		if attrs == nil {
-			return false
-		}
-
-		for typ, val := range attrs {
-			switch typ {
-			case msgHeartbeatAttrUptime:
-				dev.uptime = binary.BigEndian.Uint32(val)
-			}
-		}
-	} else {
-		if len(b) < 4 {
-			return false
-		}
-		dev.uptime = binary.BigEndian.Uint32(b[:4])
-	}
-
-	return true
 }
 
 func msgTypeName(typ byte) string {
@@ -271,194 +271,320 @@ func msgTypeName(typ byte) string {
 	case msgTypeAck:
 		return "ack"
 	default:
-		return "unknown"
+		return fmt.Sprintf("unknown(%d)", typ)
 	}
 }
 
-func (dev *device) readLoop() {
-	defer logPanic()
+func (dev *Device) ReadMsg() (byte, []byte, error) {
+	head := make([]byte, 3)
+	br := dev.br
 
-	logPrefix := dev.conn.RemoteAddr().String()
+	_, err := io.ReadFull(br, head)
+	if err != nil {
+		return 0, nil, err
+	}
 
-	tmr := time.AfterFunc(time.Second*5, func() {
-		log.Error().Msgf("%s: timeout", logPrefix)
-		dev.Close()
+	typ := head[0]
+
+	msgLen := binary.BigEndian.Uint16(head[1:])
+
+	if cap(dev.readBuf) < int(msgLen) {
+		dev.readBuf = make([]byte, msgLen)
+	} else {
+		dev.readBuf = dev.readBuf[:msgLen]
+	}
+
+	_, err = io.ReadFull(br, dev.readBuf)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return typ, dev.readBuf, nil
+}
+
+func (dev *Device) WriteMsg(typ byte, sid string, data []byte) error {
+	bb := bytebufferpool.Get()
+	defer bytebufferpool.Put(bb)
+
+	b := []byte{typ, 0, 0}
+
+	binary.BigEndian.PutUint16(b[1:], uint16(len(sid)+len(data)))
+
+	bb.Write(b)
+	bb.WriteString(sid)
+	bb.Write(data)
+
+	_, err := bb.WriteTo(dev.conn)
+
+	return err
+}
+
+func (dev *Device) WriteFileMsg(typ byte, sid string, fileType byte, data []byte) error {
+	bb := bytebufferpool.Get()
+	defer bytebufferpool.Put(bb)
+
+	bb.WriteByte(fileType)
+	bb.Write(data)
+
+	return dev.WriteMsg(typ, sid, bb.Bytes())
+}
+
+func (dev *Device) Close(srv *RttyServer) {
+	dev.close.Do(func() {
+		log.Error().Msgf("device '%s' disconnected", dev.id)
+		srv.DelDevice(dev)
+		dev.cancel()
+		dev.conn.Close()
 	})
+}
 
-	defer func() {
-		dev.br.unregister <- dev
-		tmr.Stop()
-	}()
+func (dev *Device) ParseRegister(b []byte) bool {
+	if len(b) < 1 {
+		return false
+	}
 
-	br := bufio.NewReader(dev.conn)
+	dev.proto = b[0]
 
-	for {
-		b, err := br.Peek(3)
-		if err != nil {
-			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				log.Error().Msgf("%s: %s", logPrefix, err.Error())
+	if dev.proto > 4 {
+		attrs := utils.ParseTLV(b[1:])
+		if attrs == nil {
+			return false
+		}
+
+		for typ, val := range attrs {
+			switch typ {
+			case msgRegAttrHeartbeat:
+				dev.heartbeat = time.Duration(val[0]) * time.Second
+			case msgRegAttrDevid:
+				dev.id = string(val)
+			case msgRegAttrDescription:
+				dev.desc = string(val)
+			case msgRegAttrToken:
+				dev.token = string(val)
+			case msgRegAttrGroup:
+				dev.group = string(val)
 			}
-			return
 		}
 
-		br.Discard(3)
+		return true
+	}
 
-		typ := b[0]
+	b = b[1:]
 
-		if typ > msgTypeMax {
-			log.Error().Msgf("%s: invalid msg type: %d", logPrefix, typ)
-			return
+	fields := bytes.Split(b, []byte{0})
+
+	if len(fields) < 3 {
+		return false
+	}
+
+	dev.id = string(fields[0])
+	dev.desc = string(fields[1])
+	dev.token = string(fields[2])
+
+	return true
+}
+
+func (dev *Device) Register(srv *RttyServer) byte {
+	cfg := &srv.cfg
+
+	if dev.proto < RttyProtoRequired {
+		log.Error().Msgf("minimum proto required %d, found %d for device '%s'", RttyProtoRequired, dev.proto, dev.id)
+		return devRegErrHookFailed
+	}
+
+	if cfg.Token != "" && dev.token != cfg.Token {
+		log.Error().Msgf("invalid token for device '%s'", dev.id)
+		return devRegErrInvalidToken
+	}
+
+	devHookUrl := cfg.DevHookUrl
+	if devHookUrl != "" {
+		cli := &http.Client{
+			Timeout: 3 * time.Second,
 		}
 
-		log.Debug().Msgf("%s: recv msg: %s", logPrefix, msgTypeName(typ))
+		data := fmt.Sprintf(`{"group":"%s", "devid":"%s", "token":"%s"}`, dev.group, dev.id, dev.token)
 
-		msgLen := binary.BigEndian.Uint16(b[1:])
-
-		b = make([]byte, msgLen)
-		_, err = io.ReadFull(br, b)
+		resp, err := cli.Post(devHookUrl, "application/json", strings.NewReader(data))
 		if err != nil {
-			log.Error().Msg(err.Error())
-			return
+			log.Error().Msgf("call device hook url fail for device %s: %v", dev.id, err)
+			return devRegErrHookFailed
 		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			log.Error().Msgf("call device hook url for device '%s', StatusCode: %d", dev.id, resp.StatusCode)
+			return devRegErrHookFailed
+		}
+	}
+
+	if !srv.AddDevice(dev) {
+		return devRegErrIdConflicting
+	}
+
+	return 0
+}
+
+func handleHeartbeatMsg(dev *Device, data []byte) error {
+	if !parseHeartbeat(dev, data) {
+		return fmt.Errorf("invalid heartbeat msg from device '%s'", dev.id)
+	}
+	return dev.WriteMsg(msgTypeHeartbeat, "", nil)
+}
+
+func parseHeartbeat(dev *Device, data []byte) bool {
+	if dev.proto > 4 {
+		attrs := utils.ParseTLV(data)
+		if attrs == nil {
+			return false
+		}
+
+		for typ, val := range attrs {
+			switch typ {
+			case msgHeartbeatAttrUptime:
+				dev.uptime = binary.BigEndian.Uint32(val)
+			}
+		}
+	} else {
+		if len(data) < 4 {
+			return false
+		}
+		dev.uptime = binary.BigEndian.Uint32(data[:4])
+	}
+
+	return true
+}
+
+func handleLogoutMsg(dev *Device, data []byte) error {
+	if len(data) < 32 {
+		return fmt.Errorf("invalid logout msg from device '%s'", dev.id)
+	}
+
+	sid := string(data[:32])
+
+	if val, loaded := dev.users.LoadAndDelete(sid); loaded {
+		user := val.(*User)
+		user.Close()
+	}
+
+	return nil
+}
+
+func handleLoginMsg(dev *Device, data []byte) error {
+	if len(data) < 33 {
+		return fmt.Errorf("invalid login msg from device '%s'", dev.id)
+	}
+
+	sid := string(data[:32])
+	code := data[32]
+
+	if val, loaded := dev.pending.LoadAndDelete(sid); loaded {
+		user := val.(*User)
+
+		ok := code == 0
+		errCode := loginErrorNone
+
+		if ok {
+			log.Debug().Msgf("login session '%s' for device '%s' success", sid, dev.id)
+			dev.users.Store(sid, user)
+		} else {
+			errCode = loginErrorBusy
+			log.Error().Msgf("login session '%s' for device '%s' fail, due to device busy", sid, dev.id)
+		}
+
+		user.WriteMsg(websocket.TextMessage,
+			[]byte(fmt.Appendf(nil, `{"type":"login","err":%d}`, errCode)))
+
+		user.pending <- ok
+	}
+
+	return nil
+}
+
+func handleTermDataMsg(dev *Device, data []byte) error {
+	if len(data) < 32 {
+		return fmt.Errorf("invalid term data msg from device '%s'", dev.id)
+	}
+
+	sid := string(data[:32])
+
+	if val, ok := dev.users.Load(sid); ok {
+		user := val.(*User)
+		data[31] = 0
+		user.WriteMsg(websocket.BinaryMessage, data[31:])
+	}
+
+	return nil
+}
+
+func handleFileMsg(dev *Device, data []byte) error {
+	if len(data) < 33 {
+		return fmt.Errorf("invalid file msg from device '%s'", dev.id)
+	}
+
+	sid := string(data[:32])
+	typ := data[32]
+
+	if val, ok := dev.users.Load(sid); ok {
+		user := val.(*User)
 
 		switch typ {
-		case msgTypeRegister:
-			if !parseDeviceInfo(dev, b) {
-				log.Error().Msgf("%s: msgTypeRegister: invalid", logPrefix)
-				return
-			}
+		case msgTypeFileSend:
+			user.WriteMsg(websocket.TextMessage,
+				fmt.Appendf(nil, `{"type":"sendfile", "name": "%s"}`, string(data[33:])))
 
-			if dev.id == "" {
-				log.Error().Msgf("%s: msgTypeRegister: devid is empty", logPrefix)
-				return
-			}
+		case msgTypeFileRecv:
+			user.WriteMsg(websocket.TextMessage, []byte(`{"type":"recvfile"}`))
 
-			logPrefix = dev.id
+		case msgTypeFileData:
+			data[32] = 1
+			user.WriteMsg(websocket.BinaryMessage, data[32:])
 
-			tmr.Stop()
+		case msgTypeFileAck:
+			user.WriteMsg(websocket.TextMessage, []byte(`{"type":"fileAck"}`))
 
-			dev.br.devRegister(dev)
-
-		case msgTypeLogin:
-			if msgLen < 33 {
-				log.Error().Msgf("%s: msgTypeLogin: invalid", logPrefix)
-				return
-			}
-
-			sid := string(b[:32])
-			code := b[32]
-
-			dev.br.loginAck <- &loginAckMsg{dev.id, sid, code == 1}
-
-		case msgTypeLogout:
-			if msgLen < 32 {
-				log.Error().Msgf("%s: msgTypeLogout: invalid", logPrefix)
-				return
-			}
-
-			dev.br.logout <- string(b[:32])
-
-		case msgTypeTermData:
-			fallthrough
-		case msgTypeFile:
-			if msgLen < 32 {
-				log.Error().Msgf("%s: msgTypeTermData|msgTypeFile: invalid", logPrefix)
-				return
-			}
-
-			sid := string(b[:32])
-
-			if typ == msgTypeFile {
-				dev.br.fileMessage <- &fileMessage{sid, b[32:]}
-			} else {
-				dev.br.termMessage <- &termMessage{sid, b[32:]}
-			}
-
-		case msgTypeCmd:
-			if msgLen < 1 {
-				log.Error().Msgf("%s: msgTypeCmd: invalid", logPrefix)
-				return
-			}
-
-			dev.br.cmdResp <- b
-
-		case msgTypeHttp:
-			if msgLen < 18 {
-				log.Error().Msgf("%s: msgTypeHttp: invalid", logPrefix)
-				return
-			}
-
-			dev.br.httpResp <- &httpResp{b, dev}
-
-		case msgTypeHeartbeat:
-			if !parseHeartbeat(dev, b) {
-				log.Error().Msgf("%s: msgTypeHeartbeat: invalid", logPrefix)
-				return
-			}
-
-			_, err := dev.conn.Write(buildMsg(msgTypeHeartbeat, []byte{}))
-			if err != nil {
-				log.Error().Msg(err.Error())
-				return
-			}
-
-		default:
-			log.Error().Msgf("%s: invalid msg type: %d", logPrefix, typ)
-			return
-		}
-
-		tmr.Reset(dev.heartbeat * 3 / 2)
-	}
-}
-
-func (dev *device) writeLoop() {
-	defer logPanic()
-
-	defer func() {
-		dev.br.unregister <- dev
-	}()
-
-	for msg := range dev.send {
-		_, err := dev.conn.Write(msg)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			return
+		case msgTypeFileAbort:
+			user.WriteMsg(websocket.BinaryMessage, []byte{1})
 		}
 	}
+
+	return nil
 }
 
-func listenDevice(br *broker) {
-	cfg := br.cfg
+func handleHttpMsg(dev *Device, data []byte) error {
+	if len(data) < 18 {
+		return fmt.Errorf("invalid http msg from device '%s'", dev.id)
+	}
 
-	ln, err := net.Listen("tcp", cfg.AddrDev)
+	addr := data[:18]
+	data = data[18:]
+
+	if c, ok := dev.https.Load(string(addr)); ok {
+		c := c.(net.Conn)
+		if len(data) == 0 {
+			c.Close()
+		} else {
+			c.Write(data)
+		}
+	}
+
+	return nil
+}
+
+func handleCmdMsg(dev *Device, data []byte) error {
+	info := &CommandRespInfo{}
+
+	err := jsoniter.Unmarshal(data, info)
 	if err != nil {
-		log.Fatal().Msg(err.Error())
+		return fmt.Errorf("parse command resp info error: %v", err)
 	}
 
-	log.Info().Msgf("Listen device on: %s", cfg.AddrDev)
+	if val, ok := dev.commands.Load(info.Token); ok {
+		req := val.(*CommandReq)
+		req.acked = true
+		req.c.JSON(http.StatusOK, info.Attrs)
+		req.cancel()
+	}
 
-	go func() {
-		defer ln.Close()
-
-		for {
-			conn, err := ln.Accept()
-			if err != nil {
-				log.Error().Msg(err.Error())
-				continue
-			}
-
-			log.Debug().Msgf("Device '%s' connected", conn.RemoteAddr())
-
-			dev := &device{
-				br:        br,
-				conn:      conn,
-				heartbeat: time.Second * 5,
-				timestamp: time.Now().Unix(),
-				send:      make(chan []byte, 256),
-			}
-
-			go dev.readLoop()
-			go dev.writeLoop()
-		}
-	}()
+	return nil
 }

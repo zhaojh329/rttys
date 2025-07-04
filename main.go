@@ -1,19 +1,49 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2019 Jianhui Zhao <zhaojh329@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 package main
 
 import (
 	"context"
 	"os"
+	"os/signal"
 	"runtime"
 	"runtime/debug"
-
-	"rttys/config"
-	"rttys/version"
+	"syscall"
 
 	xlog "rttys/log"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v3"
+)
+
+const RttysVersion = "4.4.5"
+
+var (
+	GitCommit = ""
+	BuildTime = ""
 )
 
 func main() {
@@ -25,7 +55,7 @@ func main() {
 	cmd := &cli.Command{
 		Name:    "rttys",
 		Usage:   "The server side for rtty",
-		Version: version.Version(),
+		Version: RttysVersion,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "log",
@@ -92,9 +122,7 @@ func main() {
 				Usage:   "more detailed output",
 			},
 		},
-		Action: func(c context.Context, cmd *cli.Command) error {
-			return runRttys(cmd)
-		},
+		Action: cmdAction,
 	}
 
 	err := cmd.Run(context.Background(), os.Args)
@@ -103,10 +131,12 @@ func main() {
 	}
 }
 
-func runRttys(c *cli.Command) error {
-	xlog.SetPath(c.String("log"))
+func cmdAction(c context.Context, cmd *cli.Command) error {
+	defer logPanic()
 
-	switch c.String("log-level") {
+	xlog.SetPath(cmd.String("log"))
+
+	switch cmd.String("log-level") {
 	case "debug":
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	case "warn":
@@ -117,41 +147,41 @@ func runRttys(c *cli.Command) error {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
 
-	if c.Bool("verbose") {
+	if cmd.Bool("verbose") {
 		xlog.Verbose()
-	}
-
-	cfg, err := config.Parse(c)
-	if err != nil {
-		return err
 	}
 
 	log.Info().Msg("Go Version: " + runtime.Version())
 	log.Info().Msgf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
 
-	log.Info().Msg("Rttys Version: " + version.Version())
+	log.Info().Msg("Rttys Version: " + RttysVersion)
 
-	gitCommit := version.GitCommit()
-	buildTime := version.BuildTime()
-
-	if gitCommit != "" {
-		log.Info().Msg("Git Commit: " + version.GitCommit())
+	if GitCommit != "" {
+		log.Info().Msg("Git Commit: " + GitCommit)
 	}
 
-	if buildTime != "" {
-		log.Info().Msg("Build Time: " + version.BuildTime())
+	if BuildTime != "" {
+		log.Info().Msg("Build Time: " + BuildTime)
 	}
 
-	defer logPanic()
+	if runtime.GOOS != "windows" {
+		go signalHandle()
+	}
 
-	br := newBroker(cfg)
-	go br.run()
+	cfg := Config{
+		AddrDev:   ":5912",
+		AddrUser:  ":5913",
+		LocalAuth: true,
+	}
 
-	listenDevice(br)
-	listenHttpProxy(br)
-	apiStart(br)
+	err := cfg.Parse(cmd)
+	if err != nil {
+		return err
+	}
 
-	select {}
+	srv := &RttyServer{cfg: cfg}
+
+	return srv.Run()
 }
 
 func logPanic() {
@@ -164,4 +194,20 @@ func logPanic() {
 func saveCrashLog(p any, stack []byte) {
 	log.Error().Msgf("%v", p)
 	log.Error().Msg(string(stack))
+}
+
+func signalHandle() {
+
+	c := make(chan os.Signal, 1)
+
+	signal.Notify(c, syscall.SIGUSR1)
+
+	for s := range c {
+		switch s {
+		case syscall.SIGUSR1:
+			xlog.Verbose()
+			zerolog.SetGlobalLevel(zerolog.DebugLevel)
+			log.Debug().Msg("Debug mode enabled")
+		}
+	}
 }

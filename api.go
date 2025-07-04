@@ -1,3 +1,27 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2019 Jianhui Zhao <zhaojh329@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 package main
 
 import (
@@ -5,12 +29,10 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
-	"os"
 	"path"
 	"strings"
 	"time"
 
-	"rttys/config"
 	"rttys/utils"
 
 	"github.com/fanjindong/go-cache"
@@ -26,38 +48,18 @@ const httpSessionExpire = 30 * time.Minute
 //go:embed ui/dist
 var staticFs embed.FS
 
-func httpLogin(cfg *config.Config, password string) bool {
-	return cfg.Password == "" || cfg.Password == password
-}
-
-func isLocalRequest(c *gin.Context) bool {
-	addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
-	return addr.IP.IsLoopback()
-}
-
-func httpAuth(cfg *config.Config, c *gin.Context) bool {
-	if !cfg.LocalAuth && isLocalRequest(c) {
-		return true
-	}
-
-	sid, err := c.Cookie("sid")
-	if err != nil || !httpSessions.Exists(sid) {
-		return false
-	}
-
-	httpSessions.Expire(sid, httpSessionExpire)
-
-	return true
-}
-
-func apiStart(br *broker) {
-	cfg := br.cfg
+func (srv *RttyServer) ListenAPI() error {
+	cfg := &srv.cfg
 
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
 
-	r.Use(gin.Recovery())
+	r.Use(func(c *gin.Context) {
+		c.Next()
+		log.Debug().Msgf("%s - \"%s %s %s %d\"", c.ClientIP(),
+			c.Request.Method, c.Request.URL.Path, c.Request.Proto, c.Writer.Status())
+	})
 
 	if cfg.AllowOrigins {
 		log.Debug().Msg("Allow all origins")
@@ -77,38 +79,52 @@ func apiStart(br *broker) {
 
 	authorized.GET("/connect/:devid", func(c *gin.Context) {
 		if c.GetHeader("Upgrade") != "websocket" {
+			group := c.Query("group")
 			devid := c.Param("devid")
-			if _, ok := br.getDevice(devid); !ok {
+			if dev := srv.GetDevice(group, devid); dev == nil {
 				c.Redirect(http.StatusFound, "/error/offline")
 				return
 			}
 
-			c.Redirect(http.StatusFound, "/rtty/"+devid)
+			c.Redirect(http.StatusFound, "/rtty/"+devid+"?group="+group)
 			return
 		}
-		serveUser(br, c)
+		handleUserConnection(srv, c)
+	})
+
+	authorized.GET("/groups", func(c *gin.Context) {
+		groups := []string{""}
+
+		srv.groups.Range(func(key, value any) bool {
+			if key != "" {
+				groups = append(groups, key.(string))
+			}
+			return true
+		})
+
+		c.JSON(http.StatusOK, groups)
 	})
 
 	authorized.GET("/devs", func(c *gin.Context) {
-		type DeviceInfo struct {
-			ID          string `json:"id"`
-			Connected   uint32 `json:"connected"`
-			Uptime      uint32 `json:"uptime"`
-			Description string `json:"description"`
-			Proto       uint8  `json:"proto"`
+		devs := make([]*DeviceInfo, 0)
+		g := srv.GetGroup(c.Query("group"), false)
+
+		if g == nil {
+			c.JSON(http.StatusOK, devs)
+			return
 		}
 
-		devs := make([]DeviceInfo, 0)
+		g.devices.Range(func(key, value any) bool {
+			dev := value.(*Device)
 
-		br.devices.Range(func(key, value any) bool {
-			dev := value.(*device)
-
-			devs = append(devs, DeviceInfo{
-				ID:          dev.id,
-				Description: dev.desc,
-				Connected:   uint32(time.Now().Unix() - dev.timestamp),
-				Uptime:      dev.uptime,
-				Proto:       dev.proto,
+			devs = append(devs, &DeviceInfo{
+				Group:     dev.group,
+				ID:        dev.id,
+				Desc:      dev.desc,
+				Connected: uint32(time.Now().Unix() - dev.timestamp),
+				Uptime:    dev.uptime,
+				Proto:     dev.proto,
+				IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
 			})
 
 			return true
@@ -118,24 +134,46 @@ func apiStart(br *broker) {
 	})
 
 	authorized.GET("/dev/:devid", func(c *gin.Context) {
-		if dev, ok := br.getDevice(c.Param("devid")); ok {
-			c.JSON(http.StatusOK, gin.H{
-				"description": dev.desc,
-				"connected":   uint32(time.Now().Unix() - dev.timestamp),
-				"uptime":      dev.uptime,
-				"proto":       dev.proto,
-			})
+		if dev := srv.GetDevice(c.Query("group"), c.Param("devid")); dev != nil {
+			info := &DeviceInfo{
+				ID:        dev.id,
+				Desc:      dev.desc,
+				Connected: uint32(time.Now().Unix() - dev.timestamp),
+				Uptime:    dev.uptime,
+				Proto:     dev.proto,
+				IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
+			}
+			c.JSON(http.StatusOK, info)
 		} else {
 			c.Status(http.StatusNotFound)
 		}
 	})
 
 	authorized.POST("/cmd/:devid", func(c *gin.Context) {
-		handleCmdReq(br, c)
+		cmdInfo := &CommandReqInfo{}
+
+		err := c.BindJSON(&cmdInfo)
+		if err != nil || cmdInfo.Cmd == "" || cmdInfo.Username == "" {
+			cmdErrResp(c, rttyCmdErrInvalid)
+			return
+		}
+
+		dev := srv.GetDevice(c.Query("group"), c.Param("devid"))
+		if dev == nil {
+			cmdErrResp(c, rttyCmdErrOffline)
+			return
+		}
+
+		dev.handleCmdReq(c, cmdInfo)
 	})
 
 	authorized.Any("/web/:devid/:proto/:addr/*path", func(c *gin.Context) {
-		httpProxyRedirect(br, c)
+		httpProxyRedirect(srv, c, "")
+	})
+
+	authorized.Any("/web2/:group/:devid/:proto/:addr/*path", func(c *gin.Context) {
+		group := c.Param("group")
+		httpProxyRedirect(srv, c, group)
 	})
 
 	authorized.GET("/signout", func(c *gin.Context) {
@@ -147,32 +185,6 @@ func apiStart(br *broker) {
 		httpSessions.Del(sid)
 
 		c.Status(http.StatusOK)
-	})
-
-	authorized.GET("/file/:sid", func(c *gin.Context) {
-		sid := c.Param("sid")
-		if fp, ok := br.fileProxy.Load(sid); ok {
-			fp := fp.(*fileProxy)
-
-			if s, ok := br.getSession(sid); ok {
-				fp.Ack(s.dev, sid)
-			}
-
-			defer func() {
-				if err := recover(); err != nil {
-					if ne, ok := err.(*net.OpError); ok {
-						if se, ok := ne.Err.(*os.SyscallError); ok {
-							if strings.Contains(strings.ToLower(se.Error()), "broken pipe") || strings.Contains(strings.ToLower(se.Error()), "connection reset by peer") {
-								fp.reader.Close()
-							}
-						}
-					}
-				}
-			}()
-
-			c.DataFromReader(http.StatusOK, -1, "application/octet-stream", fp.reader, nil)
-			br.fileProxy.Delete(sid)
-		}
 	})
 
 	r.POST("/signin", func(c *gin.Context) {
@@ -209,7 +221,11 @@ func apiStart(br *broker) {
 		}
 	})
 
-	fs, _ := fs.Sub(staticFs, "ui/dist")
+	fs, err := fs.Sub(staticFs, "ui/dist")
+	if err != nil {
+		return err
+	}
+
 	root := http.FS(fs)
 	fh := http.FileServer(root)
 
@@ -246,8 +262,37 @@ func apiStart(br *broker) {
 		fh.ServeHTTP(c.Writer, c.Request)
 	})
 
-	go func() {
-		log.Info().Msgf("Listen user on: %s", cfg.AddrUser)
-		log.Fatal().Err(r.Run(cfg.AddrUser))
-	}()
+	ln, err := net.Listen("tcp", cfg.AddrUser)
+	if err != nil {
+		return err
+	}
+	defer ln.Close()
+
+	log.Info().Msgf("Listen users on: %s", ln.Addr().(*net.TCPAddr))
+
+	return r.RunListener(ln)
+}
+
+func httpLogin(cfg *Config, password string) bool {
+	return cfg.Password == "" || cfg.Password == password
+}
+
+func isLocalRequest(c *gin.Context) bool {
+	addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
+	return addr.IP.IsLoopback()
+}
+
+func httpAuth(cfg *Config, c *gin.Context) bool {
+	if !cfg.LocalAuth && isLocalRequest(c) {
+		return true
+	}
+
+	sid, err := c.Cookie("sid")
+	if err != nil || !httpSessions.Exists(sid) {
+		return false
+	}
+
+	httpSessions.Expire(sid, httpSessionExpire)
+
+	return true
 }

@@ -18,6 +18,9 @@ export default defineConfig({
   ],
   server: {
     proxy: {
+      '/groups': {
+        target: 'http://127.0.0.1:5913'
+      },
       '/devs': {
         target: 'http://127.0.0.1:5913'
       },
@@ -38,9 +41,6 @@ export default defineConfig({
         target: 'http://127.0.0.1:5913'
       },
       '^/web/*': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '^/file/.*': {
         target: 'http://127.0.0.1:5913'
       }
     }

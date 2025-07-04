@@ -148,7 +148,7 @@ export default {
               params: this.cmdData.params
             }
 
-            this.axios.post(`/cmd/${item.id}?wait=${this.cmdData.wait}`, data).then((response) => {
+            this.axios.post(`/cmd/${item.id}?group=${item.group}&wait=${this.cmdData.wait}`, data).then((response) => {
               if (this.cmdData.wait === 0) {
                 this.cmdStatus.responses.push({
                   err: 0,

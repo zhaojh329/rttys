@@ -59,6 +59,8 @@ func init() {
 	}
 
 	log.Logger = logger
+
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 }
 
 // SetPath set the log file path

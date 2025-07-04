@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div ref="terminal" :style="{height: termHeight + 'px', margin: '5px'}" @contextmenu.prevent="showContextmenu"/>
+    <div ref="terminal" :style="{height: termHeight + 'px', margin: '5px'}" @contextmenu.prevent="showContextmenu"></div>
     <el-dialog v-model="file.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
       <el-upload :before-upload="beforeUpload" action="#">
         <el-button type="primary">{{ $t("Select file") }}</el-button>
@@ -62,7 +62,9 @@ export default {
         accepted: false,
         file: null,
         offset: 0,
-        fr: new FileReader()
+        fr: new FileReader(),
+        name: '',
+        chunks: []
       },
       disposables: [],
       resizeDelay: null,
@@ -70,7 +72,6 @@ export default {
       socket: null,
       term: null,
       fitAddon: null,
-      sid: '',
       unack: 0
     }
   },
@@ -232,9 +233,11 @@ export default {
     }
   },
   mounted() {
+    const group = this.$route.query.group ?? ''
+
     const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://'
 
-    const socket = new WebSocket(protocol + location.host + `/connect/${this.devid}`)
+    const socket = new WebSocket(protocol + location.host + `/connect/${this.devid}?group=${group}`)
     socket.binaryType = 'arraybuffer'
     this.socket = socket
 
@@ -252,18 +255,14 @@ export default {
             return
           }
 
-          this.sid = msg.sid
-
           this.openTerm()
 
           socket.addEventListener('close', () => this.closed())
           socket.addEventListener('error', () => this.closed())
         } else if (msg.type === 'sendfile') {
-          const el = document.createElement('a')
-          el.style.display = 'none'
-          el.href = '/file/' + this.sid
-          el.download = msg.name
-          el.click()
+          this.file.name = msg.name
+          this.file.chunks = []
+          socket.send(JSON.stringify({type: 'fileAck'}))
         } else if (msg.type === 'recvfile') {
           this.file.modal = true
           this.file.file = null
@@ -275,13 +274,35 @@ export default {
         }
       } else {
         const data = new Uint8Array(ev.data)
-        this.unack += data.length
-        this.term.write(data)
 
-        if (this.unack > AckBlkSize) {
-          const msg = {type: 'ack', ack: this.unack}
-          socket.send(JSON.stringify(msg))
-          this.unack = 0
+        if (data[0] === 0) {
+          this.unack += data.length - 1
+          this.term.write(data.slice(1))
+
+          if (this.unack > AckBlkSize) {
+            const msg = {type: 'ack', ack: this.unack}
+            socket.send(JSON.stringify(msg))
+            this.unack = 0
+          }
+        } else {
+          if (data.length === 1) {
+            const blob = new Blob(this.file.chunks)
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = this.file.name
+            document.body.appendChild(a)
+            a.click()
+
+            setTimeout(() => {
+              this.file.chunks = []
+              document.body.removeChild(a)
+              window.URL.revokeObjectURL(url)
+            }, 100)
+          } else {
+            this.file.chunks.push(data.slice(1))
+            socket.send(JSON.stringify({type: 'fileAck'}))
+          }
         }
       }
     })

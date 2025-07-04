@@ -1,0 +1,25 @@
+name: release
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - id: get-version
+        uses: battila7/get-version-action@v2
+
+      - uses: docker/login-action@v3
+        with:
+          username: zhaojh329
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: |
+            zhaojh329/rttys:${{ steps.get-version.outputs.version-without-v }}
+            zhaojh329/rttys:latest

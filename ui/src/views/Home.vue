@@ -1,44 +1,54 @@
 <template>
-  <div style="padding:5px;">
-    <div style="display: flex; justify-content: space-between;">
+  <el-container>
+    <el-header class="header">
       <el-space>
         <el-button type="primary" round icon="Refresh" @click="handleRefresh" :disabled="loading">{{ $t('Refresh List') }}</el-button>
+        <el-select v-model="group" filterable :placeholder="$t('ungrouped')" @change="getDevices">
+          <el-option v-for="item in groups" :key="item" :label="item == '' ? $t('ungrouped'): item " :value="item"/>
+        </el-select>
         <el-input style="width:200px" v-model="filterString" search @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
         <el-button @click="showCmdForm" type="primary">{{ $t('Execute command') }}</el-button>
       </el-space>
-      <el-space style="float: right;">
+      <el-space>
         <span style="color: var(--el-color-primary); font-size: 24px">{{ $t('device-count', {count: devlists.length}) }}</span>
         <el-divider direction="vertical" />
         <el-button type="primary" @click="handleLogout">{{ $t('Sign out') }}</el-button>
       </el-space>
-    </div>
-    <el-table :loading="loading" :data="pagedevlists" style="margin-top: 10px; margin-bottom: 10px; width: 100%" :empty-text="$t('No devices connected')" @selection-change='handleSelection'>
-      <el-table-column type="selection" width="60" />
-      <el-table-column prop="id" :label="$t('Device ID')" width="200" />
-      <el-table-column :label="$t('Connected time')" width="200">
-        <template #default="{ row }">
-          <span>{{ formatTime(row.connected) }}</span>
+    </el-header>
+    <el-main>
+      <el-card>
+        <el-table height="calc(100vh - 215px)" :loading="loading" :data="pagedevlists" :empty-text="$t('No devices connected')" @selection-change='handleSelection'>
+          <el-table-column type="selection" width="40" />
+          <el-table-column prop="id" :label="$t('Device ID')" width="300" />
+          <el-table-column :label="$t('Connected time')" width="150">
+            <template #default="{ row }">
+              <span>{{ formatTime(row.connected) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('Uptime')" width="150">
+            <template #default="{ row }">
+              <span>{{ formatTime(row.uptime) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="ipaddr" :label="$t('ipaddr')" width="150" />
+          <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip width="150" />
+          <el-table-column width="100">
+            <template #default="{ row }">
+              <el-space size="large">
+                <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
+                <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
+              </el-space>
+            </template>
+          </el-table-column>
+        </el-table>
+        <template #footer>
+          <el-pagination background layout="prev, pager, next, total,sizes" :total="filteredDevices.length" @change="handlePageChange" class="pagination"/>
         </template>
-      </el-table-column>
-      <el-table-column :label="$t('Uptime')" width="200">
-        <template #default="{ row }">
-          <span>{{ formatTime(row.uptime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip />
-      <el-table-column width="200">
-        <template #default="{ row }">
-          <el-space size="large">
-            <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
-            <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
-          </el-space>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-pagination background layout="prev, pager, next, total,sizes" :total="filteredDevices.length" @change="handlePageChange"/>
+      </el-card>
+    </el-main>
     <RttyCmd ref="rttyCmd" :selection="selection"/>
     <RttyWeb ref="rttyWeb"/>
-  </div>
+  </el-container>
 </template>
 
 <script>
@@ -57,6 +67,8 @@ export default {
   },
   data() {
     return {
+      group: '',
+      groups: [],
       filterString: '',
       loading: true,
       devlists: [],
@@ -115,8 +127,16 @@ export default {
         return d.id.toLowerCase().indexOf(filterString) > -1 || d.description.toLowerCase().indexOf(filterString) > -1
       })
     },
+    getGroups() {
+      this.axios.get('/groups').then(res => {
+        this.groups = res.data
+        if (this.groups.indexOf(this.group) === -1)
+          this.group = this.groups[0]
+        this.getDevices()
+      })
+    },
     getDevices() {
-      this.axios.get('/devs').then(res => {
+      this.axios.get(`/devs?group=${this.group}`).then(res => {
         this.loading = false
         this.devlists = res.data
         this.selection = []
@@ -128,14 +148,14 @@ export default {
     handleRefresh() {
       this.loading = true
       setTimeout(() => {
-        this.getDevices()
+        this.getGroups()
       }, 500)
     },
     handleSelection(selection) {
       this.selection = selection
     },
     connectDevice(devid) {
-      window.open('/rtty/' + devid)
+      window.open(`/rtty/${devid}?group=${this.group}`)
     },
     connectDeviceWeb(dev) {
       this.$refs.rttyWeb.show(dev)
@@ -145,17 +165,19 @@ export default {
     }
   },
   mounted() {
-    this.getDevices()
+    this.getGroups()
   }
 }
 </script>
 
 <style scoped>
-  :deep(.el-pagination) .el-pagination__total {
-    color: white;
-  }
+.header {
+  display: flex;
+  justify-content: space-between;
+}
 
-  :deep(.el-pagination) {
-    justify-content: center;
-  }
+.pagination {
+  display: flex;
+  justify-content: center;
+}
 </style>

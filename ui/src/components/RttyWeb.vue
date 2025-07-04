@@ -76,12 +76,14 @@ export default {
           callback()
         }}]
       },
+      group: '',
       devid: '',
       devProto: null
     }
   },
   methods: {
     show(dev) {
+      this.group = dev.group
       this.devid = dev.id
       this.devProto = dev.proto
       this.formData.proto = 'http'
@@ -122,7 +124,11 @@ export default {
             path = '/'
 
           const addr = encodeURIComponent(`${ipaddr}:${port}${path}`)
-          window.open(`/web/${this.devid}/${proto}/${addr}`)
+
+          if (this.group)
+            window.open(`/web2/${this.group}/${this.devid}/${proto}/${addr}`)
+          else
+            window.open(`/web/${this.devid}/${proto}/${addr}`)
         }, 100)
       })
     }
