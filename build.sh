@@ -1,6 +1,5 @@
 #!/bin/sh
 
-VersionPath="rttys/version"
 GitCommit=$(git log --pretty=format:"%h" -1)
 BuildTime=$(date +%FT%T%z)
 
@@ -23,7 +22,7 @@ generate() {
 		bin="rttys.exe"
 	}
 
-	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X $VersionPath.gitCommit=$GitCommit -X $VersionPath.buildTime=$BuildTime" -o $dir/$bin && cp rttys.service $dir
+	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$GitCommit -X main.BuildTime=$BuildTime" -o $dir/$bin && cp rttys.service $dir
 }
 
 generate $1 $2

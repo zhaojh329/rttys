@@ -8,10 +8,9 @@ WORKDIR /rttys-build
 COPY . .
 COPY --from=ui /rttys-ui/dist ui/dist
 RUN CGO_ENABLED=0 \
-    VersionPath="rttys/version" \
     GitCommit=$(git log --pretty=format:"%h" -1) \
     BuildTime=$(date +%FT%T%z) \
-    go build -ldflags="-s -w -X $VersionPath.gitCommit=$GitCommit -X $VersionPath.buildTime=$BuildTime"
+    go build -ldflags="-s -w -X main.gitCommit=$GitCommit -X main.buildTime=$BuildTime"
 
 FROM alpine:latest
 COPY --from=rttys /rttys-build/rttys /usr/bin/rttys

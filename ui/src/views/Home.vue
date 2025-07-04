@@ -3,6 +3,9 @@
     <div style="display: flex; justify-content: space-between;">
       <el-space>
         <el-button type="primary" round icon="Refresh" @click="handleRefresh" :disabled="loading">{{ $t('Refresh List') }}</el-button>
+        <el-select v-model="group" filterable :placeholder="$t('ungrouped')" @change="getDevices">
+          <el-option v-for="item in groups" :key="item" :label="item == '' ? $t('ungrouped'): item " :value="item"/>
+        </el-select>
         <el-input style="width:200px" v-model="filterString" search @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
         <el-button @click="showCmdForm" type="primary">{{ $t('Execute command') }}</el-button>
       </el-space>
@@ -57,6 +60,8 @@ export default {
   },
   data() {
     return {
+      group: '',
+      groups: [],
       filterString: '',
       loading: true,
       devlists: [],
@@ -115,8 +120,16 @@ export default {
         return d.id.toLowerCase().indexOf(filterString) > -1 || d.description.toLowerCase().indexOf(filterString) > -1
       })
     },
+    getGroups() {
+      this.axios.get('/groups').then(res => {
+        this.groups = res.data
+        if (this.groups.indexOf(this.group) === -1)
+          this.group = this.groups[0]
+        this.getDevices()
+      })
+    },
     getDevices() {
-      this.axios.get('/devs').then(res => {
+      this.axios.get(`/devs?group=${this.group}`).then(res => {
         this.loading = false
         this.devlists = res.data
         this.selection = []
@@ -128,14 +141,14 @@ export default {
     handleRefresh() {
       this.loading = true
       setTimeout(() => {
-        this.getDevices()
+        this.getGroups()
       }, 500)
     },
     handleSelection(selection) {
       this.selection = selection
     },
     connectDevice(devid) {
-      window.open('/rtty/' + devid)
+      window.open(`/rtty/${devid}?group=${this.group}`)
     },
     connectDeviceWeb(dev) {
       this.$refs.rttyWeb.show(dev)
@@ -145,7 +158,7 @@ export default {
     }
   },
   mounted() {
-    this.getDevices()
+    this.getGroups()
   }
 }
 </script>

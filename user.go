@@ -1,134 +1,80 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2019 Jianhui Zhao <zhaojh329@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 package main
 
 import (
-	"fmt"
+	"context"
+	"encoding/binary"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"rttys/client"
+	"rttys/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	loginErrorNone    = 0x00
-	loginErrorOffline = 0x01
-	loginErrorBusy    = 0x02
-)
-
-type user struct {
-	br     *broker
-	sid    string
-	devid  string
-	conn   *websocket.Conn
-	closed bool
-	close  sync.Once
-	send   chan *usrMessage // Buffered channel of outbound messages.
+type User struct {
+	conn    *websocket.Conn
+	sid     string
+	dev     *Device
+	pending chan bool
+	close   sync.Once
+	closed  atomic.Bool
 }
 
-type usrMessage struct {
-	sid  string
-	typ  int
-	data []byte
+type UserMsg struct {
+	Type string `json:"type"`
+	Cols uint16 `json:"cols"`
+	Rows uint16 `json:"rows"`
+	Ack  uint16 `json:"ack"`
+	Size uint32 `json:"size"`
+	Name string `json:"name"`
 }
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func (u *user) IsDevice() bool {
-	return false
-}
+func handleUserConnection(srv *RttyServer, c *gin.Context) {
+	defer logPanic()
 
-func (u *user) DeviceID() string {
-	return u.devid
-}
-
-func (u *user) WriteMsg(typ int, data []byte) {
-	u.send <- &usrMessage{
-		typ:  typ,
-		data: data,
-	}
-}
-
-func (u *user) Closed() bool {
-	return u.closed
-}
-
-func (u *user) CloseConn() {
-	u.conn.Close()
-}
-
-func (u *user) Close() {
-	u.close.Do(func() {
-		u.closed = true
-		u.CloseConn()
-		close(u.send)
-	})
-}
-
-func userLoginAck(code int, c client.Client) {
-	msg := fmt.Sprintf(`{"type":"login","sid":"%s","err":%d}`, c.(*user).sid, code)
-	c.WriteMsg(websocket.TextMessage, []byte(msg))
-}
-
-func (u *user) readLoop() {
-	defer func() {
-		u.br.unregister <- u
-	}()
-
-	for {
-		typ, data, err := u.conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Error().Msg(err.Error())
-			}
-			break
-		}
-
-		u.br.userMessage <- &usrMessage{u.sid, typ, data}
-	}
-}
-
-func (u *user) writeLoop() {
-	ticker := time.NewTicker(time.Second * 5)
-
-	defer func() {
-		ticker.Stop()
-		u.br.unregister <- u
-	}()
-
-	for {
-		var err error
-
-		select {
-		case <-ticker.C:
-			err = u.conn.WriteMessage(websocket.PingMessage, []byte{})
-
-		case msg, ok := <-u.send:
-			if !ok {
-				return
-			}
-
-			err = u.conn.WriteMessage(msg.typ, msg.data)
-		}
-
-		if err != nil {
-			log.Error().Msg(err.Error())
-			return
-		}
-	}
-}
-
-func serveUser(br *broker, c *gin.Context) {
+	group := c.Query("group")
 	devid := c.Param("devid")
 	if devid == "" {
 		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	dev := srv.GetDevice(group, devid)
+	if dev == nil {
+		c.Status(http.StatusNotFound)
 		return
 	}
 
@@ -139,15 +85,136 @@ func serveUser(br *broker, c *gin.Context) {
 		return
 	}
 
-	u := &user{
-		br:    br,
-		conn:  conn,
-		devid: devid,
-		send:  make(chan *usrMessage, 256),
+	sid := utils.GenUniqueID()
+
+	user := &User{
+		sid:     sid,
+		conn:    conn,
+		dev:     dev,
+		pending: make(chan bool, 1),
 	}
 
-	go u.readLoop()
-	go u.writeLoop()
+	dev.pending.Store(sid, user)
 
-	br.register <- u
+	defer user.Close()
+
+	if err := dev.WriteMsg(msgTypeLogin, sid, nil); err != nil {
+		log.Error().Msgf("send login msg to device %s fail: %v", dev.id, err)
+		return
+	}
+
+	ctx, cancel := context.WithCancel(dev.ctx)
+
+	go func() {
+		<-ctx.Done()
+		user.Close()
+	}()
+
+	defer cancel()
+
+	select {
+	case <-ctx.Done():
+		return
+
+	case ok := <-user.pending:
+		if !ok {
+			return
+		}
+
+	case <-time.After(TermLoginTimeout):
+		log.Error().Msgf("login timeout for session %s of device %s", sid, dev.id)
+		return
+	}
+
+	for {
+		msgType, data, err := conn.ReadMessage()
+		if err != nil {
+			if !user.closed.Load() {
+				closeError, ok := err.(*websocket.CloseError)
+				if !ok || (closeError.Code != websocket.CloseGoingAway &&
+					closeError.Code != websocket.CloseAbnormalClosure &&
+					closeError.Code != websocket.CloseNormalClosure) {
+					log.Error().Msgf("user read fail: %v", err)
+				}
+			}
+			return
+		}
+
+		if msgType == websocket.BinaryMessage {
+			if len(data) < 1 {
+				log.Error().Msgf("invalid msg from user")
+				return
+			}
+
+			typ := msgTypeTermData
+			if data[0] == 1 {
+				typ = msgTypeFile
+			}
+
+			err = dev.WriteMsg(typ, sid, data[1:])
+		} else {
+			msg := &UserMsg{}
+
+			err = jsoniter.Unmarshal(data, msg)
+			if err != nil {
+				log.Error().Msgf("invalid msg from user")
+				return
+			}
+
+			switch msg.Type {
+			case "winsize":
+				b := make([]byte, 4)
+
+				binary.BigEndian.PutUint16(b, msg.Cols)
+				binary.BigEndian.PutUint16(b[2:], msg.Rows)
+
+				err = dev.WriteMsg(msgTypeWinsize, sid, b)
+
+			case "ack":
+				b := make([]byte, 2)
+				binary.BigEndian.PutUint16(b, msg.Ack)
+				err = dev.WriteMsg(msgTypeAck, sid, b)
+
+			case "fileInfo":
+				b := make([]byte, 4+len(msg.Name))
+				binary.BigEndian.PutUint32(b, msg.Size)
+				copy(b[4:], []byte(msg.Name))
+
+				err = dev.WriteFileMsg(msgTypeFile, sid, msgTypeFileInfo, b)
+
+			case "fileCanceled":
+				err = dev.WriteFileMsg(msgTypeFile, sid, msgTypeFileAbort, nil)
+
+			case "fileAck":
+				err = dev.WriteFileMsg(msgTypeFile, sid, msgTypeFileAck, nil)
+			}
+		}
+
+		if err != nil {
+			log.Error().Msgf("write msg to device '%s' fail: %v", dev.id, err)
+			return
+		}
+	}
+}
+
+func (user *User) Close() {
+	user.close.Do(func() {
+		dev := user.dev
+		sid := user.sid
+
+		user.closed.Store(true)
+
+		if _, loaded := dev.users.LoadAndDelete(sid); loaded {
+			dev.WriteMsg(msgTypeLogout, sid, nil)
+		}
+
+		dev.pending.Delete(sid)
+		user.conn.Close()
+
+		log.Debug().Msgf("user with session '%s' closed", sid)
+	})
+}
+
+func (user *User) WriteMsg(typ int, data []byte) error {
+	return user.conn.WriteMessage(typ, data)
 }
