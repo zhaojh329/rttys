@@ -39,7 +39,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-const RttysVersion = "4.4.5"
+const RttysVersion = "5.0.0"
 
 var (
 	GitCommit = ""
