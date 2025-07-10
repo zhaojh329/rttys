@@ -92,6 +92,17 @@ func (srv *RttyServer) ListenAPI() error {
 		handleUserConnection(srv, c)
 	})
 
+	authorized.GET("/counts", func(c *gin.Context) {
+		count := 0
+
+		srv.groups.Range(func(key, value any) bool {
+			count += int(value.(*DeviceGroup).count.Load())
+			return true
+		})
+
+		c.JSON(http.StatusOK, gin.H{"count": count})
+	})
+
 	authorized.GET("/groups", func(c *gin.Context) {
 		groups := []string{""}
 
