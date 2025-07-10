@@ -88,7 +88,7 @@ export default {
           })
         }
       } else if (name === 'paste') {
-        this.$message.success(this.$t('Please use shortcut "Shift+Insert"'))
+        this.pasteFromClipboard()
       } else if (name === 'clear') {
         this.term.clear()
       } else if (name === 'font') {
@@ -100,6 +100,21 @@ export default {
       }
 
       this.term.focus()
+    },
+    async pasteFromClipboard() {
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const text = await navigator.clipboard.readText()
+          if (text) {
+            this.sendTermData(text)
+            this.$message.success(this.$t('Pasted from clipboard'))
+          }
+        } else {
+          this.$message.success(this.$t('Please use shortcut "Shift+Insert"'))
+        }
+      } catch {
+        this.$message.success(this.$t('Please use shortcut "Shift+Insert"'))
+      }
     },
     updateFontSize(size) {
       if (!size) {

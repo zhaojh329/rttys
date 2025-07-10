@@ -67,6 +67,7 @@
   "Invalid port": "Invalid port",
   "Must start with /": "Must start with /",
   "Copied to clipboard": "Copied to clipboard",
+  "Pasted from clipboard": "Pasted from clipboard",
   "Please use shortcut \"Shift+Insert\"": "Please use shortcut \"Shift+Insert\"",
   "Your device's rtty does not support https proxy, please upgrade it.": "Your device's rtty does not support https proxy, please upgrade it."
 }

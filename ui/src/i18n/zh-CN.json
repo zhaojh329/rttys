@@ -68,6 +68,7 @@
   "Invalid port": "无效的端口",
   "Must start with /": "必须以 / 开头",
   "Copied to clipboard": "已复制到剪切板",
+  "Pasted from clipboard": "已从剪切板粘贴",
   "Please use shortcut \"Shift+Insert\"": "请使用快捷键 \"Shift+Insert\"",
   "Your device's rtty does not support https proxy, please upgrade it.": "你的设备的 rtty 不支持 https 代理，请升级"
 }
