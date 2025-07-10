@@ -84,7 +84,7 @@ export default {
         const text = this.term.getSelection()
         if (text) {
           this.$copyText(text).then(() => {
-            this.$message.success(this.$t('Already copied to clipboard'))
+            this.$message.success(this.$t('Copied to clipboard'))
           })
         }
       } else if (name === 'paste') {
