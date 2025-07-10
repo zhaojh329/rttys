@@ -84,17 +84,17 @@ export default {
         const text = this.term.getSelection()
         if (text) {
           this.$copyText(text).then(() => {
-            this.$message.info(this.$t('Already copied to clipboard'))
+            this.$message.success(this.$t('Already copied to clipboard'))
           })
         }
       } else if (name === 'paste') {
-        this.$message.info(this.$t('Please use shortcut "Shift+Insert"'))
+        this.$message.success(this.$t('Please use shortcut "Shift+Insert"'))
       } else if (name === 'clear') {
         this.term.clear()
       } else if (name === 'font') {
         this.font.modal = true
       } else if (name === 'file') {
-        this.$message.info(this.$t('Please execute command "rtty -R" or "rtty -S" in current terminal!'))
+        this.$message.success(this.$t('Please execute command "rtty -R" or "rtty -S" in current terminal!'))
       } else if (name === 'about') {
         window.open('https://github.com/zhaojh329/rtty')
       }
