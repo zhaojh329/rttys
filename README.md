@@ -19,11 +19,24 @@
 ![Build Status][9]
 [![Ask DeepWiki][12]][13]
 
-This is the server program of [rtty](https://github.com/zhaojh329/rtty)
+> **🔗 This is the server component of the rtty project. For complete information please visit the main [rtty client repository](https://github.com/zhaojh329/rtty).**
 
-## Star History
+**Official Website:** https://rttys.net/
+
+## 📖 About
+
+**rttys** is the server-side component of the [rtty](https://github.com/zhaojh329/rtty) remote terminal system. It provides a web-based management interface and handles connections from rtty clients running on remote devices.
+
+## 🏗️ Project Structure
+
+This repository contains only the server-side components:
+- **Server binary**: The main rttys server program
+- **Web UI**: Browser-based management interface
+- **API**: RESTful API for device management
+
+## ⭐ Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=zhaojh329/rttys&type=Date)](https://www.star-history.com/#zhaojh329/rttys&Date)
 
-## Contributing
+## 🤝 Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
 see the [CONTRIBUTING.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING.md) file.
