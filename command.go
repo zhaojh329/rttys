@@ -26,6 +26,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"rttys/utils"
 	"strconv"
@@ -48,15 +49,9 @@ type CommandReqInfo struct {
 	Params   []string `json:"params"`
 }
 
-type CommandRespAttrs struct {
-	Code   int    `json:"code"`
-	Stdout string `json:"stdout"`
-	Stderr string `json:"stderr"`
-}
-
 type CommandRespInfo struct {
-	Token string           `json:"token"`
-	Attrs CommandRespAttrs `json:"attrs"`
+	Token string          `json:"token"`
+	Attrs json.RawMessage `json:"attrs"`
 }
 
 const (
