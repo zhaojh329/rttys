@@ -27,10 +27,8 @@ package main
 import (
 	"context"
 	"os"
-	"os/signal"
 	"runtime"
 	"runtime/debug"
-	"syscall"
 
 	xlog "rttys/log"
 
@@ -198,20 +196,4 @@ func logPanic() {
 func saveCrashLog(p any, stack []byte) {
 	log.Error().Msgf("%v", p)
 	log.Error().Msg(string(stack))
-}
-
-func signalHandle() {
-
-	c := make(chan os.Signal, 1)
-
-	signal.Notify(c, syscall.SIGUSR1)
-
-	for s := range c {
-		switch s {
-		case syscall.SIGUSR1:
-			xlog.Verbose()
-			zerolog.SetGlobalLevel(zerolog.DebugLevel)
-			log.Debug().Msg("Debug mode enabled")
-		}
-	}
 }
