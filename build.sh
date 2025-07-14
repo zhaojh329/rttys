@@ -1,5 +1,7 @@
 #!/bin/sh
 
+VERSION=$(grep 'const RttysVersion' main.go | cut -d'"' -f2 | sed 's/^v//')
+
 GitCommit=$(git log --pretty=format:"%h" -1)
 BuildTime=$(date +%FT%T%z)
 
@@ -11,7 +13,7 @@ BuildTime=$(date +%FT%T%z)
 generate() {
 	local os="$1"
 	local arch="$2"
-	local dir="rttys-$os-$arch"
+	local dir="rttys-$VERSION-$os-$arch"
 	local bin="rttys"
 
 	rm -rf $dir
@@ -23,6 +25,13 @@ generate() {
 	}
 
 	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$GitCommit -X main.BuildTime=$BuildTime" -o $dir/$bin && cp rttys.service $dir
+
+	[ -n "$COMPRESS" ] && {
+		tar -jcvf $dir.tar.bz2 $dir
+		rm -rf $dir
+	}
+
+	exit 0
 }
 
 generate $1 $2
