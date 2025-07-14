@@ -1,10 +1,14 @@
 [Unit]
-Description=rttys
+Description=RTTYS - Remote Terminal Access Server
+Documentation=https://github.com/zhaojh329/rttys
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/rttys -c /etc/rttys/rttys.conf
-TimeoutStopSec=5s
+Type=simple
+ExecStart=/usr/bin/rttys -c /etc/rttys/rttys.conf
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
 
 [Install]
 WantedBy=multi-user.target
