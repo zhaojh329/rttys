@@ -40,6 +40,7 @@ type Config struct {
 	HttpProxyRedirDomain string
 	Token                string
 	DevHookUrl           string
+	UserHookUrl          string
 	LocalAuth            bool
 	Password             string
 	AllowOrigins         bool
@@ -60,6 +61,7 @@ func (cfg *Config) Parse(c *cli.Command) error {
 	getFlagOpt(c, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
 	getFlagOpt(c, "http-proxy-redir-domain", &cfg.HttpProxyRedirDomain)
 	getFlagOpt(c, "dev-hook-url", &cfg.DevHookUrl)
+	getFlagOpt(c, "user-hook-url", &cfg.UserHookUrl)
 	getFlagOpt(c, "local-auth", &cfg.LocalAuth)
 	getFlagOpt(c, "token", &cfg.Token)
 	getFlagOpt(c, "password", &cfg.Password)
@@ -98,6 +100,7 @@ func parseYamlCfg(cfg *Config, conf string) error {
 
 	getConfigOpt(yamlCfg, "token", &cfg.Token)
 	getConfigOpt(yamlCfg, "dev-hook-url", &cfg.DevHookUrl)
+	getConfigOpt(yamlCfg, "user-hook-url", &cfg.UserHookUrl)
 	getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
 	getConfigOpt(yamlCfg, "password", &cfg.Password)
 	getConfigOpt(yamlCfg, "allow-origins", &cfg.AllowOrigins)

@@ -67,6 +67,11 @@ func (srv *RttyServer) ListenAPI() error {
 	}
 
 	authorized := r.Group("/", func(c *gin.Context) {
+		if !callUserHookUrl(cfg, c) {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
 		if !cfg.LocalAuth && isLocalRequest(c) {
 			return
 		}
@@ -282,6 +287,56 @@ func (srv *RttyServer) ListenAPI() error {
 	log.Info().Msgf("Listen users on: %s", ln.Addr().(*net.TCPAddr))
 
 	return r.RunListener(ln)
+}
+
+func callUserHookUrl(cfg *Config, c *gin.Context) bool {
+	if cfg.UserHookUrl == "" {
+		return true
+	}
+
+	upath := c.Request.URL.RawPath
+
+	// Create HTTP request with original headers
+	req, err := http.NewRequest("GET", cfg.UserHookUrl, nil)
+	if err != nil {
+		log.Error().Err(err).Msgf("create hook request for \"%s\" fail", upath)
+		return false
+	}
+
+	// Copy all headers from original request
+	for key, values := range c.Request.Header {
+		lowerKey := strings.ToLower(key)
+		if lowerKey == "upgrade" || lowerKey == "connection" || lowerKey == "accept-encoding" {
+			continue
+		}
+
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+
+	// Add custom headers for hook identification
+	req.Header.Set("X-Rttys-Hook", "true")
+	req.Header.Set("X-Original-Method", c.Request.Method)
+	req.Header.Set("X-Original-URL", c.Request.URL.String())
+
+	cli := &http.Client{
+		Timeout: 3 * time.Second,
+	}
+
+	resp, err := cli.Do(req)
+	if err != nil {
+		log.Error().Err(err).Msgf("call user hook url for \"%s\" fail", upath)
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Error().Msgf("call user hook url for \"%s\", StatusCode: %d", upath, resp.StatusCode)
+		return false
+	}
+
+	return true
 }
 
 func httpLogin(cfg *Config, password string) bool {

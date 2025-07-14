@@ -103,6 +103,10 @@ func main() {
 				Name:  "dev-hook-url",
 				Usage: "called when the device is connected",
 			},
+			&cli.StringFlag{
+				Name:  "user-hook-url",
+				Usage: "called when the user accesses APIs",
+			},
 			&cli.BoolFlag{
 				Name:  "local-auth",
 				Value: true,
