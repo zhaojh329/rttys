@@ -9,6 +9,7 @@
 [7]: https://img.shields.io/badge/release-5.2.0-blue.svg?style=plastic
 [8]: https://github.com/zhaojh329/rttys/releases
 [9]: https://github.com/zhaojh329/rttys/workflows/build/badge.svg
+[10]: https://img.shields.io/github/downloads/zhaojh329/rttys/total
 [12]: https://deepwiki.com/badge.svg
 [13]: https://deepwiki.com/zhaojh329/rttys
 
@@ -17,6 +18,7 @@
 [![Issue Welcome][5]][6]
 [![Release Version][7]][8]
 ![Build Status][9]
+![Downloads][10]
 [![Ask DeepWiki][12]][13]
 
 > **🔗 This is the server component of the rtty project. For complete information please visit the main [rtty client repository](https://github.com/zhaojh329/rtty).**
