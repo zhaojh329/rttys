@@ -579,10 +579,18 @@ func handleCmdMsg(dev *Device, data []byte) error {
 		return fmt.Errorf("parse command resp info error: %v", err)
 	}
 
+	var attrs map[string]any
+	err = jsoniter.Unmarshal(info.Attrs, &attrs)
+	if err != nil {
+		return fmt.Errorf("parse command resp attrs error: %v", err)
+	}
+
+	attrs["devid"] = dev.id
+
 	if val, ok := dev.commands.Load(info.Token); ok {
 		req := val.(*CommandReq)
 		req.acked = true
-		req.c.JSON(http.StatusOK, info.Attrs)
+		req.c.JSON(http.StatusOK, attrs)
 		req.cancel()
 	}
 
