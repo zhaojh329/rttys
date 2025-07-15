@@ -91,7 +91,13 @@ func (srv *RttyServer) ListenAPI() error {
 				return
 			}
 
-			c.Redirect(http.StatusFound, "/rtty/"+devid+"?group="+group)
+			url := "/rtty/" + devid
+
+			if group != "" {
+				url += "?group=" + group
+			}
+
+			c.Redirect(http.StatusFound, url)
 			return
 		}
 		handleUserConnection(srv, c)

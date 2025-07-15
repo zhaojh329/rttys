@@ -155,7 +155,10 @@ export default {
       this.selection = selection
     },
     connectDevice(devid) {
-      window.open(`/rtty/${devid}?group=${this.group}`)
+      let url = `/rtty/${devid}`
+      if (this.group)
+        url += `?group=${this.group}`
+      window.open(url)
     },
     connectDeviceWeb(dev) {
       this.$refs.rttyWeb.show(dev)
