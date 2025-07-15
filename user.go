@@ -58,6 +58,11 @@ type UserMsg struct {
 	Name string `json:"name"`
 }
 
+const (
+	LoginErrorOffline = 4000
+	LoginErrorBusy    = 4001
+)
+
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
@@ -65,34 +70,33 @@ var upgrader = websocket.Upgrader{
 func handleUserConnection(srv *RttyServer, c *gin.Context) {
 	defer logPanic()
 
-	group := c.Query("group")
-	devid := c.Param("devid")
-	if devid == "" {
-		c.Status(http.StatusBadRequest)
-		return
-	}
-
-	dev := srv.GetDevice(group, devid)
-	if dev == nil {
-		c.Status(http.StatusNotFound)
-		return
-	}
-
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		c.Status(http.StatusBadRequest)
-		log.Error().Msg(err.Error())
+		log.Error().Err(err).Msg("upgrade to websocket failed")
+		return
+	}
+
+	devid := c.Param("devid")
+	if devid == "" {
+		log.Error().Msg("device ID is required")
+		conn.Close()
+		return
+	}
+
+	user := &User{conn: conn}
+
+	dev := srv.GetDevice(c.Query("group"), devid)
+	if dev == nil {
+		user.SendCloseMsg(LoginErrorOffline, "device not found")
+		conn.Close()
 		return
 	}
 
 	sid := utils.GenUniqueID()
 
-	user := &User{
-		sid:     sid,
-		conn:    conn,
-		dev:     dev,
-		pending: make(chan bool, 1),
-	}
+	user.sid = sid
+	user.dev = dev
+	user.pending = make(chan bool, 1)
 
 	dev.pending.Store(sid, user)
 
@@ -195,6 +199,10 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 			return
 		}
 	}
+}
+
+func (user *User) SendCloseMsg(code int, text string) {
+	user.conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, text), time.Now().Add(time.Second))
 }
 
 func (user *User) Close() {

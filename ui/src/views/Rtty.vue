@@ -26,8 +26,8 @@ import '@xterm/xterm/css/xterm.css'
 import OverlayAddon from '../xterm-addon/xterm-addon-overlay'
 import Contextmenu from '../components/ContextMenu.vue'
 
-const LoginErrorOffline = 0x01
-const LoginErrorBusy = 0x02
+const LoginErrorOffline = 4000
+const LoginErrorBusy = 4001
 
 const MsgTypeFileData = 0x03
 
@@ -206,7 +206,8 @@ export default {
       })
     },
     closed() {
-      this.term.write('\n\n\r\x1B[1;3;31mConnection is closed.\x1B[0m')
+      if (this.term)
+        this.term.write('\n\n\r\x1B[1;3;31mConnection is closed.\x1B[0m')
       this.dispose()
     },
     openTerm() {
@@ -256,24 +257,25 @@ export default {
     socket.binaryType = 'arraybuffer'
     this.socket = socket
 
+    socket.addEventListener('close', (ev) => {
+      if (ev.code === LoginErrorOffline) {
+        this.$router.push('/error/offline')
+      } else if (ev.code === LoginErrorBusy) {
+        this.$router.push('/error/full')
+      } else {
+        this.closed()
+      }
+    })
+
+    socket.addEventListener('error', () => this.closed())
+
     socket.addEventListener('message', ev => {
       const data = ev.data
 
       if (typeof data === 'string') {
         const msg = JSON.parse(data)
         if (msg.type === 'login') {
-          if (msg.err === LoginErrorOffline) {
-            this.$router.push('/error/offline')
-            return
-          } else if (msg.err === LoginErrorBusy) {
-            this.$router.push('/error/full')
-            return
-          }
-
           this.openTerm()
-
-          socket.addEventListener('close', () => this.closed())
-          socket.addEventListener('error', () => this.closed())
         } else if (msg.type === 'sendfile') {
           this.file.name = msg.name
           this.file.chunks = []
@@ -324,7 +326,8 @@ export default {
   },
   unmounted() {
     this.dispose()
-    this.term.dispose()
+    if (this.term)
+      this.term.dispose()
   }
 }
 </script>

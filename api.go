@@ -98,9 +98,9 @@ func (srv *RttyServer) ListenAPI() error {
 			}
 
 			c.Redirect(http.StatusFound, url)
-			return
+		} else {
+			handleUserConnection(srv, c)
 		}
-		handleUserConnection(srv, c)
 	})
 
 	authorized.GET("/counts", func(c *gin.Context) {

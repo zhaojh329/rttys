@@ -127,12 +127,6 @@ const (
 	CommandTimeout          = 30
 )
 
-const (
-	loginErrorNone    = 0x00
-	loginErrorOffline = 0x01
-	loginErrorBusy    = 0x02
-)
-
 var DevRegErrMsg = map[byte]string{
 	0:                         "Success",
 	devRegErrUnsupportedProto: "Unsupported protocol",
@@ -482,18 +476,21 @@ func handleLoginMsg(dev *Device, data []byte) error {
 		user := val.(*User)
 
 		ok := code == 0
-		errCode := loginErrorNone
+		errCode := 0
 
 		if ok {
 			log.Debug().Msgf("login session '%s' for device '%s' success", sid, dev.id)
 			dev.users.Store(sid, user)
 		} else {
-			errCode = loginErrorBusy
+			errCode = LoginErrorBusy
 			log.Error().Msgf("login session '%s' for device '%s' fail, due to device busy", sid, dev.id)
 		}
 
-		user.WriteMsg(websocket.TextMessage,
-			[]byte(fmt.Appendf(nil, `{"type":"login","err":%d}`, errCode)))
+		if errCode == 0 {
+			user.WriteMsg(websocket.TextMessage, []byte(fmt.Appendf(nil, `{"type":"login"}`)))
+		} else {
+			user.SendCloseMsg(LoginErrorBusy, "device busy")
+		}
 
 		user.pending <- ok
 	}
