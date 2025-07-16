@@ -267,7 +267,12 @@ export default {
       }
     })
 
-    socket.addEventListener('error', () => this.closed())
+    socket.addEventListener('error', () => {
+      let href = `/connect/${this.devid}`
+      if (group)
+        href += `?group=${group}`
+      window.location.href = href
+    })
 
     socket.addEventListener('message', ev => {
       const data = ev.data
