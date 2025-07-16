@@ -116,17 +116,7 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 
 	defer cancel()
 
-	select {
-	case <-ctx.Done():
-		return
-
-	case ok := <-user.pending:
-		if !ok {
-			return
-		}
-
-	case <-time.After(TermLoginTimeout):
-		log.Error().Msgf("login timeout for session %s of device %s", sid, dev.id)
+	if !waitForLogin(user, dev, ctx, sid) {
 		return
 	}
 
@@ -225,4 +215,22 @@ func (user *User) Close() {
 
 func (user *User) WriteMsg(typ int, data []byte) error {
 	return user.conn.WriteMessage(typ, data)
+}
+
+func waitForLogin(user *User, dev *Device, ctx context.Context, sid string) bool {
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+
+		case ok := <-user.pending:
+			return ok
+
+		case <-time.After(TermLoginTimeout):
+			if _, loaded := dev.pending.LoadAndDelete(sid); loaded {
+				log.Error().Msgf("login timeout for session %s of device %s", sid, dev.id)
+				return false
+			}
+		}
+	}
 }
