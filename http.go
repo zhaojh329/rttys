@@ -224,6 +224,11 @@ func httpProxyRedirect(srv *RttyServer, c *gin.Context, group string) {
 	addr := c.Param("addr")
 	rawPath := c.Param("path")
 
+	if !callUserHookUrl(cfg, c) {
+		c.Status(http.StatusForbidden)
+		return
+	}
+
 	log.Debug().Msgf("httpProxyRedirect devid: %s, proto: %s, addr: %s, path: %s", devid, proto, addr, rawPath)
 
 	_, _, err := httpProxyVaildAddr(addr)

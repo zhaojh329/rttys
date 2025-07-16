@@ -67,11 +67,6 @@ func (srv *RttyServer) ListenAPI() error {
 	}
 
 	authorized := r.Group("/", func(c *gin.Context) {
-		if !callUserHookUrl(cfg, c) {
-			c.AbortWithStatus(http.StatusForbidden)
-			return
-		}
-
 		if !cfg.LocalAuth && isLocalRequest(c) {
 			return
 		}
@@ -83,6 +78,11 @@ func (srv *RttyServer) ListenAPI() error {
 	})
 
 	authorized.GET("/connect/:devid", func(c *gin.Context) {
+		if !callUserHookUrl(cfg, c) {
+			c.Status(http.StatusForbidden)
+			return
+		}
+
 		if c.GetHeader("Upgrade") != "websocket" {
 			group := c.Query("group")
 			devid := c.Param("devid")
@@ -172,6 +172,11 @@ func (srv *RttyServer) ListenAPI() error {
 	})
 
 	authorized.POST("/cmd/:devid", func(c *gin.Context) {
+		if !callUserHookUrl(cfg, c) {
+			c.Status(http.StatusForbidden)
+			return
+		}
+
 		cmdInfo := &CommandReqInfo{}
 
 		err := c.BindJSON(&cmdInfo)

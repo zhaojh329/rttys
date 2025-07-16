@@ -104,7 +104,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:  "user-hook-url",
-				Usage: "called when the user accesses APIs",
+				Usage: "called when user accesses /connect/:devid, /cmd/:devid, /web/, or /web2/ APIs",
 			},
 			&cli.BoolFlag{
 				Name:  "local-auth",
