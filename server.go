@@ -25,6 +25,8 @@
 package main
 
 import (
+	"net"
+	"net/http"
 	"sync"
 	"sync/atomic"
 
@@ -46,10 +48,37 @@ type DeviceGroup struct {
 func (srv *RttyServer) Run() error {
 	log.Debug().Msgf("%+v", srv.cfg)
 
+	if srv.cfg.PprofAddr != "" {
+		go srv.ListenPprof()
+	}
+
 	go srv.ListenDevices()
 	go srv.ListenHttpProxy()
 
 	return srv.ListenAPI()
+}
+
+func (srv *RttyServer) ListenPprof() {
+	ln, err := net.Listen("tcp", srv.cfg.PprofAddr)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to start pprof server")
+		return
+	}
+	defer ln.Close()
+
+	addr := ln.Addr().(*net.TCPAddr)
+	log.Info().Msgf("Starting pprof server on: %s", addr)
+
+	host := addr.IP.String()
+	if host == "0.0.0.0" || host == "::" {
+		host = "localhost"
+	}
+	log.Info().Msgf("Access pprof at: http://%s:%d/debug/pprof/", host, addr.Port)
+
+	err = http.Serve(ln, nil)
+	if err != nil {
+		log.Error().Err(err).Msgf("pprof server failed")
+	}
 }
 
 func (srv *RttyServer) GetDevice(group, id string) *Device {

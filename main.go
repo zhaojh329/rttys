@@ -26,6 +26,7 @@ package main
 
 import (
 	"context"
+	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -117,6 +118,10 @@ func main() {
 			&cli.BoolFlag{
 				Name:  "allow-origins",
 				Usage: "allow all origins for cross-domain request",
+			},
+			&cli.StringFlag{
+				Name:  "pprof",
+				Usage: "enable pprof and listen on specified address (e.g. localhost:6060)",
 			},
 			&cli.BoolFlag{
 				Name:    "verbose",

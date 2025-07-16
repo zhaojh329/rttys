@@ -44,6 +44,7 @@ type Config struct {
 	LocalAuth            bool
 	Password             string
 	AllowOrigins         bool
+	PprofAddr            string
 }
 
 func (cfg *Config) Parse(c *cli.Command) error {
@@ -66,6 +67,7 @@ func (cfg *Config) Parse(c *cli.Command) error {
 	getFlagOpt(c, "token", &cfg.Token)
 	getFlagOpt(c, "password", &cfg.Password)
 	getFlagOpt(c, "allow-origins", &cfg.AllowOrigins)
+	getFlagOpt(c, "pprof", &cfg.PprofAddr)
 
 	return nil
 }
