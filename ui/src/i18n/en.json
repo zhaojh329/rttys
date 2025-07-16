@@ -76,5 +76,6 @@
   "Device Response Timeout": "Device Response Timeout",
   "The device is currently offline. Please check the device status and try again.": "The device is currently offline. Please check the device status and try again.",
   "The maximum number of concurrent terminal sessions has been reached. Please try again later.": "The maximum number of concurrent terminal sessions has been reached. Please try again later.",
-  "The device did not respond to the terminal session request within the expected time. Please check the device status and try again.": "The device did not respond to the terminal session request within the expected time. Please check the device status and try again."
+  "The device did not respond to the terminal session request within the expected time. Please check the device status and try again.": "The device did not respond to the terminal session request within the expected time. Please check the device status and try again.",
+  "Requesting device to create terminal...": "Requesting device to create terminal..."
 }

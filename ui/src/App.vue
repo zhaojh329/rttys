@@ -20,4 +20,8 @@ onMounted(() => {
     background-color: #555;
     margin: 0;
   }
+
+  .rtty-loading div p {
+    font-size: 1.5rem !important;
+  }
 </style>

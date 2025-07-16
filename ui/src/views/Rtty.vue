@@ -26,6 +26,8 @@ import '@xterm/xterm/css/xterm.css'
 import OverlayAddon from '../xterm-addon/xterm-addon-overlay'
 import Contextmenu from '../components/ContextMenu.vue'
 
+import { ElLoading } from 'element-plus'
+
 const LoginErrorOffline = 4000
 const LoginErrorBusy = 4001
 const LoginErrorTimeout = 4002
@@ -250,6 +252,13 @@ export default {
     }
   },
   mounted() {
+    const loading = ElLoading.service({
+      lock: true,
+      text: this.$t('Requesting device to create terminal...'),
+      background: '#555',
+      customClass: 'rtty-loading'
+    })
+
     const group = this.$route.query.group ?? ''
 
     const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://'
@@ -259,6 +268,8 @@ export default {
     this.socket = socket
 
     socket.addEventListener('close', (ev) => {
+      loading.close()
+
       if (ev.code === LoginErrorOffline) {
         this.$router.push('/error/offline')
       } else if (ev.code === LoginErrorBusy) {
@@ -271,6 +282,8 @@ export default {
     })
 
     socket.addEventListener('error', () => {
+      loading.close()
+
       let href = `/connect/${this.devid}`
       if (group)
         href += `?group=${group}`
@@ -283,6 +296,7 @@ export default {
       if (typeof data === 'string') {
         const msg = JSON.parse(data)
         if (msg.type === 'login') {
+          loading.close()
           this.openTerm()
         } else if (msg.type === 'sendfile') {
           this.file.name = msg.name
