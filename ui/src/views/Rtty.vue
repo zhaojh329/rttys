@@ -28,6 +28,7 @@ import Contextmenu from '../components/ContextMenu.vue'
 
 const LoginErrorOffline = 4000
 const LoginErrorBusy = 4001
+const LoginErrorTimeout = 4002
 
 const MsgTypeFileData = 0x03
 
@@ -262,6 +263,8 @@ export default {
         this.$router.push('/error/offline')
       } else if (ev.code === LoginErrorBusy) {
         this.$router.push('/error/full')
+      } else if (ev.code === LoginErrorTimeout) {
+        this.$router.push('/error/timeout')
       } else {
         this.closed()
       }

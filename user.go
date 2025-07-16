@@ -61,6 +61,7 @@ type UserMsg struct {
 const (
 	LoginErrorOffline = 4000
 	LoginErrorBusy    = 4001
+	LoginErrorTimeout = 4002
 )
 
 var upgrader = websocket.Upgrader{
@@ -229,6 +230,7 @@ func waitForLogin(user *User, dev *Device, ctx context.Context, sid string) bool
 		case <-time.After(TermLoginTimeout):
 			if _, loaded := dev.pending.LoadAndDelete(sid); loaded {
 				log.Error().Msgf("login timeout for session %s of device %s", sid, dev.id)
+				user.SendCloseMsg(LoginErrorTimeout, "login timeout")
 				return false
 			}
 		}

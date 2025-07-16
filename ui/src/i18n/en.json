@@ -70,5 +70,11 @@
   "Copied to clipboard": "Copied to clipboard",
   "Pasted from clipboard": "Pasted from clipboard",
   "Please use shortcut \"Shift+Insert\"": "Please use shortcut \"Shift+Insert\"",
-  "Your device's rtty does not support https proxy, please upgrade it.": "Your device's rtty does not support https proxy, please upgrade it."
+  "Your device's rtty does not support https proxy, please upgrade it.": "Your device's rtty does not support https proxy, please upgrade it.",
+  "Device Unavailable": "Device Unavailable",
+  "Terminal Session Limit Reached": "Terminal Session Limit Reached",
+  "Device Response Timeout": "Device Response Timeout",
+  "The device is currently offline. Please check the device status and try again.": "The device is currently offline. Please check the device status and try again.",
+  "The maximum number of concurrent terminal sessions has been reached. Please try again later.": "The maximum number of concurrent terminal sessions has been reached. Please try again later.",
+  "The device did not respond to the terminal session request within the expected time. Please check the device status and try again.": "The device did not respond to the terminal session request within the expected time. Please check the device status and try again."
 }
