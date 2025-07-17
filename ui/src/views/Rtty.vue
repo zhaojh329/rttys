@@ -106,17 +106,26 @@ export default {
     },
     async pasteFromClipboard() {
       try {
-        if (navigator.clipboard && navigator.clipboard.readText) {
-          const text = await navigator.clipboard.readText()
-          if (text) {
-            this.sendTermData(text)
-            this.$message.success(this.$t('Pasted from clipboard'))
-          }
-        } else {
-          this.$message.success(this.$t('Please use shortcut "Shift+Insert"'))
+        if (!navigator.clipboard || !navigator.clipboard.readText) {
+          this.$message.info(this.$t('Please use shortcut "Shift+Insert"'))
+          return
         }
-      } catch {
-        this.$message.success(this.$t('Please use shortcut "Shift+Insert"'))
+
+        const text = await navigator.clipboard.readText()
+        if (text) {
+          this.sendTermData(text)
+          this.$message.success(this.$t('Pasted from clipboard'))
+        }
+      } catch (error) {
+        if (error.name === 'NotAllowedError') {
+          this.$alert(this.$t('clipboard_instructions'), this.$t('Clipboard Permission Required'),
+            {
+              type: 'warning'
+            }
+          )
+        } else {
+          this.$message.info(this.$t('Please use shortcut "Shift+Insert"'))
+        }
       }
     },
     updateFontSize(size) {
