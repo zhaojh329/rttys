@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="terminal-container">
     <div ref="terminal" class="terminal" @contextmenu.prevent="showContextmenu"></div>
     <el-dialog v-model="file.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
       <el-upload :before-upload="beforeUpload" action="#">
@@ -44,7 +44,8 @@ export default {
     'Contextmenu': Contextmenu
   },
   props: {
-    devid: String
+    devid: String,
+    panelId: String
   },
   data() {
     return {
@@ -55,6 +56,8 @@ export default {
         {name: 'font', caption: this.$t('Font Size')},
         {name: 'upload', caption: this.$t('Upload file') + ' - rtty -R'},
         {name: 'download', caption: this.$t('Download file') + ' - rtty -S file'},
+        {name: 'split-horizontal', caption: this.$t('Split Horizontal')},
+        {name: 'split-vertical', caption: this.$t('Split Vertical')},
         {name: 'about', caption: this.$t('About')}
       ],
       font: {
@@ -71,7 +74,6 @@ export default {
         chunks: []
       },
       disposables: [],
-      resizeDelay: null,
       socket: null,
       term: null,
       fitAddon: null,
@@ -100,6 +102,10 @@ export default {
         this.$message.success(this.$t('Please execute command "rtty -R" in current terminal!'))
       } else if (name === 'download') {
         this.$message.success(this.$t('Please execute command "rtty -S file" in current terminal!'))
+      } else if (name === 'split-horizontal') {
+        this.$emit('split', this.panelId, 'horizontal')
+      } else if (name === 'split-vertical') {
+        this.$emit('split', this.panelId, 'vertical')
       } else if (name === 'about') {
         window.open('https://github.com/zhaojh329/rtty')
       }
@@ -209,13 +215,7 @@ export default {
       this.socket.send(b)
     },
     fitTerm() {
-      this.$nextTick(() => {
-        if (this.resizeDelay)
-          clearTimeout(this.resizeDelay)
-        this.resizeDelay = setTimeout(() => {
-          this.fitAddon.fit()
-        }, 200)
-      })
+      this.$nextTick(() => this.fitAddon.fit())
     },
     closed() {
       if (this.term)
@@ -248,12 +248,7 @@ export default {
         overlayAddon.show(term.cols + 'x' + term.rows)
       }))
 
-      window.addEventListener('resize', this.fitTerm)
-
-      this.disposables.push({
-        dispose: () => window.removeEventListener('resize', this.fitTerm)
-      })
-
+      window.addEventListener('rtty-resize', this.fitTerm)
       this.fitTerm()
     },
     dispose() {
@@ -356,6 +351,8 @@ export default {
     })
   },
   unmounted() {
+    window.removeEventListener('rtty-resize', this.fitTerm)
+
     this.dispose()
     if (this.term)
       this.term.dispose()
@@ -367,9 +364,13 @@ export default {
 </script>
 
 <style scoped>
+  .terminal-container {
+    height: 100%;
+  }
+
   .terminal {
     margin: 5px;
-    height: calc(100vh - 10px);
+    height: 100%;
   }
 
   :deep(.xterm .xterm-viewport) {

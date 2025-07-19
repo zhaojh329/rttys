@@ -55,6 +55,8 @@
   "Font Size": "Font Size",
   "Upload file": "Upload file",
   "Download file": "Download file",
+  "Split Horizontal": "Split Horizontal",
+  "Split Vertical": "Split Vertical",
   "About": "About",
   "Please execute command \"rtty -R\" in current terminal!": "Please execute command \"rtty -R\" in current terminal!",
   "Please execute command \"rtty -S file\" in current terminal!": "Please execute command \"rtty -S file\" in current terminal!",
