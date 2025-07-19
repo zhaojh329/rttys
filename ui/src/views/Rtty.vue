@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div ref="terminal" :style="{height: termHeight + 'px', margin: '5px'}" @contextmenu.prevent="showContextmenu"></div>
+    <div ref="terminal" class="terminal" @contextmenu.prevent="showContextmenu"></div>
     <el-dialog v-model="file.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
       <el-upload :before-upload="beforeUpload" action="#">
         <el-button type="primary">{{ $t("Select file") }}</el-button>
@@ -71,7 +71,6 @@ export default {
       },
       disposables: [],
       resizeDelay: null,
-      termHeight: 0,
       socket: null,
       term: null,
       fitAddon: null,
@@ -207,8 +206,6 @@ export default {
       this.socket.send(b)
     },
     fitTerm() {
-      this.termHeight = document.documentElement.clientHeight - 10
-
       this.$nextTick(() => {
         if (this.resizeDelay)
           clearTimeout(this.resizeDelay)
@@ -364,6 +361,11 @@ export default {
 </script>
 
 <style scoped>
+  .terminal {
+    margin: 5px;
+    height: calc(100vh - 10px);
+  }
+
   .xterm .xterm-viewport {
     overflow: auto;
   }
