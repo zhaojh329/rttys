@@ -366,8 +366,8 @@ export default {
     height: calc(100vh - 10px);
   }
 
-  .xterm .xterm-viewport {
-    overflow: auto;
+  :deep(.xterm .xterm-viewport) {
+    overflow-y: auto;
   }
 
   :deep(.font-size-dialog-header) {
