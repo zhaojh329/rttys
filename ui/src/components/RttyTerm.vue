@@ -53,7 +53,8 @@ export default {
         {name: 'paste', caption: this.$t('Paste - Shift+Insert')},
         {name: 'clear', caption: this.$t('Clear Scrollback')},
         {name: 'font', caption: this.$t('Font Size')},
-        {name: 'file', caption: this.$t('Upload or download file')},
+        {name: 'upload', caption: this.$t('Upload file') + ' - rtty -R'},
+        {name: 'download', caption: this.$t('Download file') + ' - rtty -S file'},
         {name: 'about', caption: this.$t('About')}
       ],
       font: {
@@ -95,8 +96,10 @@ export default {
         this.term.clear()
       } else if (name === 'font') {
         this.font.modal = true
-      } else if (name === 'file') {
-        this.$message.success(this.$t('Please execute command "rtty -R" or "rtty -S" in current terminal!'))
+      } else if (name === 'upload') {
+        this.$message.success(this.$t('Please execute command "rtty -R" in current terminal!'))
+      } else if (name === 'download') {
+        this.$message.success(this.$t('Please execute command "rtty -S file" in current terminal!'))
       } else if (name === 'about') {
         window.open('https://github.com/zhaojh329/rtty')
       }

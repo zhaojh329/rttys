@@ -1,9 +1,11 @@
 <template>
   <div ref="content" class="content" :style="{top: axis.y + 'px', left: axis.x + 'px'}" v-if="visibility">
-    <a v-for="item in menus" :key="item.name" @click="onMenuClick(item.name)"
-       :style="{'text-decoration': item.underline ? 'underline' : 'none'}">
-      {{item.caption || item.name}}
-    </a>
+    <template v-for="(item, index) in menus" :key="item.name">
+      <a @click="onMenuClick(item.name)" :style="{'text-decoration': item.underline ? 'underline' : 'none'}">
+        {{item.caption || item.name}}
+      </a>
+      <hr v-if="index < menus.length - 1"/>
+    </template>
   </div>
 </template>
 
@@ -84,6 +86,8 @@ export default {
     z-index: 9999;
     background-color: #f9f9f9;
     min-width: 160px;
+    border-radius: 5px;
+    padding: 5px;
     box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
   }
 
@@ -97,5 +101,10 @@ export default {
   .content a:hover {
     background-color: #90C8F6;
     cursor: default;
+  }
+
+  .content hr {
+    margin: 0;
+    border: 1px solid #c1bcbc;
   }
 </style>
