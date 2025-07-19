@@ -38,8 +38,34 @@ export default {
     },
     show(e) {
       document.addEventListener('mousedown', this.close)
+
       this.axis = {x: e.clientX, y: e.clientY}
       this.visibility = true
+
+      this.$nextTick(() => {
+        const el = this.$refs.content
+        if (!el) return
+
+        const rect = el.getBoundingClientRect()
+        const viewportWidth = window.innerWidth
+        const viewportHeight = window.innerHeight
+
+        let x = e.clientX
+        let y = e.clientY
+
+        if (x + rect.width > viewportWidth) {
+          x = viewportWidth - rect.width - 15
+        }
+
+        if (y + rect.height > viewportHeight) {
+          y = viewportHeight - rect.height - 15
+        }
+
+        x = Math.max(15, x)
+        y = Math.max(15, y)
+
+        this.axis = {x, y}
+      })
     },
     onMenuClick(name) {
       this.visibility = false
