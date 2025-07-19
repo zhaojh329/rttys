@@ -356,6 +356,9 @@ export default {
     this.dispose()
     if (this.term)
       this.term.dispose()
+
+    if (this.socket)
+      this.socket.close()
   }
 }
 </script>
