@@ -45,6 +45,9 @@ export default {
       this.visibility = false
       this.$emit('click', name)
     }
+  },
+  beforeUnmount() {
+    document.removeEventListener('mousedown', this.close)
   }
 }
 </script>
