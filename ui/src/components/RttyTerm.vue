@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="terminal-container">
     <div ref="terminal" class="terminal" @contextmenu.prevent="showContextmenu"></div>
     <el-dialog v-model="file.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
       <el-upload :before-upload="beforeUpload" action="#">
@@ -44,7 +44,8 @@ export default {
     'Contextmenu': Contextmenu
   },
   props: {
-    devid: String
+    devid: String,
+    panelId: String
   },
   data() {
     return {
@@ -55,6 +56,11 @@ export default {
         {name: 'font', caption: this.$t('Font Size')},
         {name: 'upload', caption: this.$t('Upload file') + ' - rtty -R'},
         {name: 'download', caption: this.$t('Download file') + ' - rtty -S file'},
+        {name: 'split-left', caption: this.$t('split-left')},
+        {name: 'split-right', caption: this.$t('split-right')},
+        {name: 'split-up', caption: this.$t('split-up')},
+        {name: 'split-down', caption: this.$t('split-down')},
+        {name: 'close', caption: this.$t('Close')},
         {name: 'about', caption: this.$t('About')}
       ],
       font: {
@@ -71,7 +77,6 @@ export default {
         chunks: []
       },
       disposables: [],
-      resizeDelay: null,
       socket: null,
       term: null,
       fitAddon: null,
@@ -100,6 +105,16 @@ export default {
         this.$message.success(this.$t('Please execute command "rtty -R" in current terminal!'))
       } else if (name === 'download') {
         this.$message.success(this.$t('Please execute command "rtty -S file" in current terminal!'))
+      } else if (name === 'split-left') {
+        this.$emit('split', this.panelId, 'left')
+      } else if (name === 'split-right') {
+        this.$emit('split', this.panelId, 'right')
+      } else if (name === 'split-up') {
+        this.$emit('split', this.panelId, 'up')
+      } else if (name === 'split-down') {
+        this.$emit('split', this.panelId, 'down')
+      } else if (name === 'close') {
+        this.$emit('close', this.panelId)
       } else if (name === 'about') {
         window.open('https://github.com/zhaojh329/rtty')
       }
@@ -209,18 +224,13 @@ export default {
       this.socket.send(b)
     },
     fitTerm() {
-      this.$nextTick(() => {
-        if (this.resizeDelay)
-          clearTimeout(this.resizeDelay)
-        this.resizeDelay = setTimeout(() => {
-          this.fitAddon.fit()
-        }, 200)
-      })
+      this.$nextTick(() => this.fitAddon.fit())
     },
     closed() {
       if (this.term)
         this.term.write('\n\n\r\x1B[1;3;31mConnection is closed.\x1B[0m')
       this.dispose()
+      this.$emit('close', this.panelId)
     },
     openTerm() {
       const term = new Terminal({
@@ -248,12 +258,7 @@ export default {
         overlayAddon.show(term.cols + 'x' + term.rows)
       }))
 
-      window.addEventListener('resize', this.fitTerm)
-
-      this.disposables.push({
-        dispose: () => window.removeEventListener('resize', this.fitTerm)
-      })
-
+      window.addEventListener('rtty-resize', this.fitTerm)
       this.fitTerm()
     },
     dispose() {
@@ -356,6 +361,8 @@ export default {
     })
   },
   unmounted() {
+    window.removeEventListener('rtty-resize', this.fitTerm)
+
     this.dispose()
     if (this.term)
       this.term.dispose()
@@ -367,9 +374,13 @@ export default {
 </script>
 
 <style scoped>
+  .terminal-container {
+    height: 100%;
+  }
+
   .terminal {
     margin: 5px;
-    height: calc(100vh - 10px);
+    height: 100%;
   }
 
   :deep(.xterm .xterm-viewport) {
