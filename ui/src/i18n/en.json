@@ -44,6 +44,7 @@
   "Status Code": "Status Code",
   "Stdout": "Stdout",
   "Stderr": "Stderr",
+  "Upload file to device": "Upload file to device",
   "Select file": "Select file",
   "Upload": "Upload",
   "Device offline": "Device offline",
