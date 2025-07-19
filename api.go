@@ -351,7 +351,7 @@ func callUserHookUrl(cfg *Config, c *gin.Context) bool {
 }
 
 func httpLogin(cfg *Config, password string) bool {
-	return cfg.Password == "" || cfg.Password == password
+	return cfg.Password == password
 }
 
 func isLocalRequest(c *gin.Context) bool {
@@ -361,6 +361,10 @@ func isLocalRequest(c *gin.Context) bool {
 
 func httpAuth(cfg *Config, c *gin.Context) bool {
 	if !cfg.LocalAuth && isLocalRequest(c) {
+		return true
+	}
+
+	if cfg.Password == "" {
 		return true
 	}
 
