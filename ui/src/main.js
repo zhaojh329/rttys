@@ -4,7 +4,6 @@
  */
 
 import { createApp } from 'vue'
-import VueClipboard from 'vue-clipboard2'
 import VueAxios from 'vue-axios'
 import axios from 'axios'
 import App from './App.vue'
@@ -14,7 +13,6 @@ import ElementPlus from './element-plus'
 
 const app = createApp(App)
 
-app.use(VueClipboard)
 app.use(VueAxios, axios)
 app.use(router)
 app.use(i18n)

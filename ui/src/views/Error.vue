@@ -8,40 +8,38 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { Warning as WarningIcon } from '@vicons/ionicons5'
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-export default {
-  name: 'Error',
-  props: {
-    err: String
-  },
-  components: {
-    WarningIcon
-  },
-  computed: {
-    title() {
-      const err = this.err
-      if (err === 'offline')
-        return this.$t('Device Unavailable')
-      else if (err === 'full')
-        return this.$t('Terminal Session Limit Reached')
-      else if (err === 'timeout')
-        return this.$t('Device Response Timeout')
-      return ''
-    },
-    message() {
-      const err = this.err
-      if (err === 'offline')
-        return this.$t('The device is currently offline. Please check the device status and try again.')
-      else if (err === 'full')
-        return this.$t('The maximum number of concurrent terminal sessions has been reached. Please try again later.')
-      else if (err === 'timeout')
-        return this.$t('The device did not respond to the terminal session request within the expected time. Please check the device status and try again.')
-      return ''
-    }
-  }
-}
+const { t } = useI18n()
+
+const props = defineProps({
+  err: String
+})
+
+const title = computed(() => {
+  const err = props.err
+  if (err === 'offline')
+    return t('Device Unavailable')
+  else if (err === 'full')
+    return t('Terminal Session Limit Reached')
+  else if (err === 'timeout')
+    return t('Device Response Timeout')
+  return ''
+})
+
+const message = computed(() => {
+  const err = props.err
+  if (err === 'offline')
+    return t('The device is currently offline. Please check the device status and try again.')
+  else if (err === 'full')
+    return t('The maximum number of concurrent terminal sessions has been reached. Please try again later.')
+  else if (err === 'timeout')
+    return t('The device did not respond to the terminal session request within the expected time. Please check the device status and try again.')
+  return ''
+})
 </script>
 
 <style scoped>

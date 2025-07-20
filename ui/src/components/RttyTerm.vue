@@ -1,29 +1,32 @@
 <template>
   <div class="terminal-container">
     <div ref="terminal" class="terminal" @contextmenu.prevent="showContextmenu"></div>
-    <el-dialog v-model="file.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
+    <el-dialog v-model="fileCtx.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
       <el-upload :before-upload="beforeUpload" action="#">
         <el-button type="primary">{{ $t("Select file") }}</el-button>
       </el-upload>
-      <p v-if="file.file !== null"> {{ file.file.name }}</p>
+      <p v-if="fileCtx.file !== null"> {{ fileCtx.file.name }}</p>
       <template #footer>
-        <el-button @click="file.modal = false">{{ $t('Cancel') }}</el-button>
+        <el-button @click="fileCtx.modal = false">{{ $t('Cancel') }}</el-button>
         <el-button type="primary" @click="doUploadFile">{{ $t('OK') }}</el-button>
       </template>
     </el-dialog>
-    <contextmenu ref="contextmenu" :menus="contextmenus" @click="onContextmenuClick"/>
+    <ContextMenu v-model="contextmenuPos" :menus="contextmenus" @click="onContextmenuClick"/>
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, reactive, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
+import useClipboard from 'vue-clipboard3'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
 import OverlayAddon from '../xterm-addon/xterm-addon-overlay'
-import Contextmenu from '../components/ContextMenu.vue'
-
-import { ElLoading } from 'element-plus'
+import ContextMenu from '../components/ContextMenu.vue'
 
 const LoginErrorOffline = 4000
 const LoginErrorBusy = 4001
@@ -35,333 +38,342 @@ const ReadFileBlkSize = 63 * 1024
 
 const AckBlkSize = 4 * 1024
 
-export default {
-  name: 'RttyTerm',
-  components: {
-    'Contextmenu': Contextmenu
-  },
-  props: {
-    devid: String,
-    panelId: String
-  },
-  data() {
-    return {
-      contextmenus: [
-        {name: 'copy', caption: this.$t('Copy - Ctrl+Insert')},
-        {name: 'paste', caption: this.$t('Paste - Shift+Insert')},
-        {name: 'clear', caption: this.$t('Clear Scrollback')},
-        {name: 'font+', caption: this.$t('font+')},
-        {name: 'font-', caption: this.$t('font-')},
-        {name: 'upload', caption: this.$t('Upload file') + ' - rtty -R'},
-        {name: 'download', caption: this.$t('Download file') + ' - rtty -S file'},
-        {name: 'split-left', caption: this.$t('split-left')},
-        {name: 'split-right', caption: this.$t('split-right')},
-        {name: 'split-up', caption: this.$t('split-up')},
-        {name: 'split-down', caption: this.$t('split-down')},
-        {name: 'close', caption: this.$t('Close')},
-        {name: 'about', caption: this.$t('About')}
-      ],
-      file: {
-        modal: false,
-        accepted: false,
-        file: null,
-        offset: 0,
-        fr: new FileReader(),
-        name: '',
-        chunks: []
-      },
-      disposables: [],
-      socket: null,
-      term: null,
-      fitAddon: null,
-      unack: 0
-    }
-  },
-  methods: {
-    showContextmenu(e) {
-      this.$refs.contextmenu.show(e)
-    },
-    onContextmenuClick(name) {
-      if (name === 'copy') {
-        const text = this.term.getSelection()
-        if (text) {
-          this.$copyText(text).then(() => {
-            this.$message.success(this.$t('Copied to clipboard'))
-          })
-        }
-      } else if (name === 'paste') {
-        this.pasteFromClipboard()
-      } else if (name === 'clear') {
-        this.term.clear()
-      } else if (name === 'font+') {
-        this.updateFontSize(1)
-      } else if (name === 'font-') {
-        this.updateFontSize(-1)
-      } else if (name === 'upload') {
-        this.$message.success(this.$t('Please execute command "rtty -R" in current terminal!'))
-      } else if (name === 'download') {
-        this.$message.success(this.$t('Please execute command "rtty -S file" in current terminal!'))
-      } else if (name === 'split-left') {
-        this.$emit('split', this.panelId, 'left')
-      } else if (name === 'split-right') {
-        this.$emit('split', this.panelId, 'right')
-      } else if (name === 'split-up') {
-        this.$emit('split', this.panelId, 'up')
-      } else if (name === 'split-down') {
-        this.$emit('split', this.panelId, 'down')
-      } else if (name === 'close') {
-        this.$emit('close', this.panelId)
-      } else if (name === 'about') {
-        window.open('https://github.com/zhaojh329/rtty')
-      }
+const props = defineProps({
+  devid: String,
+  panelId: String
+})
 
-      this.term.focus()
-    },
-    async pasteFromClipboard() {
-      try {
-        if (!navigator.clipboard || !navigator.clipboard.readText) {
-          this.$message.info(this.$t('Please use shortcut "Shift+Insert"'))
-          return
-        }
+const emit = defineEmits(['split', 'close'])
 
-        const text = await navigator.clipboard.readText()
-        if (text) {
-          this.sendTermData(text)
-          this.$message.success(this.$t('Pasted from clipboard'))
-        }
-      } catch (error) {
-        if (error.name === 'NotAllowedError') {
-          this.$alert(this.$t('clipboard_instructions'), this.$t('Clipboard Permission Required'),
-            {
-              type: 'warning'
-            }
-          )
-        } else {
-          this.$message.info(this.$t('Please use shortcut "Shift+Insert"'))
-        }
-      }
-    },
-    updateFontSize(size) {
-      this.term.options.fontSize += size
-      this.fitAddon.fit()
-    },
-    onUploadDialogClosed() {
-      this.term.focus()
-      if (this.file.accepted)
-        return
-      this.file.file = null
-      const msg = {type: 'fileCanceled'}
-      this.socket.send(JSON.stringify(msg))
-    },
-    beforeUpload(file) {
-      this.file.file = file
-      return false
-    },
-    submitUploadFile() {
-      this.$refs.upload.submit()
-    },
-    sendFileInfo(file) {
-      const msg = {type: 'fileInfo', size: file.size, name: file.name}
-      this.socket.send(JSON.stringify(msg))
-    },
-    readFileBlob(fr, file, offset, size) {
-      const blob = file.slice(offset, offset + size)
-      fr.readAsArrayBuffer(blob)
-    },
-    doUploadFile() {
-      if (!this.file.file) {
-        this.onUploadDialogClosed()
-        return
-      }
+const router = useRouter()
+const { t } = useI18n()
+const { toClipboard } = useClipboard()
 
-      this.term.focus()
+const terminal = useTemplateRef('terminal')
+const contextmenuPos = ref(null)
 
-      if (this.file.size > 0xffffffff) {
-        this.$message.error(this.$t('The file you will upload is too large(> 4294967295 Byte)'))
-        return
-      }
+const contextmenus = [
+  {name: 'copy', caption: t('Copy - Ctrl+Insert')},
+  {name: 'paste', caption: t('Paste - Shift+Insert')},
+  {name: 'clear', caption: t('Clear Scrollback')},
+  {name: 'font+', caption: t('font+')},
+  {name: 'font-', caption: t('font-')},
+  {name: 'upload', caption: t('Upload file') + ' - rtty -R'},
+  {name: 'download', caption: t('Download file') + ' - rtty -S file'},
+  {name: 'split-left', caption: t('split-left')},
+  {name: 'split-right', caption: t('split-right')},
+  {name: 'split-up', caption: t('split-up')},
+  {name: 'split-down', caption: t('split-down')},
+  {name: 'close', caption: t('Close')},
+  {name: 'about', caption: t('About')}
+]
 
-      this.file.accepted = true
-      this.file.modal = false
+const fileCtx = reactive({
+  modal: false,
+  accepted: false,
+  file: null,
+  offset: 0,
+  fr: new FileReader(),
+  name: '',
+  chunks: []
+})
 
-      this.sendFileInfo(this.file.file)
+let disposables = []
+let socket = null
+let term = null
+let fitAddon = null
+let unack = 0
 
-      if (this.file.size === 0) {
-        this.sendFileData(null)
-        return
-      }
-
-      this.file.offset = 0
-
-      const fr = this.file.fr
-
-      fr.onload = e => {
-        this.file.offset += e.loaded
-        this.sendFileData(new Uint8Array(fr.result))
-      }
-      this.readFileBlob(fr, this.file.file, this.file.offset, ReadFileBlkSize)
-    },
-    sendTermData(data) {
-      this.socket.send(new Uint8Array([0, ...new TextEncoder().encode(data)]))
-    },
-    sendFileData(data) {
-      let b
-
-      if (data !== null)
-        b = new Uint8Array([1, MsgTypeFileData, ...data])
-      else
-        b = new Uint8Array([1, MsgTypeFileData])
-
-      this.socket.send(b)
-    },
-    fitTerm() {
-      this.$nextTick(() => this.fitAddon.fit())
-    },
-    closed() {
-      if (this.term)
-        this.term.write('\n\n\r\x1B[1;3;31mConnection is closed.\x1B[0m')
-      this.dispose()
-      this.$emit('close', this.panelId)
-    },
-    openTerm() {
-      const term = new Terminal({
-        cursorBlink: true,
-        fontSize: 16
-      })
-      this.term = term
-
-      const fitAddon = new FitAddon()
-      this.fitAddon = fitAddon
-      term.loadAddon(fitAddon)
-
-      const overlayAddon = new OverlayAddon()
-      term.loadAddon(overlayAddon)
-
-      term.open(this.$refs['terminal'])
-      term.focus()
-
-      this.disposables.push(term.onData(data => this.sendTermData(data)))
-      this.disposables.push(term.onBinary(data => this.sendTermData(data)))
-
-      this.disposables.push(term.onResize(size => {
-        const msg = {type: 'winsize', cols: size.cols, rows: size.rows}
-        this.socket.send(JSON.stringify(msg))
-        overlayAddon.show(term.cols + 'x' + term.rows)
-      }))
-
-      window.addEventListener('rtty-resize', this.fitTerm)
-      this.fitTerm()
-    },
-    dispose() {
-      this.disposables.forEach(d => d.dispose())
-    }
-  },
-  mounted() {
-    const loading = ElLoading.service({
-      lock: true,
-      text: this.$t('Requesting device to create terminal...'),
-      background: '#555',
-      customClass: 'rtty-loading'
-    })
-
-    const group = this.$route.query.group ?? ''
-
-    const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://'
-
-    const socket = new WebSocket(protocol + location.host + `/connect/${this.devid}?group=${group}`)
-    socket.binaryType = 'arraybuffer'
-    this.socket = socket
-
-    socket.addEventListener('close', (ev) => {
-      loading.close()
-
-      if (ev.code === LoginErrorOffline) {
-        this.$router.push('/error/offline')
-      } else if (ev.code === LoginErrorBusy) {
-        this.$router.push('/error/full')
-      } else if (ev.code === LoginErrorTimeout) {
-        this.$router.push('/error/timeout')
-      } else {
-        this.closed()
-      }
-    })
-
-    socket.addEventListener('error', () => {
-      loading.close()
-
-      let href = `/connect/${this.devid}`
-      if (group)
-        href += `?group=${group}`
-      window.location.href = href
-    })
-
-    socket.addEventListener('message', ev => {
-      const data = ev.data
-
-      if (typeof data === 'string') {
-        const msg = JSON.parse(data)
-        if (msg.type === 'login') {
-          loading.close()
-          this.openTerm()
-        } else if (msg.type === 'sendfile') {
-          this.file.name = msg.name
-          this.file.chunks = []
-          socket.send(JSON.stringify({type: 'fileAck'}))
-        } else if (msg.type === 'recvfile') {
-          this.file.modal = true
-          this.file.file = null
-          this.file.accepted = false
-          this.term.blur()
-        } else if (msg.type === 'fileAck') {
-          if (this.file.file && this.file.offset < this.file.file.size)
-            this.readFileBlob(this.file.fr, this.file.file, this.file.offset, ReadFileBlkSize)
-        }
-      } else {
-        const data = new Uint8Array(ev.data)
-
-        if (data[0] === 0) {
-          this.unack += data.length - 1
-          this.term.write(data.slice(1))
-
-          if (this.unack > AckBlkSize) {
-            const msg = {type: 'ack', ack: this.unack}
-            socket.send(JSON.stringify(msg))
-            this.unack = 0
-          }
-        } else {
-          if (data.length === 1) {
-            const blob = new Blob(this.file.chunks)
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = this.file.name
-            document.body.appendChild(a)
-            a.click()
-
-            setTimeout(() => {
-              this.file.chunks = []
-              document.body.removeChild(a)
-              window.URL.revokeObjectURL(url)
-            }, 100)
-          } else {
-            this.file.chunks.push(data.slice(1))
-            socket.send(JSON.stringify({type: 'fileAck'}))
-          }
-        }
-      }
-    })
-  },
-  unmounted() {
-    window.removeEventListener('rtty-resize', this.fitTerm)
-
-    this.dispose()
-    if (this.term)
-      this.term.dispose()
-
-    if (this.socket)
-      this.socket.close()
+const copyText = async(text) => {
+  try {
+    await toClipboard(text)
+    return Promise.resolve()
+  } catch (err) {
+    return Promise.reject(err)
   }
 }
+
+const showContextmenu = (e) => contextmenuPos.value = { x: e.clientX, y: e.clientY }
+
+const onContextmenuClick = (name) => {
+  if (name === 'copy') {
+    const text = term.getSelection()
+    if (text)
+      copyText(text).then(() => ElMessage.success(t('Copied to clipboard')))
+  } else if (name === 'paste') {
+    pasteFromClipboard()
+  } else if (name === 'clear') {
+    term.clear()
+  } else if (name === 'font+') {
+    updateFontSize(1)
+  } else if (name === 'font-') {
+    updateFontSize(-1)
+  } else if (name === 'upload') {
+    ElMessage.success(t('Please execute command "rtty -R" in current terminal!'))
+  } else if (name === 'download') {
+    ElMessage.success(t('Please execute command "rtty -S file" in current terminal!'))
+  } else if (name === 'split-left') {
+    emit('split', props.panelId, 'left')
+  } else if (name === 'split-right') {
+    emit('split', props.panelId, 'right')
+  } else if (name === 'split-up') {
+    emit('split', props.panelId, 'up')
+  } else if (name === 'split-down') {
+    emit('split', props.panelId, 'down')
+  } else if (name === 'close') {
+    emit('close', props.panelId)
+  } else if (name === 'about') {
+    window.open('https://github.com/zhaojh329/rtty')
+  }
+
+  term.focus()
+}
+
+const pasteFromClipboard = async() => {
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      ElMessage.info(t('Please use shortcut "Shift+Insert"'))
+      return
+    }
+
+    const text = await navigator.clipboard.readText()
+    if (text) {
+      sendTermData(text)
+      ElMessage.success(t('Pasted from clipboard'))
+    }
+  } catch (error) {
+    if (error.name === 'NotAllowedError') {
+      ElMessageBox.alert(t('clipboard_instructions'), t('Clipboard Permission Required'), {
+        type: 'warning'
+      })
+    } else {
+      ElMessage.info(t('Please use shortcut "Shift+Insert"'))
+    }
+  }
+}
+
+const updateFontSize = (size) => {
+  term.options.fontSize += size
+  fitAddon.fit()
+}
+
+const onUploadDialogClosed = () => {
+  term.focus()
+  if (fileCtx.accepted)
+    return
+  fileCtx.file = null
+  const msg = {type: 'fileCanceled'}
+  socket.send(JSON.stringify(msg))
+}
+
+const beforeUpload = (file) => {
+  fileCtx.file = file
+  return false
+}
+
+const sendFileInfo = (file) => {
+  const msg = {type: 'fileInfo', size: file.size, name: file.name}
+  socket.send(JSON.stringify(msg))
+}
+
+const readFileBlob = (fr, file, offset, size) => {
+  const blob = file.slice(offset, offset + size)
+  fr.readAsArrayBuffer(blob)
+}
+
+const doUploadFile = () => {
+  if (!fileCtx.file) {
+    onUploadDialogClosed()
+    return
+  }
+
+  term.focus()
+
+  if (fileCtx.file.size > 0xffffffff) {
+    ElMessage.error(t('The file you will upload is too large(> 4294967295 Byte)'))
+    return
+  }
+
+  fileCtx.accepted = true
+  fileCtx.modal = false
+
+  sendFileInfo(fileCtx.file)
+
+  if (fileCtx.file.size === 0) {
+    sendFileData(null)
+    return
+  }
+
+  fileCtx.offset = 0
+
+  const fr = fileCtx.fr
+
+  fr.onload = e => {
+    fileCtx.offset += e.loaded
+    sendFileData(new Uint8Array(fr.result))
+  }
+  readFileBlob(fr, fileCtx.file, fileCtx.offset, ReadFileBlkSize)
+}
+
+const sendTermData = (data) => socket.send(new Uint8Array([0, ...new TextEncoder().encode(data)]))
+
+const sendFileData = (data) => {
+  let b
+
+  if (data !== null)
+    b = new Uint8Array([1, MsgTypeFileData, ...data])
+  else
+    b = new Uint8Array([1, MsgTypeFileData])
+
+  socket.send(b)
+}
+
+const fitTerm = () => nextTick(() => fitAddon.fit())
+
+const closed = () => {
+  if (term)
+    term.write('\n\n\r\x1B[1;3;31mConnection is closed.\x1B[0m')
+  dispose()
+  emit('close', props.panelId)
+}
+
+const openTerm = () => {
+  term = new Terminal({
+    cursorBlink: true,
+    fontSize: 16
+  })
+
+  const fitAddonInstance = new FitAddon()
+  fitAddon = fitAddonInstance
+  term.loadAddon(fitAddon)
+
+  const overlayAddon = new OverlayAddon()
+  term.loadAddon(overlayAddon)
+
+  term.open(terminal.value)
+  term.focus()
+
+  disposables.push(term.onData(data => sendTermData(data)))
+  disposables.push(term.onBinary(data => sendTermData(data)))
+
+  disposables.push(term.onResize(size => {
+    const msg = {type: 'winsize', cols: size.cols, rows: size.rows}
+    socket.send(JSON.stringify(msg))
+    overlayAddon.show(term.cols + 'x' + term.rows)
+  }))
+
+  window.addEventListener('rtty-resize', fitTerm)
+  fitTerm()
+}
+
+const dispose = () => disposables.forEach(d => d.dispose())
+
+onMounted(() => {
+  const loading = ElLoading.service({
+    lock: true,
+    text: t('Requesting device to create terminal...'),
+    background: '#555',
+    customClass: 'rtty-loading'
+  })
+
+  const route = useRoute()
+  const group = route.query.group ?? ''
+
+  const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://'
+
+  socket = new WebSocket(protocol + location.host + `/connect/${props.devid}?group=${group}`)
+  socket.binaryType = 'arraybuffer'
+
+  socket.addEventListener('close', (ev) => {
+    loading.close()
+
+    if (ev.code === LoginErrorOffline) {
+      router.push('/error/offline')
+    } else if (ev.code === LoginErrorBusy) {
+      router.push('/error/full')
+    } else if (ev.code === LoginErrorTimeout) {
+      router.push('/error/timeout')
+    } else {
+      closed()
+    }
+  })
+
+  socket.addEventListener('error', () => {
+    loading.close()
+
+    let href = `/connect/${props.devid}`
+    if (group)
+      href += `?group=${group}`
+    window.location.href = href
+  })
+
+  socket.addEventListener('message', ev => {
+    const data = ev.data
+
+    if (typeof data === 'string') {
+      const msg = JSON.parse(data)
+      if (msg.type === 'login') {
+        loading.close()
+        openTerm()
+      } else if (msg.type === 'sendfile') {
+        fileCtx.name = msg.name
+        fileCtx.chunks = []
+        socket.send(JSON.stringify({type: 'fileAck'}))
+      } else if (msg.type === 'recvfile') {
+        fileCtx.modal = true
+        fileCtx.file = null
+        fileCtx.accepted = false
+        term.blur()
+      } else if (msg.type === 'fileAck') {
+        if (fileCtx.file && fileCtx.offset < fileCtx.file.size)
+          readFileBlob(fileCtx.fr, fileCtx.file, fileCtx.offset, ReadFileBlkSize)
+      }
+    } else {
+      const data = new Uint8Array(ev.data)
+
+      if (data[0] === 0) {
+        unack += data.length - 1
+        term.write(data.slice(1))
+
+        if (unack > AckBlkSize) {
+          const msg = {type: 'ack', ack: unack}
+          socket.send(JSON.stringify(msg))
+          unack = 0
+        }
+      } else {
+        if (data.length === 1) {
+          const blob = new Blob(fileCtx.chunks)
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = fileCtx.name
+          document.body.appendChild(a)
+          a.click()
+
+          setTimeout(() => {
+            fileCtx.chunks = []
+            document.body.removeChild(a)
+            window.URL.revokeObjectURL(url)
+          }, 100)
+        } else {
+          fileCtx.chunks.push(data.slice(1))
+          socket.send(JSON.stringify({type: 'fileAck'}))
+        }
+      }
+    }
+  })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('rtty-resize', fitTerm)
+
+  dispose()
+  if (term)
+    term.dispose()
+
+  if (socket)
+    socket.close()
+})
 </script>
 
 <style scoped>

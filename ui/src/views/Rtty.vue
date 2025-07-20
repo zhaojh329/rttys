@@ -36,7 +36,7 @@ const terms = computed(() => {
   return ids
 })
 
-function moveTerminalsToPool() {
+const moveTerminalsToPool = () => {
   const pool = document.getElementById('terminal-pool')
 
   terms.value.forEach(termId => {
@@ -45,7 +45,7 @@ function moveTerminalsToPool() {
   })
 }
 
-function moveTerminalsToPlaceholders() {
+const moveTerminalsToPlaceholders = () => {
   nextTick(() => {
     terms.value.forEach(termId => {
       const term = document.querySelector(`[data-terminal-id="${termId}"]`)
@@ -59,23 +59,19 @@ function moveTerminalsToPlaceholders() {
 
 onMounted(() => moveTerminalsToPlaceholders())
 
-function handleResize() {
-  dispatchEventRttyResize()
-}
+const handleResize = () => dispatchEventRttyResize()
 
 window.addEventListener('resize', handleResize)
 
-function dispatchEventRttyResize() {
-  window.dispatchEvent(new CustomEvent('rtty-resize'))
-}
+const dispatchEventRttyResize = () => window.dispatchEvent(new CustomEvent('rtty-resize'))
 
-function handleClosePanel(panelId) {
+const handleClosePanel = (panelId) => {
   moveTerminalsToPool()
   deletePanel(rootConfig.value, panelId, 0)
   moveTerminalsToPlaceholders()
 }
 
-function deletePanel(config, panelId, index, parent) {
+const deletePanel = (config, panelId, index, parent) => {
   if (parent && config.id === panelId) {
     parent.panels.splice(index, 1)
     if (parent.panels.length === 1) {
@@ -90,13 +86,13 @@ function deletePanel(config, panelId, index, parent) {
   return false
 }
 
-function handleSplitPanel(panelId, direction) {
+const handleSplitPanel = (panelId, direction) => {
   moveTerminalsToPool()
   splitPanel(rootConfig.value, panelId, 0, direction)
   moveTerminalsToPlaceholders()
 }
 
-function splitPanel(config, panelId, index, position, parent) {
+const splitPanel = (config, panelId, index, position, parent) => {
   if (config.id === panelId) {
     const direction = (position === 'left' || position === 'right') ? 'horizontal' : 'vertical'
     const newId = 'panel-' + Math.random().toString(36).substring(2, 10)

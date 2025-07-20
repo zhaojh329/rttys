@@ -1,5 +1,5 @@
 <template>
-  <div ref="content" class="content" :style="{top: axis.y + 'px', left: axis.x + 'px'}" v-if="visibility">
+  <div ref="content" class="content" :style="{top: axis.y + 'px', left: axis.x + 'px'}" v-if="model">
     <template v-for="(item, index) in menus" :key="item.name">
       <a @click="onMenuClick(item.name)" :style="{'text-decoration': item.underline ? 'underline' : 'none'}">
         {{item.caption || item.name}}
@@ -9,75 +9,77 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'ContextMenu',
-  props: {
-    menus: Array
-  },
-  data() {
-    return {
-      visibility: false,
-      axis: {x: 0, y: 0}
-    }
-  },
-  watch: {
-    visibility(val) {
-      if (!val)
-        document.removeEventListener('mousedown', this.close)
-    }
-  },
-  methods: {
-    close(e) {
-      const el = this.$refs.content
+<script setup>
+import { reactive, watch, nextTick, onBeforeUnmount, useTemplateRef } from 'vue'
 
-      if (e.clientX >= this.axis.x && e.clientX <= this.axis.x + el.clientWidth &&
-        e.clientY >= this.axis.y && e.clientY <= this.axis.y + el.clientHeight) {
-        return
-      }
+defineProps({
+  menus: Array
+})
 
-      this.visibility = false
-    },
-    show(e) {
-      document.addEventListener('mousedown', this.close)
+const model = defineModel()
 
-      this.axis = {x: e.clientX, y: e.clientY}
-      this.visibility = true
+const emit = defineEmits(['click'])
 
-      this.$nextTick(() => {
-        const el = this.$refs.content
-        if (!el) return
+const content = useTemplateRef('content')
+const axis = reactive({ x: 0, y: 0 })
 
-        const rect = el.getBoundingClientRect()
-        const viewportWidth = window.innerWidth
-        const viewportHeight = window.innerHeight
+const close = (e) => {
+  const el = content.value
 
-        let x = e.clientX
-        let y = e.clientY
-
-        if (x + rect.width > viewportWidth) {
-          x = viewportWidth - rect.width - 15
-        }
-
-        if (y + rect.height > viewportHeight) {
-          y = viewportHeight - rect.height - 15
-        }
-
-        x = Math.max(15, x)
-        y = Math.max(15, y)
-
-        this.axis = {x, y}
-      })
-    },
-    onMenuClick(name) {
-      this.visibility = false
-      this.$emit('click', name)
-    }
-  },
-  beforeUnmount() {
-    document.removeEventListener('mousedown', this.close)
+  if (e.clientX >= axis.x && e.clientX <= axis.x + el.clientWidth &&
+    e.clientY >= axis.y && e.clientY <= axis.y + el.clientHeight) {
+    return
   }
+
+  model.value = null
 }
+
+const show = (clientX, clientY) => {
+  document.addEventListener('mousedown', close)
+
+  axis.x = clientX
+  axis.y = clientY
+
+  nextTick(() => {
+    const el = content.value
+    if (!el) return
+
+    const rect = el.getBoundingClientRect()
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    let x = clientX
+    let y = clientY
+
+    if (x + rect.width > viewportWidth) {
+      x = viewportWidth - rect.width - 15
+    }
+
+    if (y + rect.height > viewportHeight) {
+      y = viewportHeight - rect.height - 15
+    }
+
+    x = Math.max(15, x)
+    y = Math.max(15, y)
+
+    axis.x = x
+    axis.y = y
+  })
+}
+
+const onMenuClick = (name) => {
+  model.value = null
+  emit('click', name)
+}
+
+watch(() => model.value, (val) => {
+  if (!val)
+    document.removeEventListener('mousedown', close)
+  else
+    show(val.x, val.y)
+})
+
+onBeforeUnmount(() => document.removeEventListener('mousedown', close))
 </script>
 
 <style scoped>

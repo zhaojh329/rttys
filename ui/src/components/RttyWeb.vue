@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="modal" :title="$t('Access your devices\'s Web')" width="300">
+  <el-dialog v-model="model" :title="$t('Access your devices\'s Web')" width="300">
     <el-form ref="form" :label-width="80" label-position="left" :model="formData" :rules="ruleValidate">
       <el-form-item :label="$t('Proto')" prop="proto">
         <el-radio-group v-model="formData.proto">
@@ -19,119 +19,117 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="modal = false">{{ $t('Cancel') }}</el-button>
+        <el-button @click="model = false">{{ $t('Cancel') }}</el-button>
         <el-button type="primary" @click="open">{{ $t('OK') }}</el-button>
       </div>
     </template>
   </el-dialog>
 </template>
 
-<script>
-export default {
-  name: 'RttyWeb',
-  data() {
-    return {
-      modal: false,
-      formData: {
-        proto: 'http',
-        ipaddr: '',
-        port: null,
-        path: ''
-      },
-      ruleValidate: {
-        ipaddr: [{validator: (rule, value, callback) => {
-          if (!value) {
-            callback()
-            return
-          }
+<script setup>
+import { reactive, useTemplateRef } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
 
-          if (!this.isValidIP(value)) {
-            callback(new Error(this.$t('Invalid IP address')))
-          }
+const props = defineProps({
+  dev: Object
+})
 
-          callback()
-        }}],
-        port: [{validator: (rule, value, callback) => {
-          if (!value) {
-            callback()
-            return
-          }
+const { t } = useI18n()
 
-          if (!Number.isInteger(value) || value < 1 || value > 65536) {
-            callback(new Error(this.$t('Invalid port')))
-          }
+const form = useTemplateRef('form')
+const model = defineModel()
 
-          callback()
-        }}],
-        path: [{validator: (rule, value, callback) => {
-          if (!value) {
-            callback()
-            return
-          }
+const formData = reactive({
+  proto: 'http',
+  ipaddr: '',
+  port: null,
+  path: ''
+})
 
-          if (!value.startsWith('/')) {
-            callback(new Error(this.$t('Must start with /')))
-          }
+const isValidIP = (addr) => {
+  const ipv4Pattern = '(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
+  return new RegExp(ipv4Pattern).test(addr)
+}
 
-          callback()
-        }}]
-      },
-      group: '',
-      devid: '',
-      devProto: null
+const ruleValidate = {
+  ipaddr: [{validator: (rule, value, callback) => {
+    if (!value) {
+      callback()
+      return
     }
-  },
-  methods: {
-    show(dev) {
-      this.group = dev.group
-      this.devid = dev.id
-      this.devProto = dev.proto
-      this.formData.proto = 'http'
-      this.formData.ipaddr = ''
-      this.formData.port = null
-      this.formData.path = ''
-      this.modal = true
-    },
-    isValidIP(addr) {
-      const ipv4Pattern = '(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
-      return new RegExp(ipv4Pattern).test(addr)
-    },
-    open() {
-      this.$refs.form.validate(valid => {
-        if (!valid)
-          return
 
-        if (this.devProto < 4 && this.formData.proto === 'https') {
-          this.$message.error(this.$t('Your device\'s rtty does not support https proxy, please upgrade it.'))
-          return
-        }
-
-        this.modal = false
-
-        setTimeout(() => {
-          const proto = this.formData.proto
-          let ipaddr = this.formData.ipaddr
-          let port = this.formData.port
-          let path = this.formData.path
-
-          if (!ipaddr)
-            ipaddr = '127.0.0.1'
-
-          if (!port)
-            port = proto === 'https' ? 443 : 80
-
-          if (!path)
-            path = '/'
-
-          const addr = encodeURIComponent(`${ipaddr}:${port}${path}`)
-
-          if (this.group)
-            window.open(`/web2/${this.group}/${this.devid}/${proto}/${addr}`)
-          else
-            window.open(`/web/${this.devid}/${proto}/${addr}`)
-        }, 100)
-      })
+    if (!isValidIP(value)) {
+      callback(new Error(t('Invalid IP address')))
     }
-  }
+
+    callback()
+  }}],
+  port: [{validator: (rule, value, callback) => {
+    if (!value) {
+      callback()
+      return
+    }
+
+    if (!Number.isInteger(value) || value < 1 || value > 65536) {
+      callback(new Error(t('Invalid port')))
+    }
+
+    callback()
+  }}],
+  path: [{validator: (rule, value, callback) => {
+    if (!value) {
+      callback()
+      return
+    }
+
+    if (!value.startsWith('/')) {
+      callback(new Error(t('Must start with /')))
+    }
+
+    callback()
+  }}]
+}
+
+const open = () => {
+  form.value.validate(valid => {
+    if (!valid)
+      return
+
+    const dev = props.dev
+
+    if (dev.proto < 4 && formData.proto === 'https') {
+      ElMessage.error(t('Your device\'s rtty does not support https proxy, please upgrade it.'))
+      return
+    }
+
+    model.value = false
+
+    setTimeout(() => {
+      const proto = formData.proto
+      let ipaddr = formData.ipaddr
+      let port = formData.port
+      let path = formData.path
+
+      if (!ipaddr)
+        ipaddr = '127.0.0.1'
+
+      if (!port)
+        port = proto === 'https' ? 443 : 80
+
+      if (!path)
+        path = '/'
+
+      const addr = encodeURIComponent(`${ipaddr}:${port}${path}`)
+
+      const group = dev.group
+      const devid = dev.id
+
+      if (group)
+        window.open(`/web2/${group}/${devid}/${proto}/${addr}`)
+      else
+        window.open(`/web/${devid}/${proto}/${addr}`)
+    }, 100)
+  })
 }
 </script>

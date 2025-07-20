@@ -14,29 +14,31 @@
   </el-card>
 </template>
 
-<script>
-export default {
-  data() {
-    return {
-      loading: false,
-      formValue: {
-        password: ''
-      }
-    }
-  },
-  methods: {
-    handleSubmit() {
-      const params = {
-        password: this.formValue.password
-      }
+<script setup>
+import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
-      this.axios.post('/signin', params).then(() => {
-        this.$router.push('/')
-      }).catch(() => {
-        this.$message.error(this.$t('Signin Fail! password wrong.'))
-      })
-    }
+const { t } = useI18n()
+const router = useRouter()
+
+const loading = ref(false)
+const formValue = reactive({
+  password: ''
+})
+
+const handleSubmit = () => {
+  const params = {
+    password: formValue.password
   }
+
+  axios.post('/signin', params).then(() => {
+    router.push('/')
+  }).catch(() => {
+    ElMessage.error(t('Signin Fail! password wrong.'))
+  })
 }
 </script>
 

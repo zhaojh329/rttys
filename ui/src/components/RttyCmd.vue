@@ -53,145 +53,156 @@
   </el-dialog>
 </template>
 
-<script>
-export default {
-  name: 'RttyCmd',
-  props: {
-    selection: Array
-  },
-  data() {
-    return {
-      cmdModal: false,
-      inputParamVisible: false,
-      inputParamValue: '',
-      cmdStatus: {
-        total: 0,
-        modal: false,
-        execing: 0,
-        fail: 0,
-        respModal: false,
-        responses: []
-      },
-      cmdData: {
-        username: '',
-        cmd: '',
-        params: [],
-        currentParam: '',
-        wait: 30
-      },
-      cmdRuleValidate: {
-        username: [{required: true, message: this.$t('username is required')}],
-        cmd: [{required: true, message: this.$t('command is required')}],
-        wait: [{validator: (rule, value, callback) => {
-          if (!value) {
-            callback()
-            return
-          }
+<script setup>
+import { ref, reactive, computed, nextTick, useTemplateRef } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
-          if (!Number.isInteger(value) || value < 0 || value > 30) {
-            callback(new Error(this.$t('must be an integer between 0 and 30')))
-          }
+const { t } = useI18n()
 
-          callback()
-        }}]
-      }
+const props = defineProps({
+  selection: Array
+})
+
+const cmdForm = useTemplateRef('cmdForm')
+const inputParam = useTemplateRef('inputParam')
+
+const cmdModal = ref(false)
+const inputParamVisible = ref(false)
+const inputParamValue = ref('')
+
+const cmdStatus = reactive({
+  total: 0,
+  modal: false,
+  execing: 0,
+  fail: 0,
+  respModal: false,
+  responses: []
+})
+
+const cmdData = reactive({
+  username: '',
+  cmd: '',
+  params: [],
+  currentParam: '',
+  wait: 30
+})
+
+const cmdRuleValidate = {
+  username: [{required: true, message: t('username is required')}],
+  cmd: [{required: true, message: t('command is required')}],
+  wait: [{validator: (rule, value, callback) => {
+    if (!value) {
+      callback()
+      return
     }
-  },
-  computed: {
-    cmdStatusPercent() {
-      if (this.cmdStatus.total === 0)
-        return 0
-      return (this.cmdStatus.total - this.cmdStatus.execing) / this.cmdStatus.total * 100
+
+    if (!Number.isInteger(value) || value < 0 || value > 30) {
+      callback(new Error(t('must be an integer between 0 and 30')))
     }
-  },
-  methods: {
-    showCmdForm() {
-      if (this.selection.length < 1) {
-        this.$message.error(this.$t('Please select the devices you want to operate'))
-        return
-      }
-      this.cmdModal = true
-    },
-    delCmdParam(tag) {
-      this.cmdData.params.splice(this.cmdData.params.indexOf(tag), 1)
-    },
-    showInputParam() {
-      this.inputParamVisible = true
-      this.$nextTick(() => {
-        (this.$refs.inputParam).focus()
-      })
-    },
-    handleInputParamConfirm() {
-      const value = this.inputParamValue
-      if (value) {
-        this.cmdData.params.push(value)
-      }
-      this.inputParamVisible = false
-      this.inputParamValue = ''
-    },
-    doCmd() {
-      (this.$refs['cmdForm']).validate(valid => {
-        if (valid) {
-          const selection = this.selection.filter(item => item.proto > 4)
 
-          this.cmdModal = false
-          this.cmdStatus.modal = true
-          this.cmdStatus.total = selection.length
-          this.cmdStatus.execing = selection.length
-          this.cmdStatus.fail = 0
-          this.cmdStatus.responses = []
+    callback()
+  }}]
+}
 
-          selection.forEach(item => {
-            const data = {
-              username: this.cmdData.username,
-              cmd: this.cmdData.cmd,
-              params: this.cmdData.params
+const cmdStatusPercent = computed(() => {
+  if (cmdStatus.total === 0)
+    return 0
+  return (cmdStatus.total - cmdStatus.execing) / cmdStatus.total * 100
+})
+
+const showCmdForm = () => {
+  if (props.selection.length < 1) {
+    ElMessage.error(t('Please select the devices you want to operate'))
+    return
+  }
+  cmdModal.value = true
+}
+
+const delCmdParam = (tag) => cmdData.params.splice(cmdData.params.indexOf(tag), 1)
+
+const showInputParam = () => {
+  inputParamVisible.value = true
+  nextTick(() => inputParam.value.focus())
+}
+
+const handleInputParamConfirm = () => {
+  const value = inputParamValue.value
+  if (value) {
+    cmdData.params.push(value)
+  }
+  inputParamVisible.value = false
+  inputParamValue.value = ''
+}
+
+const doCmd = () => {
+  cmdForm.value.validate(valid => {
+    if (valid) {
+      const selection = props.selection.filter(item => item.proto > 4)
+
+      cmdModal.value = false
+      cmdStatus.modal = true
+      cmdStatus.total = selection.length
+      cmdStatus.execing = selection.length
+      cmdStatus.fail = 0
+      cmdStatus.responses = []
+
+      selection.forEach(item => {
+        const data = {
+          username: cmdData.username,
+          cmd: cmdData.cmd,
+          params: cmdData.params
+        }
+
+        axios.post(`/cmd/${item.id}?group=${item.group}&wait=${cmdData.wait}`, data).then((response) => {
+          if (cmdData.wait === 0) {
+            cmdStatus.responses.push({
+              err: 0,
+              msg: '',
+              id: item.id,
+              code: 0,
+              stdout: '',
+              stderr: ''
+            })
+          } else {
+            const resp = response.data
+
+            if (resp.err && resp.err !== 0) {
+              cmdStatus.fail++
+              resp.stdout = ''
+              resp.stderr = ''
+            } else {
+              resp.stdout = window.atob(resp.stdout || '')
+              resp.stderr = window.atob(resp.stderr || '')
             }
 
-            this.axios.post(`/cmd/${item.id}?group=${item.group}&wait=${this.cmdData.wait}`, data).then((response) => {
-              if (this.cmdData.wait === 0) {
-                this.cmdStatus.responses.push({
-                  err: 0,
-                  msg: '',
-                  id: item.id,
-                  code: 0,
-                  stdout: '',
-                  stderr: ''
-                })
-              } else {
-                const resp = response.data
-
-                if (resp.err && resp.err !== 0) {
-                  this.cmdStatus.fail++
-                  resp.stdout = ''
-                  resp.stderr = ''
-                } else {
-                  resp.stdout = window.atob(resp.stdout || '')
-                  resp.stderr = window.atob(resp.stderr || '')
-                }
-
-                resp.id = item.id
-                this.cmdStatus.responses.push(resp)
-              }
-              this.cmdStatus.execing--
-            })
-          })
-        }
+            resp.id = item.id
+            cmdStatus.responses.push(resp)
+          }
+          cmdStatus.execing--
+        })
       })
-    },
-    resetCmdData() {
-      (this.$refs['cmdForm']).resetFields()
-    },
-    ignoreCmdResp() {
-      this.cmdStatus.execing = 0
-      this.cmdStatus.respModal = true
-      this.cmdStatus.modal = false
-    },
-    showCmdResp() {
-      this.cmdStatus.modal = false
-      if (this.cmdStatus.responses.length > 0)
-        this.cmdStatus.respModal = true
     }
-  }
+  })
 }
+
+const resetCmdData = () => cmdForm.value.resetFields()
+
+const ignoreCmdResp = () => {
+  cmdStatus.execing = 0
+  cmdStatus.respModal = true
+  cmdStatus.modal = false
+}
+
+const showCmdResp = () => {
+  cmdStatus.modal = false
+  if (cmdStatus.responses.length > 0)
+    cmdStatus.respModal = true
+}
+
+defineExpose({
+  showCmdForm,
+  resetCmdData
+})
 </script>

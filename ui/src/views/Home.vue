@@ -47,130 +47,130 @@
       </el-card>
     </el-main>
     <RttyCmd ref="rttyCmd" :selection="selection"/>
-    <RttyWeb ref="rttyWeb"/>
+    <RttyWeb v-model="web.modal" :dev="web.dev"/>
   </el-container>
 </template>
 
-<script>
+<script setup>
+import { ref, reactive, computed, onMounted, useTemplateRef } from 'vue'
+import { useRouter } from 'vue-router'
 import { InternetExplorer as IEIcon } from '@vicons/fa'
 import { Terminal as TerminalIcon } from '@vicons/ionicons5'
 import RttyCmd from '../components/RttyCmd.vue'
 import RttyWeb from '../components/RttyWeb.vue'
+import axios from 'axios'
 
-export default {
-  name: 'Home',
-  components: {
-    IEIcon,
-    TerminalIcon,
-    RttyCmd,
-    RttyWeb
-  },
-  data() {
-    return {
-      group: '',
-      groups: [],
-      filterString: '',
-      loading: true,
-      devlists: [],
-      filteredDevices: [],
-      selection: [],
-      currentPage: 1,
-      pageSize: 10
-    }
-  },
-  computed: {
-    pagedevlists() {
-      return this.filteredDevices.slice((this.currentPage - 1) * this.pageSize, this.currentPage * this.pageSize)
-    }
-  },
-  methods: {
-    formatTime(t) {
-      let ts = t || 0
-      let tm = 0
-      let th = 0
-      let td = 0
+const router = useRouter()
 
-      if (ts > 59) {
-        tm = Math.floor(ts / 60)
-        ts = ts % 60
-      }
+const rttyCmd = useTemplateRef('rttyCmd')
 
-      if (tm > 59) {
-        th = Math.floor(tm / 60)
-        tm = tm % 60
-      }
+const group = ref('')
+const groups = ref([])
+const filterString = ref('')
+const loading = ref(true)
+const devlists = ref([])
+const filteredDevices = ref([])
+const selection = ref([])
+const currentPage = ref(1)
+const pageSize = ref(10)
+const web = reactive({
+  modal: false,
+  dev: null
+})
 
-      if (th > 23) {
-        td = Math.floor(th / 24)
-        th = th % 24
-      }
+const pagedevlists = computed(() => {
+  return filteredDevices.value.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value)
+})
 
-      let s = ''
+const formatTime = (t) => {
+  let ts = t || 0
+  let tm = 0
+  let th = 0
+  let td = 0
 
-      if (td > 0)
-        s = `${td}d `
-
-      return s + `${th}h ${tm}m ${ts}s`
-    },
-    handlePageChange(page, size) {
-      this.currentPage = page
-      this.pageSize = size
-    },
-    handleLogout() {
-      this.axios.get('/signout').then(() => {
-        this.$router.push('/login')
-      })
-    },
-    handleSearch() {
-      this.filteredDevices = this.devlists.filter((d) => {
-        const filterString = this.filterString.toLowerCase()
-        return d.id.toLowerCase().indexOf(filterString) > -1 || d.description.toLowerCase().indexOf(filterString) > -1
-      })
-    },
-    getGroups() {
-      this.axios.get('/groups').then(res => {
-        this.groups = res.data
-        if (this.groups.indexOf(this.group) === -1)
-          this.group = this.groups[0]
-        this.getDevices()
-      })
-    },
-    getDevices() {
-      this.axios.get(`/devs?group=${this.group}`).then(res => {
-        this.loading = false
-        this.devlists = res.data
-        this.selection = []
-        this.handleSearch()
-      }).catch(() => {
-        this.$router.push('/login')
-      })
-    },
-    handleRefresh() {
-      this.loading = true
-      setTimeout(() => {
-        this.getGroups()
-      }, 500)
-    },
-    handleSelection(selection) {
-      this.selection = selection
-    },
-    connectDevice(devid) {
-      let url = `/rtty/${devid}`
-      if (this.group)
-        url += `?group=${this.group}`
-      window.open(url)
-    },
-    connectDeviceWeb(dev) {
-      this.$refs.rttyWeb.show(dev)
-    },
-    showCmdForm() {
-      this.$refs.rttyCmd.showCmdForm()
-    }
-  },
-  mounted() {
-    this.getGroups()
+  if (ts > 59) {
+    tm = Math.floor(ts / 60)
+    ts = ts % 60
   }
+
+  if (tm > 59) {
+    th = Math.floor(tm / 60)
+    tm = tm % 60
+  }
+
+  if (th > 23) {
+    td = Math.floor(th / 24)
+    th = th % 24
+  }
+
+  let s = ''
+
+  if (td > 0)
+    s = `${td}d `
+
+  return s + `${th}h ${tm}m ${ts}s`
 }
+
+const handlePageChange = (page, size) => {
+  currentPage.value = page
+  pageSize.value = size
+}
+
+const handleLogout = () => {
+  axios.get('/signout').then(() => {
+    router.push('/login')
+  })
+}
+
+const handleSearch = () => {
+  filteredDevices.value = devlists.value.filter((d) => {
+    const filterStr = filterString.value.toLowerCase()
+    return d.id.toLowerCase().indexOf(filterStr) > -1 || d.description.toLowerCase().indexOf(filterStr) > -1
+  })
+}
+
+const getGroups = () => {
+  axios.get('/groups').then(res => {
+    groups.value = res.data
+    if (groups.value.indexOf(group.value) === -1)
+      group.value = groups.value[0]
+    getDevices()
+  })
+}
+
+const getDevices = () => {
+  axios.get(`/devs?group=${group.value}`).then(res => {
+    loading.value = false
+    devlists.value = res.data
+    selection.value = []
+    handleSearch()
+  }).catch(() => {
+    router.push('/login')
+  })
+}
+
+const handleRefresh = () => {
+  loading.value = true
+  setTimeout(() => getGroups(), 500)
+}
+
+const handleSelection = (sel) => selection.value = sel
+
+const connectDevice = (devid) => {
+  let url = `/rtty/${devid}`
+  if (group.value)
+    url += `?group=${group.value}`
+  window.open(url)
+}
+
+const connectDeviceWeb = (dev) => {
+  web.dev = dev
+  web.modal = true
+}
+
+const showCmdForm = () => rttyCmd.value.showCmdForm()
+
+onMounted(() => getGroups())
 </script>
 
 <style scoped>

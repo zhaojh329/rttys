@@ -33,7 +33,7 @@ const startPos = ref(0)
 const startSizes = ref([])
 const containerRef = ref(null)
 
-function initializePanelSizes() {
+const initializePanelSizes = () => {
   if (!props.config.panels) return
 
   if (panelSizes.value.length !== props.config.panels.length) {
@@ -42,7 +42,7 @@ function initializePanelSizes() {
   }
 }
 
-function getPanelStyle(index) {
+const getPanelStyle = (index) => {
   if (!props.config.panels) return {}
 
   initializePanelSizes()
@@ -64,7 +64,7 @@ function getPanelStyle(index) {
   }
 }
 
-function startResize(index, event) {
+const startResize = (index, event) => {
   isResizing.value = true
   resizingIndex.value = index
   startPos.value = props.config.direction === 'horizontal' ? event.clientX : event.clientY
@@ -78,7 +78,7 @@ function startResize(index, event) {
   document.body.style.userSelect = 'none'
 }
 
-function handleResizeMove(event) {
+const handleResizeMove = (event) => {
   if (!isResizing.value) return
 
   const currentPos = props.config.direction === 'horizontal' ? event.clientX : event.clientY
@@ -107,7 +107,7 @@ function handleResizeMove(event) {
   panelSizes.value = newSizes
 }
 
-function stopResize() {
+const stopResize = () => {
   isResizing.value = false
   resizingIndex.value = -1
   containerRef.value = null
@@ -120,17 +120,9 @@ function stopResize() {
   emit('resize')
 }
 
-function handleSplitPanel(panelId, position) {
-  emit('split', panelId, position)
-}
-
-function handleClosePanel(panelId) {
-  emit('close', panelId)
-}
-
-function handleResize() {
-  emit('resize')
-}
+const handleSplitPanel = (panelId, position) => emit('split', panelId, position)
+const handleClosePanel = (panelId) => emit('close', panelId)
+const handleResize = () => emit('resize')
 </script>
 
 <style scoped>
