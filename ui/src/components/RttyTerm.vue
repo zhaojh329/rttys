@@ -12,9 +12,6 @@
       </template>
     </el-dialog>
     <contextmenu ref="contextmenu" :menus="contextmenus" @click="onContextmenuClick"/>
-    <el-dialog v-model="font.modal" :show-close="false" :width="180" header-class="font-size-dialog-header">
-      <el-input-number v-model="font.size" :min="10" :max="30" @change="updateFontSize"/>
-    </el-dialog>
   </div>
 </template>
 
@@ -53,7 +50,8 @@ export default {
         {name: 'copy', caption: this.$t('Copy - Ctrl+Insert')},
         {name: 'paste', caption: this.$t('Paste - Shift+Insert')},
         {name: 'clear', caption: this.$t('Clear Scrollback')},
-        {name: 'font', caption: this.$t('Font Size')},
+        {name: 'font+', caption: this.$t('font+')},
+        {name: 'font-', caption: this.$t('font-')},
         {name: 'upload', caption: this.$t('Upload file') + ' - rtty -R'},
         {name: 'download', caption: this.$t('Download file') + ' - rtty -S file'},
         {name: 'split-left', caption: this.$t('split-left')},
@@ -63,10 +61,6 @@ export default {
         {name: 'close', caption: this.$t('Close')},
         {name: 'about', caption: this.$t('About')}
       ],
-      font: {
-        modal: false,
-        size: 16
-      },
       file: {
         modal: false,
         accepted: false,
@@ -99,8 +93,10 @@ export default {
         this.pasteFromClipboard()
       } else if (name === 'clear') {
         this.term.clear()
-      } else if (name === 'font') {
-        this.font.modal = true
+      } else if (name === 'font+') {
+        this.updateFontSize(1)
+      } else if (name === 'font-') {
+        this.updateFontSize(-1)
       } else if (name === 'upload') {
         this.$message.success(this.$t('Please execute command "rtty -R" in current terminal!'))
       } else if (name === 'download') {
@@ -146,12 +142,7 @@ export default {
       }
     },
     updateFontSize(size) {
-      if (!size) {
-        size = 16
-        this.font.size = 16
-      }
-
-      this.term.options.fontSize = size
+      this.term.options.fontSize += size
       this.fitAddon.fit()
     },
     onUploadDialogClosed() {
@@ -235,7 +226,7 @@ export default {
     openTerm() {
       const term = new Terminal({
         cursorBlink: true,
-        fontSize: this.font.size
+        fontSize: 16
       })
       this.term = term
 
@@ -385,9 +376,5 @@ export default {
 
   :deep(.xterm .xterm-viewport) {
     overflow-y: auto;
-  }
-
-  :deep(.font-size-dialog-header) {
-    display: none;
   }
 </style>
