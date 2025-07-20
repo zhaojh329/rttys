@@ -88,5 +88,6 @@
   "The device did not respond to the terminal session request within the expected time. Please check the device status and try again.": "设备未在预期时间内响应终端会话请求，请检查设备状态后重试。",
   "Requesting device to create terminal...": "正在请求设备创建终端...",
   "Clipboard Permission Required": "需要剪切板权限",
-  "clipboard_instructions": "要启用剪切板权限，请点击地址栏左侧的站点信息图标进入权限设置，或在浏览器设置的隐私安全选项中配置此网站的剪切板权限。也可使用快捷键 Shift+Insert 进行粘贴。"
+  "clipboard_instructions": "要启用剪切板权限，请点击地址栏左侧的站点信息图标进入权限设置，或在浏览器设置的隐私安全选项中配置此网站的剪切板权限。也可使用快捷键 Shift+Insert 进行粘贴。",
+  "Virtual Keyboard": "虚拟键盘"
 }

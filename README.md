@@ -28,6 +28,7 @@
 ![](/img/terminal.gif)
 ![](/img/file.gif)
 ![](/img/web.gif)
+![](/img/virtual-keyboard.jpg)
 
 ## 📖 About
 

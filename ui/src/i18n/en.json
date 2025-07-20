@@ -88,5 +88,6 @@
   "The device did not respond to the terminal session request within the expected time. Please check the device status and try again.": "The device did not respond to the terminal session request within the expected time. Please check the device status and try again.",
   "Requesting device to create terminal...": "Requesting device to create terminal...",
   "Clipboard Permission Required": "Clipboard Permission Required",
-  "clipboard_instructions": "To enable clipboard permissions, click the site information icon on the left of address bar to access permission settings, or configure clipboard permissions for this site in browser privacy settings. You can also use Shift+Insert keyboard shortcut to paste."
+  "clipboard_instructions": "To enable clipboard permissions, click the site information icon on the left of address bar to access permission settings, or configure clipboard permissions for this site in browser privacy settings. You can also use Shift+Insert keyboard shortcut to paste.",
+  "Virtual Keyboard": "Virtual Keyboard"
 }

@@ -1,6 +1,8 @@
 <template>
   <div class="terminal-container">
     <div ref="terminal" class="terminal" @contextmenu.prevent="showContextmenu"></div>
+    <el-button v-show="isConnected && !showKeyboard" @click="toggleKeyboard" type="primary" size="small" circle class="keyboard-toggle-btn">⌨</el-button>
+    <RttyKeyboard v-show="showKeyboard" @keypress="handleKeypress" @close="hideKeyboard" class="floating-keyboard"/>
     <el-dialog v-model="fileCtx.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
       <el-upload :before-upload="beforeUpload" action="#">
         <el-button type="primary">{{ $t("Select file") }}</el-button>
@@ -24,9 +26,9 @@ import useClipboard from 'vue-clipboard3'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-
 import OverlayAddon from '../xterm-addon/xterm-addon-overlay'
 import ContextMenu from '../components/ContextMenu.vue'
+import RttyKeyboard from '../components/RttyKeyboard.vue'
 
 const LoginErrorOffline = 4000
 const LoginErrorBusy = 4001
@@ -83,6 +85,8 @@ let socket = null
 let term = null
 let fitAddon = null
 let unack = 0
+const showKeyboard = ref(false)
+const isConnected = ref(false)
 
 const copyText = async(text) => {
   try {
@@ -94,6 +98,12 @@ const copyText = async(text) => {
 }
 
 const showContextmenu = (e) => contextmenuPos.value = { x: e.clientX, y: e.clientY }
+
+const toggleKeyboard = () => showKeyboard.value = !showKeyboard.value
+
+const hideKeyboard = () => showKeyboard.value = false
+
+const handleKeypress = (keyData) => sendTermData(keyData)
 
 const onContextmenuClick = (name) => {
   if (name === 'copy') {
@@ -234,6 +244,8 @@ const closed = () => {
   if (term)
     term.write('\n\n\r\x1B[1;3;31mConnection is closed.\x1B[0m')
   dispose()
+  isConnected.value = false
+  showKeyboard.value = false
   emit('close', props.panelId)
 }
 
@@ -264,6 +276,9 @@ const openTerm = () => {
 
   window.addEventListener('rtty-resize', fitTerm)
   fitTerm()
+  nextTick(() => term.focus())
+
+  isConnected.value = true
 }
 
 const dispose = () => disposables.forEach(d => d.dispose())
@@ -368,6 +383,7 @@ onUnmounted(() => {
   window.removeEventListener('rtty-resize', fitTerm)
 
   dispose()
+
   if (term)
     term.dispose()
 
@@ -379,11 +395,41 @@ onUnmounted(() => {
 <style scoped>
   .terminal-container {
     height: 100%;
+    position: relative;
+    overflow: hidden;
   }
 
   .terminal {
     margin: 5px;
     height: 100%;
+  }
+
+  .floating-keyboard {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border-radius: 12px;
+    background: rgba(248, 249, 250, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    cursor: move;
+    width: clamp(400px, 85vw, 700px);
+  }
+
+  .keyboard-toggle-btn {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+  }
+
+  .keyboard-toggle-btn:hover {
+    opacity: 1;
   }
 
   :deep(.xterm .xterm-viewport) {
