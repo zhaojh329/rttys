@@ -25,6 +25,10 @@
 
 **Official Website:** https://rttys.net/
 
+![](/img/terminal.gif)
+![](/img/file.gif)
+![](/img/web.gif)
+
 ## 📖 About
 
 **rttys** is the server-side component of the [rtty](https://github.com/zhaojh329/rtty) remote terminal system. It provides a web-based management interface and handles connections from rtty clients running on remote devices.
