@@ -25,6 +25,7 @@ import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
 import useClipboard from 'vue-clipboard3'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import OverlayAddon from '../xterm-addon/xterm-addon-overlay'
 import ContextMenu from '../components/ContextMenu.vue'
@@ -254,6 +255,8 @@ const openTerm = () => {
     cursorBlink: true,
     fontSize: 16
   })
+
+  term.loadAddon(new WebLinksAddon())
 
   const fitAddonInstance = new FitAddon()
   fitAddon = fitAddonInstance
