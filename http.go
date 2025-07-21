@@ -46,9 +46,13 @@ import (
 )
 
 type HttpProxySession struct {
-	expire atomic.Int64
-	ctx    context.Context
-	cancel context.CancelFunc
+	expire   atomic.Int64
+	ctx      context.Context
+	cancel   context.CancelFunc
+	devid    string
+	group    string
+	destaddr string
+	https    bool
 }
 
 var httpProxySessions = sync.Map{}
@@ -57,6 +61,11 @@ const httpProxySessionsExpire = 15 * time.Minute
 
 func (ses *HttpProxySession) Expire() {
 	ses.expire.Store(time.Now().Add(httpProxySessionsExpire).Unix())
+}
+
+func (ses *HttpProxySession) String() string {
+	return fmt.Sprintf("{devid: %s, group: %s, destaddr: %s, https: %v}",
+		ses.devid, ses.group, ses.destaddr, ses.https)
 }
 
 func (srv *RttyServer) ListenHttpProxy() {
@@ -121,59 +130,34 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 		return
 	}
 
-	cookie, err := req.Cookie("rtty-http-devid")
+	cookie, err := req.Cookie("rtty-http-sid")
 	if err != nil {
-		log.Debug().Msg(`not found cookie "rtty-http-devid"`)
-		sendHTTPErrorResponse(c, "invalid")
-		return
-	}
-	devid := cookie.Value
-
-	group := ""
-
-	cookie, err = req.Cookie("rtty-http-group")
-	if err == nil {
-		group = cookie.Value
-	}
-
-	dev := srv.GetDevice(group, devid)
-	if dev == nil {
-		log.Debug().Msgf(`device "%s" offline`, devid)
-		sendHTTPErrorResponse(c, "offline")
-		return
-	}
-
-	cookie, err = req.Cookie("rtty-http-sid")
-	if err != nil {
-		log.Debug().Msgf(`not found cookie "rtty-http-sid", devid "%s"`, devid)
+		log.Debug().Msgf(`not found cookie "rtty-http-sid"`)
 		sendHTTPErrorResponse(c, "invalid")
 		return
 	}
 	sid := cookie.Value
 
-	https := false
-	cookie, _ = req.Cookie("rtty-http-proto")
-	if cookie != nil && cookie.Value == "https" {
-		https = true
-	}
-
-	hostHeaderRewrite := "localhost"
-	cookie, err = req.Cookie("rtty-http-destaddr")
-	if err == nil {
-		hostHeaderRewrite, _ = url.QueryUnescape(cookie.Value)
-	}
-
-	destAddr := genDestAddr(hostHeaderRewrite)
-	srcAddr := tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr))
-
 	sesVal, ok := httpProxySessions.Load(sid)
 	if !ok {
-		log.Debug().Msgf(`not found httpProxySession "%s", devid "%s"`, sid, devid)
+		log.Debug().Msgf(`not found httpProxySession "%s"`, sid)
 		sendHTTPErrorResponse(c, "unauthorized")
 		return
 	}
 
 	ses := sesVal.(*HttpProxySession)
+
+	dev := srv.GetDevice(ses.group, ses.devid)
+	if dev == nil {
+		log.Debug().Msgf(`device "%s" group "%s" offline`, ses.devid, ses.group)
+		sendHTTPErrorResponse(c, "offline")
+		return
+	}
+
+	hostHeaderRewrite := ses.destaddr
+
+	destAddr := genDestAddr(hostHeaderRewrite)
+	srcAddr := tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr))
 
 	ctx, cancel := context.WithCancel(ses.ctx)
 	defer cancel()
@@ -181,15 +165,15 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 	go func() {
 		<-ctx.Done()
 		c.Close()
-		log.Debug().Msgf("http proxy conn closed, devid: %s, https: %v, destaddr: %s", devid, https, hostHeaderRewrite)
+		log.Debug().Msgf("http proxy conn closed: %s", ses)
 		dev.https.Delete(string(srcAddr))
 	}()
 
-	log.Debug().Msgf("new http proxy conn, devid: %s, https: %v, destaddr: %s", devid, https, hostHeaderRewrite)
+	log.Debug().Msgf("new http proxy conn: %s", ses)
 
 	dev.https.Store(string(srcAddr), c)
 
-	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, dev, https}
+	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, dev, ses.https}
 
 	req.Host = hostHeaderRewrite
 	hpw.WriteRequest(req)
@@ -202,7 +186,7 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 			if err != nil {
 				return
 			}
-			sendHttpReq(dev, https, srcAddr, destAddr, b[:n])
+			sendHttpReq(dev, ses.https, srcAddr, destAddr, b[:n])
 			ses.Expire()
 		}
 	} else {
@@ -296,8 +280,12 @@ func httpProxyRedirect(srv *RttyServer, c *gin.Context, group string) {
 	ctx, cancel := context.WithCancel(dev.ctx)
 
 	ses := &HttpProxySession{
-		ctx:    ctx,
-		cancel: cancel,
+		ctx:      ctx,
+		cancel:   cancel,
+		devid:    devid,
+		group:    group,
+		destaddr: addr,
+		https:    proto == "https",
 	}
 	ses.Expire()
 	httpProxySessions.Store(sid, ses)
@@ -315,11 +303,6 @@ func httpProxyRedirect(srv *RttyServer, c *gin.Context, group string) {
 	}
 
 	c.SetCookie("rtty-http-sid", sid, 0, "", domain, false, true)
-	c.SetCookie("rtty-http-group", group, 0, "", domain, false, true)
-	c.SetCookie("rtty-http-devid", devid, 0, "", domain, false, true)
-	c.SetCookie("rtty-http-proto", proto, 0, "", domain, false, true)
-	c.SetCookie("rtty-http-destaddr", addr, 0, "", domain, false, true)
-
 	c.Redirect(http.StatusFound, location)
 }
 
