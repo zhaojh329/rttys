@@ -253,6 +253,8 @@ const closed = () => {
 const openTerm = () => {
   term = new Terminal({
     cursorBlink: true,
+    cursorStyle: 'bar',
+    cursorInactiveStyle: 'none',
     fontSize: 16
   })
 
