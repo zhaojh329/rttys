@@ -27,6 +27,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -40,6 +41,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	testAckBlkSize = 4 * 1024
+	testTermPerDev = 7
+	testHttp       = true
+)
+
+// Run rtty clients with "-f username"
 func TestRttysStress(t *testing.T) {
 	duration := 10 * time.Minute
 
@@ -104,11 +112,13 @@ func runDeviceTest(ctx context.Context, devices *sync.Map, group, devID string) 
 		devices.Delete(group + devID)
 	}()
 
-	go runHttpTest(ctx, group, devID)
+	if testHttp {
+		go runHttpTest(ctx, group, devID)
+	}
 
 	wg := &sync.WaitGroup{}
 
-	for range 7 {
+	for range testTermPerDev {
 		wg.Add(1)
 		go runWebSocketTest(ctx, group, devID, wg)
 	}
@@ -129,23 +139,43 @@ func runWebSocketTest(ctx context.Context, group, devID string, wg *sync.WaitGro
 		conn.Close()
 	}()
 
+	ml := &sync.Mutex{}
+
 	go func() {
 		msg := []byte{0}
-		msg = append(msg, []byte("ttttttttttttttttttttttttttttt\n")...)
-		msg = append(msg, []byte("ttttttttttttttttttttttttttttt\n")...)
+		msg = append(msg, []byte("cat /proc/cpuinfo\n")...)
 		for {
+			ml.Lock()
 			err = conn.WriteMessage(websocket.BinaryMessage, msg)
+			ml.Unlock()
 			if err != nil {
 				return
 			}
+
 			time.Sleep(time.Millisecond * 20)
 		}
 	}()
 
+	unack := 0
+
 	for {
-		_, _, err := conn.ReadMessage()
+		msgType, data, err := conn.ReadMessage()
 		if err != nil {
 			return
+		}
+
+		if msgType == websocket.BinaryMessage {
+			if data[0] == 0 {
+				unack += len(data) - 1
+
+				if unack > testAckBlkSize {
+					msg := fmt.Sprintf(`{"type":"ack","ack":%d}`, unack)
+					ml.Lock()
+					conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					ml.Unlock()
+					unack = 0
+				}
+			}
 		}
 	}
 }
