@@ -1,6 +1,6 @@
 <template>
   <div class="terminal-container">
-    <div ref="terminal" class="terminal" @contextmenu.prevent="showContextmenu"></div>
+    <div ref="terminal" class="rtty-terminal" @contextmenu.prevent="showContextmenu"></div>
     <el-button v-show="isConnected && !showKeyboard" @click="toggleKeyboard" type="primary" size="small" circle class="keyboard-toggle-btn">⌨</el-button>
     <RttyKeyboard v-show="showKeyboard" @keypress="handleKeypress" @close="hideKeyboard" class="floating-keyboard"/>
     <el-dialog v-model="fileCtx.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
@@ -403,9 +403,17 @@ onUnmounted(() => {
     overflow: hidden;
   }
 
-  .terminal {
-    margin: 5px;
+  .rtty-terminal {
     height: 100%;
+    background-color: black;
+  }
+
+  :deep(.terminal) {
+    padding: 5px;
+  }
+
+  :deep(.xterm .xterm-viewport) {
+    overflow-y: auto;
   }
 
   .floating-keyboard {
@@ -434,9 +442,5 @@ onUnmounted(() => {
 
   .keyboard-toggle-btn:hover {
     opacity: 1;
-  }
-
-  :deep(.xterm .xterm-viewport) {
-    overflow-y: auto;
   }
 </style>
