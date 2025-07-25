@@ -260,8 +260,7 @@ const openTerm = () => {
 
   term.loadAddon(new WebLinksAddon())
 
-  const fitAddonInstance = new FitAddon()
-  fitAddon = fitAddonInstance
+  fitAddon = new FitAddon()
   term.loadAddon(fitAddon)
 
   const overlayAddon = new OverlayAddon()
