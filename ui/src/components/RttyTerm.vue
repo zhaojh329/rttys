@@ -13,18 +13,32 @@
         <el-button type="primary" @click="doUploadFile">{{ $t('OK') }}</el-button>
       </template>
     </el-dialog>
+    <transition name="find-box">
+      <div v-if="showFindBox" class="find-box" @keydown="onFindBoxKeydown">
+        <el-input ref="findInput" class="find-input" v-model="findText" :placeholder="$t('Find')" clearable @keydown.enter="doFind('next')"/>
+        <el-checkbox-group class="find-flags" v-model="findFlags">
+          <el-checkbox value="caseSensitive" :label="$t('Match Case')"/>
+          <el-checkbox value="wholeWord" :label="$t('Whole Word')"/>
+          <el-checkbox value="regex" :label="$t('Regular')"/>
+        </el-checkbox-group>
+        <el-button size="small" @click="doFind('prev')">{{ $t('Prev') }}</el-button>
+        <el-button size="small" @click="doFind('next')">{{ $t('Next') }}</el-button>
+        <el-button size="small" @click="showFindBox = false">{{ $t('Close') }}</el-button>
+      </div>
+    </transition>
     <ContextMenu v-model="contextmenuPos" :menus="contextmenus" @click="onContextmenuClick"/>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick, useTemplateRef } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
 import useClipboard from 'vue-clipboard3'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import OverlayAddon from '../xterm-addon/xterm-addon-overlay'
@@ -59,6 +73,8 @@ const contextmenus = [
   {name: 'copy', caption: t('Copy - Ctrl+Insert')},
   {name: 'paste', caption: t('Paste - Shift+Insert')},
   {name: 'clear', caption: t('Clear Scrollback')},
+  {name: 'find', caption: t('Find') + ' - Ctrl+F'},
+  {name: 'clear-highlighting', caption: t('Clear Highlighting')},
   {name: 'font+', caption: t('font+')},
   {name: 'font-', caption: t('font-')},
   {name: 'upload', caption: t('Upload file') + ' - rtty -R'},
@@ -70,6 +86,28 @@ const contextmenus = [
   {name: 'close', caption: t('Close')},
   {name: 'about', caption: t('About')}
 ]
+
+const showFindBox = ref(false)
+const findInput = useTemplateRef('findInput')
+const findText = ref('')
+const findFlags = ref([])
+
+const openFindBox = () => {
+  showFindBox.value = true
+  nextTick(() => findInput.value.focus())
+}
+
+const onFindBoxKeydown = (e) => {
+  if (e.key === 'Escape') {
+    showFindBox.value = false
+  }
+}
+
+watch(() => showFindBox.value, (val) => {
+  if (!val) {
+    nextTick(() => term.focus())
+  }
+})
 
 const fileCtx = reactive({
   modal: false,
@@ -85,6 +123,7 @@ let disposables = []
 let socket = null
 let term = null
 let fitAddon = null
+let searchAddon = null
 let unack = 0
 const showKeyboard = ref(false)
 const isConnected = ref(false)
@@ -115,6 +154,12 @@ const onContextmenuClick = (name) => {
     pasteFromClipboard()
   } else if (name === 'clear') {
     term.clear()
+  } else if (name === 'find') {
+    openFindBox()
+    return
+  } else if (name === 'clear-highlighting') {
+    searchAddon.clearDecorations()
+    term.clearSelection()
   } else if (name === 'font+') {
     updateFontSize(1)
   } else if (name === 'font-') {
@@ -166,6 +211,28 @@ const pasteFromClipboard = async() => {
 const updateFontSize = (size) => {
   term.options.fontSize += size
   fitAddon.fit()
+}
+
+const doFind = (type) => {
+  const options = {
+    decorations: {
+      matchBackground: '#2e7d32',
+      matchBorder: '#2e7d32',
+      matchOverviewRuler: '#2e7d32',
+      activeMatchBackground: '#ff8f00',
+      activeMatchBorder: '#ff8f00',
+      activeMatchColorOverviewRuler: '#ff8f00'
+    }
+  }
+
+  findFlags.value.forEach(v => {
+    options[v] = true
+  })
+
+  if (type === 'next')
+    searchAddon.findNext(findText.value, options)
+  else
+    searchAddon.findPrevious(findText.value, options)
 }
 
 const onUploadDialogClosed = () => {
@@ -252,6 +319,7 @@ const closed = () => {
 
 const openTerm = () => {
   term = new Terminal({
+    allowProposedApi: true,
     cursorBlink: true,
     cursorStyle: 'bar',
     cursorInactiveStyle: 'none',
@@ -262,6 +330,9 @@ const openTerm = () => {
 
   fitAddon = new FitAddon()
   term.loadAddon(fitAddon)
+
+  searchAddon = new SearchAddon()
+  term.loadAddon(searchAddon)
 
   const overlayAddon = new OverlayAddon()
   term.loadAddon(overlayAddon)
@@ -276,6 +347,13 @@ const openTerm = () => {
     const msg = {type: 'winsize', cols: size.cols, rows: size.rows}
     socket.send(JSON.stringify(msg))
     overlayAddon.show(term.cols + 'x' + term.rows)
+  }))
+
+  disposables.push(term.onKey(({ domEvent }) => {
+    const e = domEvent
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+      openFindBox()
+    }
   }))
 
   window.addEventListener('rtty-resize', fitTerm)
@@ -442,5 +520,48 @@ onUnmounted(() => {
 
   .keyboard-toggle-btn:hover {
     opacity: 1;
+  }
+
+  .find-box {
+    width: auto;
+    position: absolute;
+    top: 5px;
+    right: 15px;
+    z-index: 1001;
+    background: rgba(255,255,255,0.98);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    padding: 4px 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .find-box-enter-active,
+  .find-box-leave-active {
+    transition: all 0.3s cubic-bezier(.55,0,.1,1);
+  }
+  .find-box-enter-from,
+  .find-box-leave-to {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+  .find-box-enter-to,
+  .find-box-leave-from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .find-input {
+    width: 200px;
+  }
+
+  .find-flags {
+    display: flex;
+    gap: 5px
+  }
+
+  :deep(.el-checkbox) {
+    margin-right: 1px;
   }
 </style>

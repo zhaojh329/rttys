@@ -89,5 +89,12 @@
   "Requesting device to create terminal...": "Requesting device to create terminal...",
   "Clipboard Permission Required": "Clipboard Permission Required",
   "clipboard_instructions": "To enable clipboard permissions, click the site information icon on the left of address bar to access permission settings, or configure clipboard permissions for this site in browser privacy settings. You can also use Shift+Insert keyboard shortcut to paste.",
-  "Virtual Keyboard": "Virtual Keyboard"
+  "Virtual Keyboard": "Virtual Keyboard",
+  "Find": "Find",
+  "Prev": "Prev",
+  "Next": "Next",
+  "Match Case": "Match Case",
+  "Whole Word": "Whole Word",
+  "Regular": "Regular",
+  "Clear Highlighting": "Clear Highlighting"
 }
