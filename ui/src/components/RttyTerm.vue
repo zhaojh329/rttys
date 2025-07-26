@@ -70,15 +70,15 @@ const terminal = useTemplateRef('terminal')
 const contextmenuPos = ref(null)
 
 const contextmenus = [
-  {name: 'copy', caption: t('Copy - Ctrl+Insert')},
-  {name: 'paste', caption: t('Paste - Shift+Insert')},
+  {name: 'copy', caption: t('Copy'), shortcut: 'Ctrl + Insert'},
+  {name: 'paste', caption: t('Paste'), shortcut: 'Shift + Insert'},
   {name: 'clear', caption: t('Clear Scrollback')},
-  {name: 'find', caption: t('Find') + ' - Ctrl+F'},
+  {name: 'find', caption: t('Find'), shortcut: 'Ctrl + F'},
   {name: 'clear-highlighting', caption: t('Clear Highlighting')},
-  {name: 'font+', caption: t('font+') + ' - Ctrl+↑'},
-  {name: 'font-', caption: t('font-') + ' - Ctrl+↓'},
-  {name: 'upload', caption: t('Upload file') + ' - rtty -R'},
-  {name: 'download', caption: t('Download file') + ' - rtty -S file'},
+  {name: 'font+', caption: t('font+'), shortcut: 'Ctrl + ↑'},
+  {name: 'font-', caption: t('font-'), shortcut: 'Ctrl + ↓'},
+  {name: 'upload', caption: t('Upload file'), shortcut: 'rtty -R'},
+  {name: 'download', caption: t('Download file'), shortcut: 'rtty -S file'},
   {name: 'split-left', caption: t('split-left')},
   {name: 'split-right', caption: t('split-right')},
   {name: 'split-up', caption: t('split-up')},
