@@ -75,8 +75,8 @@ const contextmenus = [
   {name: 'clear', caption: t('Clear Scrollback')},
   {name: 'find', caption: t('Find') + ' - Ctrl+F'},
   {name: 'clear-highlighting', caption: t('Clear Highlighting')},
-  {name: 'font+', caption: t('font+')},
-  {name: 'font-', caption: t('font-')},
+  {name: 'font+', caption: t('font+') + ' - Ctrl+↑'},
+  {name: 'font-', caption: t('font-') + ' - Ctrl+↓'},
   {name: 'upload', caption: t('Upload file') + ' - rtty -R'},
   {name: 'download', caption: t('Download file') + ' - rtty -S file'},
   {name: 'split-left', caption: t('split-left')},
@@ -351,8 +351,14 @@ const openTerm = () => {
 
   disposables.push(term.onKey(({ domEvent }) => {
     const e = domEvent
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
-      openFindBox()
+    if (e.ctrlKey || e.metaKey) {
+      const key = e.key.toLowerCase()
+      if (key === 'f')
+        openFindBox()
+      else if (key === 'arrowup')
+        updateFontSize(1)
+      else if (key === 'arrowdown')
+        updateFontSize(-1)
     }
   }))
 
