@@ -89,5 +89,12 @@
   "Requesting device to create terminal...": "正在请求设备创建终端...",
   "Clipboard Permission Required": "需要剪切板权限",
   "clipboard_instructions": "要启用剪切板权限，请点击地址栏左侧的站点信息图标进入权限设置，或在浏览器设置的隐私安全选项中配置此网站的剪切板权限。也可使用快捷键 Shift+Insert 进行粘贴。",
-  "Virtual Keyboard": "虚拟键盘"
+  "Virtual Keyboard": "虚拟键盘",
+  "Find": "查找",
+  "Prev": "上一个",
+  "Next": "下一个",
+  "Match Case": "匹配大小写",
+  "Whole Word": "匹配整个单词",
+  "Regular": "正则匹配",
+  "Clear Highlighting": "清除高亮"
 }
