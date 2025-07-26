@@ -2,7 +2,8 @@
   <div ref="content" class="content" :style="{top: axis.y + 'px', left: axis.x + 'px'}" v-if="model">
     <template v-for="(item, index) in menus" :key="item.name">
       <a @click="onMenuClick(item.name)" :style="{'text-decoration': item.underline ? 'underline' : 'none'}">
-        {{item.caption || item.name}}
+        <span class="menu-caption">{{ item.caption || item.name }}</span>
+        <span class="menu-shortcut" v-if="item.shortcut">{{ item.shortcut }}</span>
       </a>
       <hr v-if="index < menus.length - 1"/>
     </template>
@@ -87,7 +88,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', close))
     position: fixed;
     z-index: 9999;
     background-color: #f9f9f9;
-    min-width: 160px;
     border-radius: 5px;
     padding: 5px;
     box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
@@ -95,14 +95,35 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', close))
 
   .content a {
     color: black;
-    padding: 5px 16px;
+    padding: 5px;
     text-decoration: none;
-    display: block;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+  }
+
+  .menu-caption {
+    flex: 1 1 auto;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .menu-shortcut {
+    flex: 0 0 auto;
+    color: #888;
+    font-size: 13px;
+    white-space: nowrap;
+    text-align: right;
   }
 
   .content a:hover {
     background-color: #90C8F6;
     cursor: default;
+  }
+
+  .content a:hover .menu-shortcut {
+    color: black;
   }
 
   .content hr {
