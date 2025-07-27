@@ -46,21 +46,11 @@ var (
 )
 
 func main() {
-	defaultLogPath := "/var/log/rttys.log"
-	if runtime.GOOS == "windows" {
-		defaultLogPath = "rttys.log"
-	}
-
 	cmd := &cli.Command{
 		Name:    "rttys",
 		Usage:   "The server side for rtty",
 		Version: RttysVersion,
 		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:  "log",
-				Value: defaultLogPath,
-				Usage: "log file path",
-			},
 			&cli.StringFlag{
 				Name:  "log-level",
 				Value: "info",
@@ -140,8 +130,6 @@ func main() {
 
 func cmdAction(c context.Context, cmd *cli.Command) error {
 	defer logPanic()
-
-	xlog.SetPath(cmd.String("log"))
 
 	switch cmd.String("log-level") {
 	case "debug":
