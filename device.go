@@ -37,7 +37,7 @@ import (
 	"sync"
 	"time"
 
-	"rttys/utils"
+	"github.com/zhaojh329/rttys/v5/utils"
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"

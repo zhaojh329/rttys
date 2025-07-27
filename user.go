@@ -32,7 +32,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"rttys/utils"
+	"github.com/zhaojh329/rttys/v5/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"

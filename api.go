@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"rttys/utils"
+	"github.com/zhaojh329/rttys/v5/utils"
 
 	"github.com/fanjindong/go-cache"
 	"github.com/gin-contrib/cors"
