@@ -12,12 +12,15 @@
 [10]: https://img.shields.io/github/downloads/zhaojh329/rttys/total
 [12]: https://deepwiki.com/badge.svg
 [13]: https://deepwiki.com/zhaojh329/rttys
+[14]: https://goreportcard.com/badge/github.com/zhaojh329/rttys/v5
+[15]: https://goreportcard.com/report/github.com/zhaojh329/rttys/v5
 
 [![license][1]][2]
 [![PRs Welcome][3]][4]
 [![Issue Welcome][5]][6]
 [![Release Version][7]][8]
 ![Build Status][9]
+[![Go Report Card][14]][15]
 ![Downloads][10]
 [![Ask DeepWiki][12]][13]
 
