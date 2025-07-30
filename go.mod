@@ -1,6 +1,6 @@
 module github.com/zhaojh329/rttys/v5
 
-go 1.24.4
+go 1.24
 
 require (
 	github.com/dwdcth/consoleEx v0.0.0-20180521133551-f56f6eb78b76
