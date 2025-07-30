@@ -201,14 +201,16 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 	}
 }
 
-func httpProxyRedirect(srv *RttyServer, c *gin.Context, group string) {
+func httpProxyRedirect(a *APIServer, c *gin.Context, group string) {
+	srv := a.srv
 	cfg := &srv.cfg
+
 	devid := c.Param("devid")
 	proto := c.Param("proto")
 	addr := c.Param("addr")
 	rawPath := c.Param("path")
 
-	if !callUserHookUrl(cfg, c) {
+	if !a.callUserHookUrl(c) {
 		c.Status(http.StatusForbidden)
 		return
 	}

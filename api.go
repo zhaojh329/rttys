@@ -41,8 +41,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var httpSessions = cache.NewMemCache(cache.WithClearInterval(time.Minute))
-
 const httpSessionExpire = 30 * time.Minute
 
 //go:embed ui/dist
@@ -54,6 +52,21 @@ func (srv *RttyServer) ListenAPI() error {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
+
+	fs, err := fs.Sub(staticFs, "ui/dist")
+	if err != nil {
+		return err
+	}
+
+	root := http.FS(fs)
+
+	a := &APIServer{
+		sessions: cache.NewMemCache(cache.WithClearInterval(time.Minute)),
+		fh:       http.FileServer(root),
+		srv:      srv,
+		r:        r,
+		root:     root,
+	}
 
 	r.Use(func(c *gin.Context) {
 		c.Next()
@@ -71,223 +84,26 @@ func (srv *RttyServer) ListenAPI() error {
 			return
 		}
 
-		if !httpAuth(cfg, c) {
+		if !a.auth(c) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 	})
 
-	authorized.GET("/connect/:devid", func(c *gin.Context) {
-		if !callUserHookUrl(cfg, c) {
-			c.Status(http.StatusForbidden)
-			return
-		}
+	authorized.GET("/connect/:devid", a.handleConnect)
+	authorized.GET("/counts", a.handleCounts)
+	authorized.GET("/groups", a.handleGroups)
+	authorized.GET("/devs", a.handleDevs)
+	authorized.GET("/dev/:devid", a.handleDev)
+	authorized.POST("/cmd/:devid", a.handleCmd)
+	authorized.Any("/web/:devid/:proto/:addr/*path", a.handleWeb)
+	authorized.Any("/web2/:group/:devid/:proto/:addr/*path", a.handleWeb2)
+	authorized.GET("/signout", a.handleSignout)
 
-		if c.GetHeader("Upgrade") != "websocket" {
-			group := c.Query("group")
-			devid := c.Param("devid")
-			if dev := srv.GetDevice(group, devid); dev == nil {
-				c.Redirect(http.StatusFound, "/error/offline")
-				return
-			}
+	r.POST("/signin", a.handleSignin)
+	r.GET("/alive", a.handleAlive)
 
-			url := "/rtty/" + devid
-
-			if group != "" {
-				url += "?group=" + group
-			}
-
-			c.Redirect(http.StatusFound, url)
-		} else {
-			handleUserConnection(srv, c)
-		}
-	})
-
-	authorized.GET("/counts", func(c *gin.Context) {
-		count := 0
-
-		srv.groups.Range(func(key, value any) bool {
-			count += int(value.(*DeviceGroup).count.Load())
-			return true
-		})
-
-		c.JSON(http.StatusOK, gin.H{"count": count})
-	})
-
-	authorized.GET("/groups", func(c *gin.Context) {
-		groups := []string{""}
-
-		srv.groups.Range(func(key, value any) bool {
-			if key != "" {
-				groups = append(groups, key.(string))
-			}
-			return true
-		})
-
-		c.JSON(http.StatusOK, groups)
-	})
-
-	authorized.GET("/devs", func(c *gin.Context) {
-		devs := make([]*DeviceInfo, 0)
-		g := srv.GetGroup(c.Query("group"), false)
-
-		if g == nil {
-			c.JSON(http.StatusOK, devs)
-			return
-		}
-
-		g.devices.Range(func(key, value any) bool {
-			dev := value.(*Device)
-
-			devs = append(devs, &DeviceInfo{
-				Group:     dev.group,
-				ID:        dev.id,
-				Desc:      dev.desc,
-				Connected: uint32(time.Now().Unix() - dev.timestamp),
-				Uptime:    dev.uptime,
-				Proto:     dev.proto,
-				IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
-			})
-
-			return true
-		})
-
-		c.JSON(http.StatusOK, devs)
-	})
-
-	authorized.GET("/dev/:devid", func(c *gin.Context) {
-		if dev := srv.GetDevice(c.Query("group"), c.Param("devid")); dev != nil {
-			info := &DeviceInfo{
-				ID:        dev.id,
-				Desc:      dev.desc,
-				Connected: uint32(time.Now().Unix() - dev.timestamp),
-				Uptime:    dev.uptime,
-				Proto:     dev.proto,
-				IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
-			}
-			c.JSON(http.StatusOK, info)
-		} else {
-			c.Status(http.StatusNotFound)
-		}
-	})
-
-	authorized.POST("/cmd/:devid", func(c *gin.Context) {
-		if !callUserHookUrl(cfg, c) {
-			c.Status(http.StatusForbidden)
-			return
-		}
-
-		cmdInfo := &CommandReqInfo{}
-
-		err := c.BindJSON(&cmdInfo)
-		if err != nil || cmdInfo.Cmd == "" || cmdInfo.Username == "" {
-			cmdErrResp(c, rttyCmdErrInvalid)
-			return
-		}
-
-		dev := srv.GetDevice(c.Query("group"), c.Param("devid"))
-		if dev == nil {
-			cmdErrResp(c, rttyCmdErrOffline)
-			return
-		}
-
-		dev.handleCmdReq(c, cmdInfo)
-	})
-
-	authorized.Any("/web/:devid/:proto/:addr/*path", func(c *gin.Context) {
-		httpProxyRedirect(srv, c, "")
-	})
-
-	authorized.Any("/web2/:group/:devid/:proto/:addr/*path", func(c *gin.Context) {
-		group := c.Param("group")
-		httpProxyRedirect(srv, c, group)
-	})
-
-	authorized.GET("/signout", func(c *gin.Context) {
-		sid, err := c.Cookie("sid")
-		if err != nil || !httpSessions.Exists(sid) {
-			return
-		}
-
-		httpSessions.Del(sid)
-
-		c.Status(http.StatusOK)
-	})
-
-	r.POST("/signin", func(c *gin.Context) {
-		type credentials struct {
-			Password string `json:"password"`
-		}
-
-		creds := credentials{}
-
-		err := c.BindJSON(&creds)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		if httpLogin(cfg, creds.Password) {
-			sid := utils.GenUniqueID()
-
-			httpSessions.Set(sid, true, cache.WithEx(httpSessionExpire))
-
-			c.SetCookie("sid", sid, 0, "", "", false, true)
-			c.Status(http.StatusOK)
-			return
-		}
-
-		c.Status(http.StatusUnauthorized)
-	})
-
-	r.GET("/alive", func(c *gin.Context) {
-		if !httpAuth(cfg, c) {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		} else {
-			c.Status(http.StatusOK)
-		}
-	})
-
-	fs, err := fs.Sub(staticFs, "ui/dist")
-	if err != nil {
-		return err
-	}
-
-	root := http.FS(fs)
-	fh := http.FileServer(root)
-
-	r.NoRoute(func(c *gin.Context) {
-		upath := path.Clean(c.Request.URL.Path)
-
-		if strings.HasSuffix(upath, ".js") || strings.HasSuffix(upath, ".css") {
-			if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
-				f, err := root.Open(upath + ".gz")
-				if err == nil {
-					f.Close()
-
-					c.Request.URL.Path += ".gz"
-
-					if strings.HasSuffix(upath, ".js") {
-						c.Writer.Header().Set("Content-Type", "application/javascript")
-					} else if strings.HasSuffix(upath, ".css") {
-						c.Writer.Header().Set("Content-Type", "text/css")
-					}
-
-					c.Writer.Header().Set("Content-Encoding", "gzip")
-				}
-			}
-		} else if upath != "/" {
-			f, err := root.Open(upath)
-			if err != nil {
-				c.Request.URL.Path = "/"
-				r.HandleContext(c)
-				return
-			}
-			defer f.Close()
-		}
-
-		fh.ServeHTTP(c.Writer, c.Request)
-	})
+	r.NoRoute(a.handleFile)
 
 	ln, err := net.Listen("tcp", cfg.AddrUser)
 	if err != nil {
@@ -300,7 +116,43 @@ func (srv *RttyServer) ListenAPI() error {
 	return r.RunListener(ln)
 }
 
-func callUserHookUrl(cfg *Config, c *gin.Context) bool {
+func isLocalRequest(c *gin.Context) bool {
+	addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
+	return addr.IP.IsLoopback()
+}
+
+type APIServer struct {
+	srv      *RttyServer
+	sessions cache.ICache
+	root     http.FileSystem
+	fh       http.Handler
+	r        *gin.Engine
+}
+
+func (a *APIServer) auth(c *gin.Context) bool {
+	cfg := &a.srv.cfg
+
+	if !cfg.LocalAuth && isLocalRequest(c) {
+		return true
+	}
+
+	if cfg.Password == "" {
+		return true
+	}
+
+	sid, err := c.Cookie("sid")
+	if err != nil || !a.sessions.Exists(sid) {
+		return false
+	}
+
+	a.sessions.Expire(sid, httpSessionExpire)
+
+	return true
+}
+
+func (a *APIServer) callUserHookUrl(c *gin.Context) bool {
+	cfg := &a.srv.cfg
+
 	if cfg.UserHookUrl == "" {
 		return true
 	}
@@ -350,30 +202,209 @@ func callUserHookUrl(cfg *Config, c *gin.Context) bool {
 	return true
 }
 
-func httpLogin(cfg *Config, password string) bool {
-	return cfg.Password == password
-}
-
-func isLocalRequest(c *gin.Context) bool {
-	addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
-	return addr.IP.IsLoopback()
-}
-
-func httpAuth(cfg *Config, c *gin.Context) bool {
-	if !cfg.LocalAuth && isLocalRequest(c) {
-		return true
+func (a *APIServer) handleConnect(c *gin.Context) {
+	if !a.callUserHookUrl(c) {
+		c.Status(http.StatusForbidden)
+		return
 	}
 
-	if cfg.Password == "" {
+	if c.GetHeader("Upgrade") != "websocket" {
+		group := c.Query("group")
+		devid := c.Param("devid")
+		if dev := a.srv.GetDevice(group, devid); dev == nil {
+			c.Redirect(http.StatusFound, "/error/offline")
+			return
+		}
+
+		url := "/rtty/" + devid
+
+		if group != "" {
+			url += "?group=" + group
+		}
+
+		c.Redirect(http.StatusFound, url)
+	} else {
+		handleUserConnection(a.srv, c)
+	}
+}
+
+func (a *APIServer) handleCounts(c *gin.Context) {
+	count := 0
+
+	a.srv.groups.Range(func(key, value any) bool {
+		count += int(value.(*DeviceGroup).count.Load())
 		return true
+	})
+
+	c.JSON(http.StatusOK, gin.H{"count": count})
+}
+
+func (a *APIServer) handleGroups(c *gin.Context) {
+	groups := []string{""}
+
+	a.srv.groups.Range(func(key, value any) bool {
+		if key != "" {
+			groups = append(groups, key.(string))
+		}
+		return true
+	})
+
+	c.JSON(http.StatusOK, groups)
+}
+
+func (a *APIServer) handleDevs(c *gin.Context) {
+	devs := make([]*DeviceInfo, 0)
+	g := a.srv.GetGroup(c.Query("group"), false)
+
+	if g == nil {
+		c.JSON(http.StatusOK, devs)
+		return
 	}
 
+	g.devices.Range(func(key, value any) bool {
+		dev := value.(*Device)
+
+		devs = append(devs, &DeviceInfo{
+			Group:     dev.group,
+			ID:        dev.id,
+			Desc:      dev.desc,
+			Connected: uint32(time.Now().Unix() - dev.timestamp),
+			Uptime:    dev.uptime,
+			Proto:     dev.proto,
+			IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
+		})
+
+		return true
+	})
+
+	c.JSON(http.StatusOK, devs)
+}
+
+func (a *APIServer) handleDev(c *gin.Context) {
+	if dev := a.srv.GetDevice(c.Query("group"), c.Param("devid")); dev != nil {
+		info := &DeviceInfo{
+			ID:        dev.id,
+			Desc:      dev.desc,
+			Connected: uint32(time.Now().Unix() - dev.timestamp),
+			Uptime:    dev.uptime,
+			Proto:     dev.proto,
+			IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
+		}
+		c.JSON(http.StatusOK, info)
+	} else {
+		c.Status(http.StatusNotFound)
+	}
+}
+
+func (a *APIServer) handleCmd(c *gin.Context) {
+	if !a.callUserHookUrl(c) {
+		c.Status(http.StatusForbidden)
+		return
+	}
+
+	cmdInfo := &CommandReqInfo{}
+
+	err := c.BindJSON(&cmdInfo)
+	if err != nil || cmdInfo.Cmd == "" || cmdInfo.Username == "" {
+		cmdErrResp(c, rttyCmdErrInvalid)
+		return
+	}
+
+	dev := a.srv.GetDevice(c.Query("group"), c.Param("devid"))
+	if dev == nil {
+		cmdErrResp(c, rttyCmdErrOffline)
+		return
+	}
+
+	dev.handleCmdReq(c, cmdInfo)
+}
+
+func (a *APIServer) handleWeb(c *gin.Context) {
+	httpProxyRedirect(a, c, "")
+}
+
+func (a *APIServer) handleWeb2(c *gin.Context) {
+	group := c.Param("group")
+	httpProxyRedirect(a, c, group)
+}
+
+func (a *APIServer) handleSignout(c *gin.Context) {
 	sid, err := c.Cookie("sid")
-	if err != nil || !httpSessions.Exists(sid) {
-		return false
+	if err != nil || !a.sessions.Exists(sid) {
+		return
 	}
 
-	httpSessions.Expire(sid, httpSessionExpire)
+	a.sessions.Del(sid)
 
-	return true
+	c.Status(http.StatusOK)
+}
+
+func (a *APIServer) handleSignin(c *gin.Context) {
+	cfg := &a.srv.cfg
+
+	type credentials struct {
+		Password string `json:"password"`
+	}
+
+	creds := credentials{}
+
+	err := c.BindJSON(&creds)
+	if err != nil {
+		c.Status(http.StatusBadRequest)
+		return
+	}
+
+	if cfg.Password == creds.Password {
+		sid := utils.GenUniqueID()
+
+		a.sessions.Set(sid, true, cache.WithEx(httpSessionExpire))
+
+		c.SetCookie("sid", sid, 0, "", "", false, true)
+		c.Status(http.StatusOK)
+		return
+	}
+
+	c.Status(http.StatusUnauthorized)
+}
+
+func (a *APIServer) handleAlive(c *gin.Context) {
+	if !a.auth(c) {
+		c.AbortWithStatus(http.StatusUnauthorized)
+	} else {
+		c.Status(http.StatusOK)
+	}
+}
+
+func (a *APIServer) handleFile(c *gin.Context) {
+	upath := path.Clean(c.Request.URL.Path)
+	root := a.root
+
+	if strings.HasSuffix(upath, ".js") || strings.HasSuffix(upath, ".css") {
+		if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
+			f, err := root.Open(upath + ".gz")
+			if err == nil {
+				f.Close()
+
+				c.Request.URL.Path += ".gz"
+
+				if strings.HasSuffix(upath, ".js") {
+					c.Writer.Header().Set("Content-Type", "application/javascript")
+				} else if strings.HasSuffix(upath, ".css") {
+					c.Writer.Header().Set("Content-Type", "text/css")
+				}
+
+				c.Writer.Header().Set("Content-Encoding", "gzip")
+			}
+		}
+	} else if upath != "/" {
+		f, err := root.Open(upath)
+		if err != nil {
+			c.Request.URL.Path = "/"
+			a.r.HandleContext(c)
+			return
+		}
+		defer f.Close()
+	}
+
+	a.fh.ServeHTTP(c.Writer, c.Request)
 }

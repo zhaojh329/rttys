@@ -117,18 +117,68 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 
 	defer cancel()
 
-	if !waitForLogin(user, dev, ctx, sid) {
+	if !user.waitForLogin(dev, ctx, sid) {
 		return
 	}
 
+	user.handleMsg()
+}
+
+func (user *User) SendCloseMsg(code int, text string) {
+	user.conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, text), time.Now().Add(time.Second))
+}
+
+func (user *User) Close() {
+	user.close.Do(func() {
+		dev := user.dev
+		sid := user.sid
+
+		user.closed.Store(true)
+
+		if _, loaded := dev.users.LoadAndDelete(sid); loaded {
+			dev.WriteMsg(msgTypeLogout, sid, nil)
+		}
+
+		dev.pending.Delete(sid)
+		user.conn.Close()
+
+		log.Debug().Msgf("user with session '%s' closed", sid)
+	})
+}
+
+func (user *User) WriteMsg(typ int, data []byte) error {
+	return user.conn.WriteMessage(typ, data)
+}
+
+func (user *User) waitForLogin(dev *Device, ctx context.Context, sid string) bool {
 	for {
-		msgType, data, err := conn.ReadMessage()
+		select {
+		case <-ctx.Done():
+			return false
+
+		case ok := <-user.pending:
+			return ok
+
+		case <-time.After(TermLoginTimeout):
+			if _, loaded := dev.pending.LoadAndDelete(sid); loaded {
+				log.Error().Msgf("login timeout for session %s of device %s", sid, dev.id)
+				user.SendCloseMsg(LoginErrorTimeout, "login timeout")
+				return false
+			}
+		}
+	}
+}
+
+func (user *User) handleMsg() {
+	dev := user.dev
+	sid := user.sid
+
+	for {
+		msgType, data, err := user.conn.ReadMessage()
 		if err != nil {
 			if !user.closed.Load() {
 				closeError, ok := err.(*websocket.CloseError)
-				if !ok || (closeError.Code != websocket.CloseGoingAway &&
-					closeError.Code != websocket.CloseAbnormalClosure &&
-					closeError.Code != websocket.CloseNormalClosure) {
+				if !ok || ignoredWsCloseError(closeError.Code) {
 					log.Error().Msgf("user read fail: %v", err)
 				}
 			}
@@ -192,47 +242,8 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 	}
 }
 
-func (user *User) SendCloseMsg(code int, text string) {
-	user.conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, text), time.Now().Add(time.Second))
-}
-
-func (user *User) Close() {
-	user.close.Do(func() {
-		dev := user.dev
-		sid := user.sid
-
-		user.closed.Store(true)
-
-		if _, loaded := dev.users.LoadAndDelete(sid); loaded {
-			dev.WriteMsg(msgTypeLogout, sid, nil)
-		}
-
-		dev.pending.Delete(sid)
-		user.conn.Close()
-
-		log.Debug().Msgf("user with session '%s' closed", sid)
-	})
-}
-
-func (user *User) WriteMsg(typ int, data []byte) error {
-	return user.conn.WriteMessage(typ, data)
-}
-
-func waitForLogin(user *User, dev *Device, ctx context.Context, sid string) bool {
-	for {
-		select {
-		case <-ctx.Done():
-			return false
-
-		case ok := <-user.pending:
-			return ok
-
-		case <-time.After(TermLoginTimeout):
-			if _, loaded := dev.pending.LoadAndDelete(sid); loaded {
-				log.Error().Msgf("login timeout for session %s of device %s", sid, dev.id)
-				user.SendCloseMsg(LoginErrorTimeout, "login timeout")
-				return false
-			}
-		}
-	}
+func ignoredWsCloseError(code int) bool {
+	return code != websocket.CloseGoingAway &&
+		code != websocket.CloseAbnormalClosure &&
+		code != websocket.CloseNormalClosure
 }
