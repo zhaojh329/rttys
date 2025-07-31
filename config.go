@@ -26,86 +26,105 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/urfave/cli/v3"
 )
 
 type Config struct {
-	AddrDev              string
-	AddrUser             string
-	AddrHttpProxy        string
+	AddrDev       string
+	AddrUser      string
+	AddrHttpProxy string
+
 	HttpProxyRedirURL    string
 	HttpProxyRedirDomain string
-	Token                string
-	DevHookUrl           string
-	UserHookUrl          string
-	LocalAuth            bool
-	Password             string
-	AllowOrigins         bool
-	PprofAddr            string
+
+	Token        string
+	DevHookUrl   string
+	UserHookUrl  string
+	LocalAuth    bool
+	Password     string
+	AllowOrigins bool
+
+	PprofAddr string
 }
 
 func (cfg *Config) Parse(c *cli.Command) error {
+	var yamlCfg *yaml.File
+	var err error
+
 	conf := c.String("conf")
 	if conf != "" {
-		err := parseYamlCfg(cfg, conf)
+		yamlCfg, err = yaml.ReadFile(conf)
 		if err != nil {
-			return err
+			return fmt.Errorf(`read config file: %s`, err.Error())
 		}
+
 	}
 
-	getFlagOpt(c, "addr-dev", &cfg.AddrDev)
-	getFlagOpt(c, "addr-user", &cfg.AddrUser)
-	getFlagOpt(c, "addr-http-proxy", &cfg.AddrHttpProxy)
-	getFlagOpt(c, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
-	getFlagOpt(c, "http-proxy-redir-domain", &cfg.HttpProxyRedirDomain)
-	getFlagOpt(c, "dev-hook-url", &cfg.DevHookUrl)
-	getFlagOpt(c, "user-hook-url", &cfg.UserHookUrl)
-	getFlagOpt(c, "local-auth", &cfg.LocalAuth)
-	getFlagOpt(c, "token", &cfg.Token)
-	getFlagOpt(c, "password", &cfg.Password)
-	getFlagOpt(c, "allow-origins", &cfg.AllowOrigins)
-	getFlagOpt(c, "pprof", &cfg.PprofAddr)
+	fields := map[string]any{
+		"addr-dev":        &cfg.AddrDev,
+		"addr-user":       &cfg.AddrUser,
+		"addr-http-proxy": &cfg.AddrHttpProxy,
+
+		"http-proxy-redir-url":    &cfg.HttpProxyRedirURL,
+		"http-proxy-redir-domain": &cfg.HttpProxyRedirDomain,
+
+		"token":         &cfg.Token,
+		"dev-hook-url":  &cfg.DevHookUrl,
+		"user-hook-url": &cfg.UserHookUrl,
+		"local-auth":    &cfg.LocalAuth,
+		"password":      &cfg.Password,
+		"allow-origins": &cfg.AllowOrigins,
+
+		"pprof": &cfg.PprofAddr,
+	}
+
+	for name, opt := range fields {
+		if yamlCfg != nil {
+			if err = getConfigOpt(yamlCfg, name, opt); err != nil {
+				return err
+			}
+		}
+
+		getFlagOpt(c, name, opt)
+	}
 
 	return nil
 }
 
-func getConfigOpt(yamlCfg *yaml.File, name string, opt any) {
-	val, err := yamlCfg.Get(name)
-	if err != nil {
-		return
-	}
+func getConfigOpt(yamlCfg *yaml.File, name string, opt any) error {
+	var err error
 
 	switch opt := opt.(type) {
 	case *string:
-		*opt = val
+		var val string
+		val, err = yamlCfg.Get(name)
+		if err == nil {
+			*opt = val
+		}
 	case *int:
-		*opt, _ = strconv.Atoi(val)
+		var val int64
+		val, err = yamlCfg.GetInt(name)
+		if err == nil {
+			*opt = int(val)
+		}
 	case *bool:
-		*opt, _ = strconv.ParseBool(val)
+		var val bool
+		val, err = yamlCfg.GetBool(name)
+		if err == nil {
+			*opt = val
+		}
+	default:
+		return fmt.Errorf("unsupported type for option %s", name)
 	}
-}
 
-func parseYamlCfg(cfg *Config, conf string) error {
-	yamlCfg, err := yaml.ReadFile(conf)
 	if err != nil {
-		return fmt.Errorf(`read config file: %s`, err.Error())
+		if _, ok := err.(*yaml.NodeNotFound); ok {
+			return nil
+		}
+		return fmt.Errorf(`invalud "%s": %w`, name, err)
 	}
-
-	getConfigOpt(yamlCfg, "addr-dev", &cfg.AddrDev)
-	getConfigOpt(yamlCfg, "addr-user", &cfg.AddrUser)
-	getConfigOpt(yamlCfg, "addr-http-proxy", &cfg.AddrHttpProxy)
-	getConfigOpt(yamlCfg, "http-proxy-redir-url", &cfg.HttpProxyRedirURL)
-	getConfigOpt(yamlCfg, "http-proxy-redir-domain", &cfg.HttpProxyRedirDomain)
-
-	getConfigOpt(yamlCfg, "token", &cfg.Token)
-	getConfigOpt(yamlCfg, "dev-hook-url", &cfg.DevHookUrl)
-	getConfigOpt(yamlCfg, "user-hook-url", &cfg.UserHookUrl)
-	getConfigOpt(yamlCfg, "local-auth", &cfg.LocalAuth)
-	getConfigOpt(yamlCfg, "password", &cfg.Password)
-	getConfigOpt(yamlCfg, "allow-origins", &cfg.AllowOrigins)
 
 	return nil
 }
