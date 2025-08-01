@@ -47,6 +47,10 @@ type Config struct {
 	AllowOrigins bool
 
 	PprofAddr string
+
+	SslCert string
+	SslKey  string
+	CaCert  string
 }
 
 func (cfg *Config) Parse(c *cli.Command) error {
@@ -78,6 +82,10 @@ func (cfg *Config) Parse(c *cli.Command) error {
 		"allow-origins": &cfg.AllowOrigins,
 
 		"pprof": &cfg.PprofAddr,
+
+		"sslcert": &cfg.SslCert,
+		"sslkey":  &cfg.SslKey,
+		"cacert":  &cfg.CaCert,
 	}
 
 	for name, opt := range fields {

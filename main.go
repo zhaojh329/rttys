@@ -118,6 +118,18 @@ func main() {
 				Aliases: []string{"V"},
 				Usage:   "more detailed log output",
 			},
+			&cli.StringFlag{
+				Name:  "sslcert",
+				Usage: "SSL/TLS certificate for device",
+			},
+			&cli.StringFlag{
+				Name:  "sslkey",
+				Usage: "SSL/TLS private key for device",
+			},
+			&cli.StringFlag{
+				Name:  "cacert",
+				Usage: "CA certificate to verify devices (mTLS)",
+			},
 		},
 		Action: cmdAction,
 	}

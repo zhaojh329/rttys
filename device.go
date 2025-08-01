@@ -28,11 +28,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -154,7 +157,34 @@ func (srv *RttyServer) ListenDevices() {
 	}
 	defer ln.Close()
 
-	log.Info().Msgf("Listen devices on: %s", ln.Addr().(*net.TCPAddr))
+	if cfg.SslCert != "" && cfg.SslKey != "" {
+		cert, err := tls.LoadX509KeyPair(cfg.SslCert, cfg.SslKey)
+		if err != nil {
+			log.Fatal().Msg(err.Error())
+		}
+
+		config := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
+
+		if cfg.CaCert != "" {
+			caCert, err := os.ReadFile(cfg.CaCert)
+			if err != nil {
+				log.Fatal().Msg(err.Error())
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+			config.ClientCAs = caCertPool
+			config.ClientAuth = tls.RequireAndVerifyClientCert
+		}
+
+		ln = tls.NewListener(ln, config)
+
+		log.Info().Msgf("Listen devices on: %s SSL on", ln.Addr().(*net.TCPAddr))
+	} else {
+		log.Info().Msgf("Listen devices on: %s SSL off", ln.Addr().(*net.TCPAddr))
+	}
 
 	for {
 		conn, err := ln.Accept()
