@@ -116,7 +116,7 @@ func main() {
 			&cli.BoolFlag{
 				Name:    "verbose",
 				Aliases: []string{"V"},
-				Usage:   "more detailed output",
+				Usage:   "more detailed log output",
 			},
 		},
 		Action: cmdAction,
