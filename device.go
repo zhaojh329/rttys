@@ -225,8 +225,9 @@ func handleDeviceConnection(srv *RttyServer, conn net.Conn) {
 		return
 	}
 
-	if !dev.ParseRegister(data) {
-		log.Error().Msg("invalid device info")
+	err = dev.ParseRegister(data)
+	if err != nil {
+		log.Error().Err(err).Msg("invalid device info")
 		return
 	}
 
@@ -362,9 +363,9 @@ func (dev *Device) Close(srv *RttyServer) {
 	})
 }
 
-func (dev *Device) ParseRegister(b []byte) bool {
+func (dev *Device) ParseRegister(b []byte) error {
 	if len(b) < 1 {
-		return false
+		return fmt.Errorf("too short")
 	}
 
 	dev.proto = b[0]
@@ -372,7 +373,7 @@ func (dev *Device) ParseRegister(b []byte) bool {
 	if dev.proto > 4 {
 		attrs := utils.ParseTLV(b[1:])
 		if attrs == nil {
-			return false
+			return fmt.Errorf("invalid tlv")
 		}
 
 		for typ, val := range attrs {
@@ -389,23 +390,37 @@ func (dev *Device) ParseRegister(b []byte) bool {
 				dev.group = string(val)
 			}
 		}
+	} else {
+		b = b[1:]
 
-		return true
+		fields := bytes.Split(b, []byte{0})
+
+		if len(fields) < 3 {
+			return fmt.Errorf("invalid format")
+		}
+
+		dev.id = string(fields[0])
+		dev.desc = string(fields[1])
+		dev.token = string(fields[2])
 	}
 
-	b = b[1:]
-
-	fields := bytes.Split(b, []byte{0})
-
-	if len(fields) < 3 {
-		return false
+	if dev.id == "" {
+		return fmt.Errorf("not found device id")
 	}
 
-	dev.id = string(fields[0])
-	dev.desc = string(fields[1])
-	dev.token = string(fields[2])
+	if len(dev.id) > 32 {
+		return fmt.Errorf("device id too long")
+	}
 
-	return true
+	if len(dev.desc) > 126 {
+		return fmt.Errorf("device desc too long")
+	}
+
+	if len(dev.group) > 16 {
+		return fmt.Errorf("device group too long")
+	}
+
+	return nil
 }
 
 func (dev *Device) Register(srv *RttyServer) byte {
