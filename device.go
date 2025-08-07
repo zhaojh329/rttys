@@ -235,7 +235,7 @@ func handleDeviceConnection(srv *RttyServer, conn net.Conn) {
 
 	err = dev.WriteMsg(msgTypeRegister, "", append([]byte{code}, DevRegErrMsg[code]...))
 	if err != nil {
-		log.Printf("send register to device '%s' fail: %v", dev.id, err)
+		log.Error().Err(err).Msgf("send register to device '%s' fail", dev.id)
 		return
 	}
 
