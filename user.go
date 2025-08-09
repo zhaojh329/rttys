@@ -7,12 +7,12 @@ package main
 
 import (
 	"context"
-	"encoding/binary"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/zhaojh329/rtty-go/proto"
 	"github.com/zhaojh329/rttys/v5/utils"
 
 	"github.com/gin-gonic/gin"
@@ -84,7 +84,7 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 
 	defer user.Close()
 
-	if err := dev.WriteMsg(msgTypeLogin, sid, nil); err != nil {
+	if err := dev.WriteMsg(proto.MsgTypeLogin, sid); err != nil {
 		log.Error().Msgf("send login msg to device %s fail: %v", dev.id, err)
 		return
 	}
@@ -117,7 +117,7 @@ func (user *User) Close() {
 		user.closed.Store(true)
 
 		if _, loaded := dev.users.LoadAndDelete(sid); loaded {
-			dev.WriteMsg(msgTypeLogout, sid, nil)
+			dev.WriteMsg(proto.MsgTypeLogout, sid)
 		}
 
 		dev.pending.Delete(sid)
@@ -172,9 +172,9 @@ func (user *User) handleMsg() {
 				return
 			}
 
-			typ := msgTypeTermData
+			typ := proto.MsgTypeTermData
 			if data[0] == 1 {
-				typ = msgTypeFile
+				typ = proto.MsgTypeFile
 			}
 
 			err = dev.WriteMsg(typ, sid, data[1:])
@@ -189,30 +189,19 @@ func (user *User) handleMsg() {
 
 			switch msg.Type {
 			case "winsize":
-				b := make([]byte, 4)
-
-				binary.BigEndian.PutUint16(b, msg.Cols)
-				binary.BigEndian.PutUint16(b[2:], msg.Rows)
-
-				err = dev.WriteMsg(msgTypeWinsize, sid, b)
+				err = dev.WriteMsg(proto.MsgTypeWinsize, sid, msg.Cols, msg.Rows)
 
 			case "ack":
-				b := make([]byte, 2)
-				binary.BigEndian.PutUint16(b, msg.Ack)
-				err = dev.WriteMsg(msgTypeAck, sid, b)
+				err = dev.WriteMsg(proto.MsgTypeAck, sid, msg.Ack)
 
 			case "fileInfo":
-				b := make([]byte, 4+len(msg.Name))
-				binary.BigEndian.PutUint32(b, msg.Size)
-				copy(b[4:], []byte(msg.Name))
-
-				err = dev.WriteFileMsg(msgTypeFile, sid, msgTypeFileInfo, b)
+				err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileInfo, msg.Size, msg.Name)
 
 			case "fileCanceled":
-				err = dev.WriteFileMsg(msgTypeFile, sid, msgTypeFileAbort, nil)
+				err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileAbort)
 
 			case "fileAck":
-				err = dev.WriteFileMsg(msgTypeFile, sid, msgTypeFileAck, nil)
+				err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileAck)
 			}
 		}
 

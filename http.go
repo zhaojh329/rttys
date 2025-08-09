@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/zhaojh329/rtty-go/proto"
 	"github.com/zhaojh329/rttys/v5/utils"
 
 	"github.com/gin-gonic/gin"
@@ -305,7 +306,7 @@ func sendHttpReq(dev *Device, https bool, srcAddr []byte, destAddr []byte, data 
 	bb.Write(destAddr)
 	bb.Write(data)
 
-	dev.WriteMsg(msgTypeHttp, "", bb.Bytes())
+	dev.WriteMsg(proto.MsgTypeHttp, bb)
 }
 
 func genDestAddr(addr string) []byte {

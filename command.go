@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/zhaojh329/rtty-go/proto"
 	"github.com/zhaojh329/rttys/v5/utils"
 
 	"github.com/gin-gonic/gin"
@@ -74,7 +75,7 @@ func (dev *Device) handleCmdReq(c *gin.Context, info *CommandReqInfo) {
 
 	log.Debug().Msgf("send cmd request for device '%s', token '%s'", dev.id, token)
 
-	err := dev.WriteMsg(msgTypeCmd, "", msg.Bytes())
+	err := dev.WriteMsg(proto.MsgTypeCmd, msg)
 	if err != nil {
 		cmdErrResp(c, rttyCmdErrOffline)
 		return
