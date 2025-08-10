@@ -142,7 +142,15 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 	hostHeaderRewrite := ses.destaddr
 
 	destAddr := genDestAddr(hostHeaderRewrite)
-	srcAddr := tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr))
+
+	hpw := &HttpProxyWriter{
+		destAddr:          destAddr,
+		hostHeaderRewrite: hostHeaderRewrite,
+		dev:               dev,
+		https:             ses.https,
+	}
+
+	tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr), hpw.srcAddr[:])
 
 	ctx, cancel := context.WithCancel(ses.ctx)
 	defer cancel()
@@ -151,14 +159,12 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 		<-ctx.Done()
 		c.Close()
 		log.Debug().Msgf("http proxy conn closed: %s", ses)
-		dev.https.Delete(string(srcAddr))
+		dev.https.Delete(hpw.srcAddr)
 	}()
 
 	log.Debug().Msgf("new http proxy conn: %s", ses)
 
-	dev.https.Store(string(srcAddr), c)
-
-	hpw := &HttpProxyWriter{destAddr, srcAddr, hostHeaderRewrite, dev, ses.https}
+	dev.https.Store(hpw.srcAddr, c)
 
 	req.Host = hostHeaderRewrite
 	hpw.WriteRequest(req)
@@ -171,7 +177,7 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 			if err != nil {
 				return
 			}
-			sendHttpReq(dev, ses.https, srcAddr, destAddr, b[:n])
+			sendHttpReq(dev, ses.https, hpw.srcAddr[:], destAddr, b[:n])
 			ses.Expire()
 		}
 	} else {
@@ -326,14 +332,9 @@ func genDestAddr(addr string) []byte {
 	return b
 }
 
-func tcpAddr2Bytes(addr *net.TCPAddr) []byte {
-	b := make([]byte, 18)
-
+func tcpAddr2Bytes(addr *net.TCPAddr, b []byte) {
 	binary.BigEndian.PutUint16(b[:2], uint16(addr.Port))
-
 	copy(b[2:], addr.IP)
-
-	return b
 }
 
 func httpProxyVaildAddr(addr string) (net.IP, uint16, error) {
@@ -360,14 +361,14 @@ func httpProxyVaildAddr(addr string) (net.IP, uint16, error) {
 
 type HttpProxyWriter struct {
 	destAddr          []byte
-	srcAddr           []byte
+	srcAddr           [18]byte
 	hostHeaderRewrite string
 	dev               *Device
 	https             bool
 }
 
 func (rw *HttpProxyWriter) Write(p []byte) (n int, err error) {
-	sendHttpReq(rw.dev, rw.https, rw.srcAddr, rw.destAddr, p)
+	sendHttpReq(rw.dev, rw.https, rw.srcAddr[:], rw.destAddr, p)
 	return len(p), nil
 }
 

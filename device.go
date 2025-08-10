@@ -447,10 +447,13 @@ func handleFileMsg(dev *Device, data []byte) error {
 }
 
 func handleHttpMsg(dev *Device, data []byte) error {
-	addr := data[:18]
+	var saddr [18]byte
+
+	copy(saddr[:], data[:18])
+
 	data = data[18:]
 
-	if c, ok := dev.https.Load(string(addr)); ok {
+	if c, ok := dev.https.Load(saddr); ok {
 		c := c.(net.Conn)
 		if len(data) == 0 {
 			c.Close()
