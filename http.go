@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -120,29 +121,15 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 	defer logPanic()
 	defer c.Close()
 
+	head := bytebufferpool.Get()
+	defer bytebufferpool.Put(head)
+
 	br := bufio.NewReader(c)
 
-	req, err := http.ReadRequest(br)
-	if err != nil {
+	ses := httpReadRequest(c, br, head)
+	if ses == nil {
 		return
 	}
-
-	cookie, err := req.Cookie("rtty-http-sid")
-	if err != nil {
-		log.Debug().Msgf(`not found cookie "rtty-http-sid"`)
-		sendHTTPErrorResponse(c, "invalid")
-		return
-	}
-	sid := cookie.Value
-
-	sesVal, ok := httpProxySessions.Load(sid)
-	if !ok {
-		log.Debug().Msgf(`not found httpProxySession "%s"`, sid)
-		sendHTTPErrorResponse(c, "unauthorized")
-		return
-	}
-
-	ses := sesVal.(*HttpProxySession)
 
 	dev := srv.GetDevice(ses.group, ses.devid)
 	if dev == nil {
@@ -151,16 +138,11 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 		return
 	}
 
-	destAddr, hostHeaderRewrite := genDestAddrAndHost(ses.destaddr, ses.https)
+	destAddr, host := genDestAddrAndHost(ses.destaddr, ses.https)
 
-	hpw := &HttpProxyWriter{
-		destAddr:          destAddr,
-		hostHeaderRewrite: hostHeaderRewrite,
-		dev:               dev,
-		https:             ses.https,
-	}
+	var srcAddr [18]byte
 
-	tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr), hpw.srcAddr[:])
+	tcpAddr2Bytes(c.RemoteAddr().(*net.TCPAddr), srcAddr[:])
 
 	ctx, cancel := context.WithCancel(ses.ctx)
 	defer cancel()
@@ -169,38 +151,101 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 		<-ctx.Done()
 		c.Close()
 		log.Debug().Msgf("http proxy conn closed: %s", ses)
-		dev.https.Delete(hpw.srcAddr)
+		dev.https.Delete(srcAddr)
 	}()
 
 	log.Debug().Msgf("new http proxy conn: %s", ses)
 
-	dev.https.Store(hpw.srcAddr, c)
+	dev.https.Store(srcAddr, c)
 
-	req.Host = hostHeaderRewrite
-	hpw.WriteRequest(req)
+	// Rewrite the HTTP host
+	head.WriteString("Host: " + host + "\r\n")
 
-	if req.Header.Get("Upgrade") == "websocket" {
-		hb := httpBufPool.Get().(*HttpBuf)
-		defer httpBufPool.Put(hb)
+	sendHttpReq(dev, ses.https, srcAddr[:], destAddr, head.B)
 
-		for {
-			n, err := c.Read(hb.buf)
-			if err != nil {
-				return
-			}
-			sendHttpReq(dev, ses.https, hpw.srcAddr[:], destAddr, hb.buf[:n])
-			ses.Expire()
+	hb := httpBufPool.Get().(*HttpBuf)
+	defer httpBufPool.Put(hb)
+
+	for {
+		n, err := br.Read(hb.buf)
+		if err != nil {
+			return
 		}
-	} else {
-		for {
-			req, err := http.ReadRequest(br)
+		sendHttpReq(dev, ses.https, srcAddr[:], destAddr, hb.buf[:n])
+		ses.Expire()
+	}
+}
+
+func httpReadRequest(conn net.Conn, br *bufio.Reader, head *bytebufferpool.ByteBuffer) *HttpProxySession {
+	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+
+	// First line: GET /index.html HTTP/1.0
+	line, err := br.ReadString('\n')
+	if err != nil {
+		return nil
+	}
+
+	head.WriteString(line)
+
+	sid := ""
+
+	for {
+		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+
+		line, err := br.ReadString('\n')
+		if err != nil {
+			return nil
+		}
+		if line == "\r\n" {
+			break
+		}
+
+		k, v, ok := strings.Cut(line, ":")
+		if !ok {
+			break
+		}
+
+		k = strings.ToLower(k)
+		v = strings.TrimLeft(v, " \t")
+
+		if k == "host" {
+			continue
+		}
+
+		head.WriteString(line)
+
+		if k == "cookie" {
+			cookies, err := http.ParseCookie(v)
 			if err != nil {
-				return
+				break
 			}
-			hpw.WriteRequest(req)
-			ses.Expire()
+
+			for _, cookie := range cookies {
+				if cookie.Name == "rtty-http-sid" {
+					sid = cookie.Value
+					break
+				}
+			}
+			break
 		}
 	}
+
+	if sid == "" {
+		log.Debug().Msgf(`not found cookie "rtty-http-sid"`)
+		sendHTTPErrorResponse(conn, "unauthorized")
+		return nil
+	}
+
+	ses, ok := httpProxySessions.Load(sid)
+	if !ok {
+		log.Debug().Msgf(`not found httpProxySession "%s"`, sid)
+		sendHTTPErrorResponse(conn, "unauthorized")
+		return nil
+	}
+
+	conn.SetReadDeadline(time.Time{})
+
+	return ses.(*HttpProxySession)
 }
 
 func httpProxyRedirect(a *APIServer, c *gin.Context, group string) {
@@ -380,24 +425,6 @@ func httpProxyVaildAddr(addr string, https bool) (net.IP, uint16, error) {
 	port, _ := strconv.Atoi(ports)
 
 	return ip, uint16(port), nil
-}
-
-type HttpProxyWriter struct {
-	destAddr          []byte
-	srcAddr           [18]byte
-	hostHeaderRewrite string
-	dev               *Device
-	https             bool
-}
-
-func (rw *HttpProxyWriter) Write(p []byte) (n int, err error) {
-	sendHttpReq(rw.dev, rw.https, rw.srcAddr[:], rw.destAddr, p)
-	return len(p), nil
-}
-
-func (rw *HttpProxyWriter) WriteRequest(req *http.Request) {
-	req.Host = rw.hostHeaderRewrite
-	req.Write(rw)
 }
 
 func sendHTTPErrorResponse(conn net.Conn, errorType string) {

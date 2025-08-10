@@ -92,18 +92,14 @@
         const translations = {
             en: {
                 'Device Unavailable': 'Device Unavailable',
-				'Invalid Request': 'Invalid Request',
 				'Unauthorized Access': 'Unauthorized Access',
                 'Device offline message': 'The device is currently offline. Please check the device status and try again.',
-				'Invalid request message': 'The request is invalid or malformed',
 				'Unauthorized request message': 'You are not authorized to access this resource. Please check your session and try again.'
             },
             'zh-CN': {
                 'Device Unavailable': '设备不可用',
-				'Invalid Request': '无效请求',
 				'Unauthorized Access': '未授权访问',
                 'Device offline message': '设备当前离线，请检查设备状态后重试。',
-				'Invalid request message': '请求无效或格式错误',
 				'Unauthorized request message': '您无权访问此资源。请检查您的会话并重试。'
             }
         };
@@ -122,10 +118,6 @@
 			case 'offline':
 				title = t('Device Unavailable', lang);
 				message = t('Device offline message', lang);
-				break;
-			case 'invalid':
-				title = t('Invalid Request', lang);
-				message = t('Invalid request message', lang);
 				break;
 			case 'unauthorized':
 				title = t('Unauthorized Access', lang);
