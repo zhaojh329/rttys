@@ -139,9 +139,7 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 		return
 	}
 
-	hostHeaderRewrite := ses.destaddr
-
-	destAddr := genDestAddr(hostHeaderRewrite, ses.https)
+	destAddr, hostHeaderRewrite := genDestAddrAndHost(ses.destaddr, ses.https)
 
 	hpw := &HttpProxyWriter{
 		destAddr:          destAddr,
@@ -318,10 +316,10 @@ func sendHttpReq(dev *Device, https bool, srcAddr []byte, destAddr []byte, data 
 	dev.WriteMsg(proto.MsgTypeHttp, bb)
 }
 
-func genDestAddr(addr string, https bool) []byte {
+func genDestAddrAndHost(addr string, https bool) ([]byte, string) {
 	destIP, destPort, err := httpProxyVaildAddr(addr, https)
 	if err != nil {
-		return nil
+		return nil, ""
 	}
 
 	b := make([]byte, 6)
@@ -329,7 +327,14 @@ func genDestAddr(addr string, https bool) []byte {
 
 	binary.BigEndian.PutUint16(b[4:], destPort)
 
-	return b
+	host := addr
+
+	ips, ports, _ := net.SplitHostPort(addr)
+	if ports == "80" || ports == "443" {
+		host = ips
+	}
+
+	return b, host
 }
 
 func tcpAddr2Bytes(addr *net.TCPAddr, b []byte) {
