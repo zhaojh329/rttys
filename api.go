@@ -6,7 +6,6 @@
 package main
 
 import (
-	"embed"
 	"io/fs"
 	"net"
 	"net/http"
@@ -24,9 +23,6 @@ import (
 
 const httpSessionExpire = 30 * time.Minute
 
-//go:embed ui/dist
-var staticFs embed.FS
-
 func (srv *RttyServer) ListenAPI() error {
 	cfg := &srv.cfg
 
@@ -34,7 +30,7 @@ func (srv *RttyServer) ListenAPI() error {
 
 	r := gin.New()
 
-	fs, err := fs.Sub(staticFs, "ui/dist")
+	fs, err := fs.Sub(staticFs, "assets/dist")
 	if err != nil {
 		return err
 	}

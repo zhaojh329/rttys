@@ -10,6 +10,11 @@ BuildTime=$(date +%FT%T%z)
 	exit 1
 }
 
+[ -d assets/dist ] || {
+	echo "Please build ui first"
+	exit 1
+}
+
 generate() {
 	local os="$1"
 	local arch="$2"

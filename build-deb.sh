@@ -21,6 +21,11 @@ ARCH="$1"  # Pass architecture as an argument, e.g., amd64 or arm64
     exit 1;
 }
 
+[ -d assets/dist ] || {
+	echo "Please build ui first"
+	exit 1
+}
+
 # Build directory
 BUILD_DIR="build-deb"
 INSTALL_DIR="$BUILD_DIR/usr"

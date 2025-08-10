@@ -6,7 +6,7 @@ RUN npm install && npm run build
 FROM golang:latest AS rttys
 WORKDIR /rttys-build
 COPY . .
-COPY --from=ui /rttys-ui/dist ui/dist
+COPY --from=ui /rttys-ui/dist assets/dist
 RUN CGO_ENABLED=0 \
     GitCommit=$(git log --pretty=format:"%h" -1) \
     BuildTime=$(date +%FT%T%z) \

@@ -26,6 +26,7 @@ jobs:
           cd ui
           npm install
           npm run build
+          mv dist ../assets
           cd ..
       - name: build
         env:
