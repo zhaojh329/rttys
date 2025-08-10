@@ -141,7 +141,7 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 
 	hostHeaderRewrite := ses.destaddr
 
-	destAddr := genDestAddr(hostHeaderRewrite)
+	destAddr := genDestAddr(hostHeaderRewrite, ses.https)
 
 	hpw := &HttpProxyWriter{
 		destAddr:          destAddr,
@@ -208,7 +208,7 @@ func httpProxyRedirect(a *APIServer, c *gin.Context, group string) {
 
 	log.Debug().Msgf("httpProxyRedirect devid: %s, proto: %s, addr: %s, path: %s", devid, proto, addr, rawPath)
 
-	_, _, err := httpProxyVaildAddr(addr)
+	_, _, err := httpProxyVaildAddr(addr, proto == "https")
 	if err != nil {
 		log.Debug().Msgf("invalid addr: %s", addr)
 		c.Status(http.StatusBadRequest)
@@ -318,8 +318,8 @@ func sendHttpReq(dev *Device, https bool, srcAddr []byte, destAddr []byte, data 
 	dev.WriteMsg(proto.MsgTypeHttp, bb)
 }
 
-func genDestAddr(addr string) []byte {
-	destIP, destPort, err := httpProxyVaildAddr(addr)
+func genDestAddr(addr string, https bool) []byte {
+	destIP, destPort, err := httpProxyVaildAddr(addr, https)
 	if err != nil {
 		return nil
 	}
@@ -337,11 +337,16 @@ func tcpAddr2Bytes(addr *net.TCPAddr, b []byte) {
 	copy(b[2:], addr.IP)
 }
 
-func httpProxyVaildAddr(addr string) (net.IP, uint16, error) {
+func httpProxyVaildAddr(addr string, https bool) (net.IP, uint16, error) {
 	ips, ports, err := net.SplitHostPort(addr)
 	if err != nil {
 		ips = addr
-		ports = "80"
+
+		if https {
+			ports = "443"
+		} else {
+			ports = "80"
+		}
 	}
 
 	ip := net.ParseIP(ips)
