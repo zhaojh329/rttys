@@ -104,6 +104,18 @@ func httpProxySessionsClean() {
 	}
 }
 
+var httpBufPool = sync.Pool{
+	New: func() any {
+		return &HttpBuf{
+			buf: make([]byte, 1024*32),
+		}
+	},
+}
+
+type HttpBuf struct {
+	buf []byte
+}
+
 func doHttpProxy(srv *RttyServer, c net.Conn) {
 	defer logPanic()
 	defer c.Close()
@@ -168,14 +180,15 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 	hpw.WriteRequest(req)
 
 	if req.Header.Get("Upgrade") == "websocket" {
-		b := make([]byte, 4096)
+		hb := httpBufPool.Get().(*HttpBuf)
+		defer httpBufPool.Put(hb)
 
 		for {
-			n, err := c.Read(b)
+			n, err := c.Read(hb.buf)
 			if err != nil {
 				return
 			}
-			sendHttpReq(dev, ses.https, hpw.srcAddr[:], destAddr, b[:n])
+			sendHttpReq(dev, ses.https, hpw.srcAddr[:], destAddr, hb.buf[:n])
 			ses.Expire()
 		}
 	} else {
