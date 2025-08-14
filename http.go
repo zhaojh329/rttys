@@ -152,6 +152,7 @@ func doHttpProxy(srv *RttyServer, c net.Conn) {
 		c.Close()
 		log.Debug().Msgf("http proxy conn closed: %s", ses)
 		dev.https.Delete(srcAddr)
+		sendHttpReq(dev, ses.https, srcAddr[:], destAddr, nil)
 	}()
 
 	log.Debug().Msgf("new http proxy conn: %s", ses)
