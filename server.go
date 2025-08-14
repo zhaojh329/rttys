@@ -102,7 +102,7 @@ func (srv *RttyServer) DelDevice(dev *Device) {
 		return
 	}
 
-	if _, loaded := g.devices.LoadAndDelete(dev.id); loaded {
+	if deleted := g.devices.CompareAndDelete(dev.id, dev); deleted {
 		if g.count.Add(-1) == 0 {
 			srv.groups.Delete(dev.group)
 		}
