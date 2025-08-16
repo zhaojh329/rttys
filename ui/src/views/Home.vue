@@ -17,7 +17,7 @@
     </el-header>
     <el-main>
       <el-card>
-        <el-table height="calc(100vh - 215px)" :loading="loading" :data="pagedevlists" :empty-text="$t('No devices connected')" @selection-change='handleSelection'>
+        <el-table height="calc(100vh - 225px)" :loading="loading" :data="pagedevlists" :empty-text="$t('No devices connected')" @selection-change='handleSelection'>
           <el-table-column type="selection" width="40" />
           <el-table-column prop="id" :label="$t('Device ID')" width="300" />
           <el-table-column :label="$t('Connected time')" width="150">
@@ -45,6 +45,10 @@
           <el-pagination background layout="prev, pager, next, total,sizes" :total="filteredDevices.length" @change="handlePageChange" class="pagination"/>
         </template>
       </el-card>
+      <div class="footer">
+        <el-text type="info">Powered by </el-text>
+        <el-link type="primary" href="https://github.com/zhaojh329/rtty" target="_blank">rtty</el-link>
+      </div>
     </el-main>
     <RttyCmd ref="rttyCmd" :selection="selection"/>
     <RttyWeb v-model="web.modal" :dev="web.dev"/>
@@ -177,6 +181,12 @@ onMounted(() => getGroups())
 .header {
   display: flex;
   justify-content: space-between;
+}
+
+.footer {
+  float: right;
+  padding-right: 20px;
+  height: 10px;
 }
 
 .pagination {

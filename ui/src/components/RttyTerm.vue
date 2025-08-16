@@ -367,6 +367,15 @@ const openTerm = () => {
   nextTick(() => term.focus())
 
   isConnected.value = true
+
+  term.writeln([
+    ' ┌─────────────────────────────────────────────────────────────┐',
+    ' │  \x1b[36;1mPowered by rtty\x1b[0m(https://github.com/zhaojh329/rtty)         │',
+    ' │                                                             │',
+    ' │ ⮞ For more operations, please right-click the mouse.        │',
+    ' └─────────────────────────────────────────────────────────────┘',
+    ''
+  ].join('\n\r'))
 }
 
 const dispose = () => disposables.forEach(d => d.dispose())
