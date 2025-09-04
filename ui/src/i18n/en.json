@@ -96,5 +96,6 @@
   "Match Case": "Match Case",
   "Whole Word": "Whole Word",
   "Regular": "Regular",
-  "Clear Highlighting": "Clear Highlighting"
+  "Clear Highlighting": "Clear Highlighting",
+  "windows-limit": "Maximum number of windows ({n}) reached"
 }

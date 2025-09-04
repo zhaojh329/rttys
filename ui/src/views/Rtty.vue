@@ -9,6 +9,8 @@
 import RttySplitter from '../components/RttySplitter.vue'
 import RttyTerm from '../components/RttyTerm.vue'
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 defineProps({
   devid: {
@@ -16,6 +18,8 @@ defineProps({
     required: true
   }
 })
+
+const { t } = useI18n()
 
 const paneRootID = 'rtty-panel-root'
 
@@ -87,6 +91,11 @@ const deletePanel = (config, panelId, index, parent) => {
 }
 
 const handleSplitPanel = (panelId, direction) => {
+  if (terms.value.length > 5) {
+    ElMessage.warning(t('windows-limit', { n: 6 }))
+    return
+  }
+
   moveTerminalsToPool()
   splitPanel(rootConfig.value, panelId, 0, direction)
   moveTerminalsToPlaceholders()

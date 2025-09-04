@@ -96,5 +96,6 @@
   "Match Case": "匹配大小写",
   "Whole Word": "匹配整个单词",
   "Regular": "正则匹配",
-  "Clear Highlighting": "清除高亮"
+  "Clear Highlighting": "清除高亮",
+  "windows-limit": "已达到最大窗口数量（{n}个）"
 }
