@@ -314,7 +314,6 @@ const closed = () => {
   dispose()
   isConnected.value = false
   showKeyboard.value = false
-  emit('close', props.panelId)
 }
 
 const openTerm = () => {
