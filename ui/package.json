@@ -29,7 +29,7 @@
     "@vicons/ionicons5": "^0.13.0",
     "@vitejs/plugin-vue": "^5.2.4",
     "eslint-plugin-vue": "^10.2.0",
-    "vite": "^6.3.5",
+    "vite": "^6.3.6",
     "vite-plugin-compression2": "^2.0.1"
   }
 }
