@@ -248,7 +248,7 @@ func (a *APIServer) handleDevs(c *gin.Context) {
 			Connected: uint32(time.Now().Unix() - dev.timestamp),
 			Uptime:    dev.uptime,
 			Proto:     dev.proto,
-			IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
+			IPaddr:    dev.RemoteAddr(),
 		})
 
 		return true
@@ -265,7 +265,7 @@ func (a *APIServer) handleDev(c *gin.Context) {
 			Connected: uint32(time.Now().Unix() - dev.timestamp),
 			Uptime:    dev.uptime,
 			Proto:     dev.proto,
-			IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
+			IPaddr:    dev.RemoteAddr(),
 		}
 		c.JSON(http.StatusOK, info)
 	} else {

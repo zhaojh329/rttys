@@ -8,6 +8,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/pbkdf2"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
@@ -23,6 +25,7 @@ import (
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
+	"github.com/xtaci/kcp-go/v5"
 	"github.com/zhaojh329/rtty-go/proto"
 	"github.com/zhaojh329/rttys/v5/utils"
 )
@@ -96,13 +99,34 @@ var DeviceMsgHandlers = map[byte]func(*Device, []byte) error{
 func (srv *RttyServer) ListenDevices() {
 	cfg := &srv.cfg
 
-	ln, err := net.Listen("tcp", cfg.AddrDev)
+	var ln net.Listener
+	var err error
+
+	if cfg.KCP {
+		var block kcp.BlockCrypt
+
+		if cfg.KcpPassword != "" {
+			key, err := pbkdf2.Key(sha256.New, cfg.KcpPassword, nil, 1024, 32)
+			if err != nil {
+				log.Fatal().Msg(err.Error())
+			}
+
+			block, err = kcp.NewAESBlockCrypt(key)
+			if err != nil {
+				log.Fatal().Msg(err.Error())
+			}
+		}
+
+		ln, err = kcp.ListenWithOptions(cfg.AddrDev, block, cfg.KcpDataShard, cfg.KcpParityShard)
+	} else {
+		ln, err = net.Listen("tcp", cfg.AddrDev)
+	}
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
 	defer ln.Close()
 
-	if cfg.SslCert != "" && cfg.SslKey != "" {
+	if !cfg.KCP && cfg.SslCert != "" && cfg.SslKey != "" {
 		cert, err := tls.LoadX509KeyPair(cfg.SslCert, cfg.SslKey)
 		if err != nil {
 			log.Fatal().Msg(err.Error())
@@ -128,7 +152,13 @@ func (srv *RttyServer) ListenDevices() {
 
 		log.Info().Msgf("Listen devices on: %s SSL on", ln.Addr().(*net.TCPAddr))
 	} else {
-		log.Info().Msgf("Listen devices on: %s SSL off", ln.Addr().(*net.TCPAddr))
+		if cfg.KCP {
+			addr := ln.Addr().(*net.UDPAddr).String()
+			log.Info().Msgf("Listen devices on: %s KCP", addr)
+		} else {
+			addr := ln.Addr().(*net.TCPAddr).String()
+			log.Info().Msgf("Listen devices on: %s SSL off", addr)
+		}
 	}
 
 	for {
@@ -136,6 +166,25 @@ func (srv *RttyServer) ListenDevices() {
 		if err != nil {
 			log.Error().Msg(err.Error())
 			continue
+		}
+
+		if cfg.KCP {
+			s := conn.(*kcp.UDPSession)
+
+			nodelay := 0
+			nc := 0
+
+			if cfg.KcpNodelay {
+				nodelay = 1
+			}
+
+			if cfg.KcpNc {
+				nc = 1
+			}
+
+			s.SetNoDelay(nodelay, cfg.KcpInterval, cfg.KcpResend, nc)
+			s.SetWindowSize(cfg.KcpSndwnd, cfg.KcpRcvwnd)
+			s.SetMtu(cfg.KcpMtu)
 		}
 
 		go handleDeviceConnection(srv, conn)
@@ -331,6 +380,16 @@ func (dev *Device) Register(srv *RttyServer) byte {
 	}
 
 	return 0
+}
+
+func (dev *Device) RemoteAddr() string {
+	addr := dev.conn.RemoteAddr()
+
+	if addr.Network() == "tcp" {
+		return addr.(*net.TCPAddr).IP.String()
+	} else {
+		return addr.(*net.UDPAddr).IP.String()
+	}
 }
 
 func handleHeartbeatMsg(dev *Device, data []byte) error {

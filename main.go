@@ -111,6 +111,50 @@ func main() {
 				Name:  "cacert",
 				Usage: "CA certificate to verify devices (mTLS)",
 			},
+			&cli.BoolFlag{
+				Name:  "kcp",
+				Usage: "Using kcp protocol",
+			},
+			&cli.BoolFlag{
+				Name:  "kcp-nodelay",
+				Usage: "Whether enable nodelay mode for KCP",
+			},
+			&cli.IntFlag{
+				Name:  "kcp-interval",
+				Usage: "KCP protocol internal work interval(Default is 100ms)",
+			},
+			&cli.IntFlag{
+				Name:  "kcp-resend",
+				Usage: "Fast retransmission mode for KCP",
+			},
+			&cli.BoolFlag{
+				Name:  "kcp-nc",
+				Usage: "Whether to turn off flow control for KCP",
+			},
+			&cli.IntFlag{
+				Name:  "kcp-sndwnd",
+				Usage: "Maximum send window for KCP",
+			},
+			&cli.IntFlag{
+				Name:  "kcp-rcvwnd",
+				Usage: "Maximum receive window for KCP",
+			},
+			&cli.IntFlag{
+				Name:  "kcp-mtu",
+				Usage: "Maximum transmission unit for KCP",
+			},
+			&cli.StringFlag{
+				Name:  "kcp-key",
+				Usage: "Key used to encrypt data",
+			},
+			&cli.IntFlag{
+				Name:  "kcp-data-shard",
+				Usage: "FEC data shard for KCP",
+			},
+			&cli.IntFlag{
+				Name:  "kcp-parity-shard",
+				Usage: "FEC parity shard for KCP",
+			},
 		},
 		Action: cmdAction,
 	}
