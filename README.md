@@ -26,8 +26,6 @@
 
 > **🔗 This is the server component of the rtty project. For complete information please visit the main [rtty client repository](https://github.com/zhaojh329/rtty).**
 
-**Official Website:** https://rttys.net/
-
 ![](/img/terminal.gif)
 ![](/img/file.gif)
 ![](/img/web.gif)
@@ -50,3 +48,5 @@ This repository contains only the server-side components:
 ## 🤝 Contributing
 If you would like to help making [rttys](https://github.com/zhaojh329/rttys) better,
 see the [CONTRIBUTING.md](https://github.com/zhaojh329/rttys/blob/master/CONTRIBUTING.md) file.
+
+## ❤️ [Donation](https://zhaojh329.github.io/zhaojh329/)
