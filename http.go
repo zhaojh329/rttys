@@ -340,6 +340,11 @@ func httpProxyRedirect(a *APIServer, c *gin.Context, group string) {
 	ses.Expire()
 	httpProxySessions.Store(sid, ses)
 
+	go func() {
+		<-ctx.Done()
+		httpProxySessions.Delete(sid)
+	}()
+
 	log.Debug().Msgf(`new httpProxySession "%s" for device "%s"`, sid, devid)
 
 	domain := c.Request.Header.Get("HttpProxyRedirDomain")
