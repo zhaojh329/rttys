@@ -28,13 +28,14 @@ import (
 )
 
 type DeviceInfo struct {
-	Group     string `json:"group"`
-	ID        string `json:"id"`
-	Connected uint32 `json:"connected"`
-	Uptime    uint32 `json:"uptime"`
-	Desc      string `json:"description"`
-	Proto     uint8  `json:"proto"`
-	IPaddr    string `json:"ipaddr"`
+	Group     string            `json:"group"`
+	ID        string            `json:"id"`
+	Connected uint32            `json:"connected"`
+	Uptime    uint32            `json:"uptime"`
+	Desc      string            `json:"description"`
+	Proto     uint8             `json:"proto"`
+	IPaddr    string            `json:"ipaddr"`
+	Tags      map[string]string `json:"tags,omitempty"`
 }
 
 type Device struct {
@@ -46,6 +47,7 @@ type Device struct {
 	uptime    uint32
 	token     string
 	heartbeat time.Duration
+	tags      map[string]string
 
 	users    sync.Map
 	pending  sync.Map
@@ -73,6 +75,9 @@ const (
 	DefaultHeartbeat        = 5 * time.Second
 	TermLoginTimeout        = 5 * time.Second
 	CommandTimeout          = 30
+
+	// Custom TLV attribute for device tags (server extension)
+	MsgRegAttrTags uint8 = 0x10
 )
 
 var DevRegErrMsg = map[byte]string{
@@ -229,8 +234,9 @@ func (dev *Device) WriteMsg(typ byte, data ...any) error {
 
 func (dev *Device) Close(srv *RttyServer) {
 	dev.close.Do(func() {
-		log.Error().Msgf("device '%s' disconnected", dev.id)
+		log.Info().Msgf("device '%s' disconnected", dev.id)
 		srv.DelDevice(dev)
+		MetricsDecDeviceConnected(dev.group)
 		dev.cancel()
 		dev.conn.Close()
 	})
@@ -238,6 +244,7 @@ func (dev *Device) Close(srv *RttyServer) {
 
 func (dev *Device) ParseRegister(b []byte) error {
 	dev.proto = b[0]
+	dev.tags = make(map[string]string)
 
 	if dev.proto > 4 {
 		attrs := utils.ParseTLV(b[1:])
@@ -257,6 +264,11 @@ func (dev *Device) ParseRegister(b []byte) error {
 				dev.token = string(val)
 			case proto.MsgRegAttrGroup:
 				dev.group = string(val)
+			case MsgRegAttrTags:
+				// Parse tags as JSON
+				if err := jsoniter.Unmarshal(val, &dev.tags); err != nil {
+					log.Warn().Err(err).Msg("failed to parse device tags")
+				}
 			}
 		}
 	} else {
@@ -329,6 +341,8 @@ func (dev *Device) Register(srv *RttyServer) byte {
 	if !srv.AddDevice(dev) {
 		return devRegErrIdConflicting
 	}
+
+	MetricsIncDeviceConnected(dev.group)
 
 	return 0
 }

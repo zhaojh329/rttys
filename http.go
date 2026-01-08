@@ -99,6 +99,7 @@ func httpProxySessionsClean() {
 				log.Debug().Msgf("Http proxy session '%s' expired", key)
 				ses.cancel()
 				httpProxySessions.Delete(key)
+				MetricsDecHttpProxySession()
 			}
 			return true
 		})
@@ -339,6 +340,7 @@ func httpProxyRedirect(a *APIServer, c *gin.Context, group string) {
 	}
 	ses.Expire()
 	httpProxySessions.Store(sid, ses)
+	MetricsIncHttpProxySession()
 
 	go func() {
 		<-ctx.Done()

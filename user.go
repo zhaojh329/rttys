@@ -81,6 +81,7 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 	user.pending = make(chan bool, 1)
 
 	dev.pending.Store(sid, user)
+	MetricsIncUserSession()
 
 	defer user.Close()
 
@@ -122,6 +123,7 @@ func (user *User) Close() {
 
 		dev.pending.Delete(sid)
 		user.conn.Close()
+		MetricsDecUserSession()
 
 		log.Debug().Msgf("user with session '%s' closed", sid)
 	})

@@ -18,6 +18,7 @@ import (
 	"github.com/fanjindong/go-cache"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -77,8 +78,21 @@ func (srv *RttyServer) ListenAPI() error {
 	authorized.Any("/web2/:group/:devid/:proto/:addr/*path", a.handleWeb2)
 	authorized.GET("/signout", a.handleSignout)
 
+	// Device tags management
+	authorized.PUT("/dev/:devid/tags", a.handleSetDeviceTags)
+	authorized.PATCH("/dev/:devid/tags", a.handleUpdateDeviceTags)
+	authorized.DELETE("/dev/:devid/tags/:tagkey", a.handleDeleteDeviceTag)
+
 	r.POST("/signin", a.handleSignin)
 	r.GET("/alive", a.handleAlive)
+
+	// Health check endpoints
+	r.GET("/health", srv.handleHealth)
+	r.GET("/healthz", srv.handleHealthSimple)
+	r.GET("/ready", srv.handleReady)
+
+	// Prometheus metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	r.NoRoute(a.handleFile)
 
@@ -238,8 +252,19 @@ func (a *APIServer) handleDevs(c *gin.Context) {
 		return
 	}
 
+	// Optional tag filter
+	tagFilter := c.Query("tag")
+	tagValue := c.Query("tag_value")
+
 	g.devices.Range(func(key, value any) bool {
 		dev := value.(*Device)
+
+		// Apply tag filter if specified
+		if tagFilter != "" {
+			if val, ok := dev.tags[tagFilter]; !ok || (tagValue != "" && val != tagValue) {
+				return true
+			}
+		}
 
 		devs = append(devs, &DeviceInfo{
 			Group:     dev.group,
@@ -249,6 +274,7 @@ func (a *APIServer) handleDevs(c *gin.Context) {
 			Uptime:    dev.uptime,
 			Proto:     dev.proto,
 			IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
+			Tags:      dev.tags,
 		})
 
 		return true
@@ -261,11 +287,13 @@ func (a *APIServer) handleDev(c *gin.Context) {
 	if dev := a.srv.GetDevice(c.Query("group"), c.Param("devid")); dev != nil {
 		info := &DeviceInfo{
 			ID:        dev.id,
+			Group:     dev.group,
 			Desc:      dev.desc,
 			Connected: uint32(time.Now().Unix() - dev.timestamp),
 			Uptime:    dev.uptime,
 			Proto:     dev.proto,
 			IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
+			Tags:      dev.tags,
 		}
 		c.JSON(http.StatusOK, info)
 	} else {
@@ -350,6 +378,61 @@ func (a *APIServer) handleAlive(c *gin.Context) {
 	} else {
 		c.Status(http.StatusOK)
 	}
+}
+
+func (a *APIServer) handleSetDeviceTags(c *gin.Context) {
+	dev := a.srv.GetDevice(c.Query("group"), c.Param("devid"))
+	if dev == nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	var tags map[string]string
+	if err := c.BindJSON(&tags); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+		return
+	}
+
+	// Replace all tags
+	dev.tags = tags
+	c.JSON(http.StatusOK, gin.H{"tags": dev.tags})
+}
+
+func (a *APIServer) handleUpdateDeviceTags(c *gin.Context) {
+	dev := a.srv.GetDevice(c.Query("group"), c.Param("devid"))
+	if dev == nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	var tags map[string]string
+	if err := c.BindJSON(&tags); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+		return
+	}
+
+	// Merge tags
+	if dev.tags == nil {
+		dev.tags = make(map[string]string)
+	}
+	for k, v := range tags {
+		dev.tags[k] = v
+	}
+	c.JSON(http.StatusOK, gin.H{"tags": dev.tags})
+}
+
+func (a *APIServer) handleDeleteDeviceTag(c *gin.Context) {
+	dev := a.srv.GetDevice(c.Query("group"), c.Param("devid"))
+	if dev == nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	tagKey := c.Param("tagkey")
+	if dev.tags != nil {
+		delete(dev.tags, tagKey)
+	}
+	c.JSON(http.StatusOK, gin.H{"tags": dev.tags})
 }
 
 func (a *APIServer) handleFile(c *gin.Context) {
