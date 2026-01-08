@@ -50,6 +50,7 @@ var cmdErrMsg = map[int]string{
 }
 
 func (dev *Device) handleCmdReq(c *gin.Context, info *CommandReqInfo) {
+	startTime := time.Now()
 	ctx, cancel := context.WithCancel(dev.ctx)
 	defer cancel()
 
@@ -78,6 +79,7 @@ func (dev *Device) handleCmdReq(c *gin.Context, info *CommandReqInfo) {
 	err := dev.WriteMsg(proto.MsgTypeCmd, msg)
 	if err != nil {
 		cmdErrResp(c, rttyCmdErrOffline)
+		MetricsRecordCommandExecution("offline", time.Since(startTime).Seconds())
 		return
 	}
 
@@ -90,6 +92,7 @@ func (dev *Device) handleCmdReq(c *gin.Context, info *CommandReqInfo) {
 
 	if waitTime == 0 {
 		c.Status(http.StatusOK)
+		MetricsRecordCommandExecution("nowait", time.Since(startTime).Seconds())
 		return
 	}
 
@@ -106,6 +109,7 @@ func (dev *Device) handleCmdReq(c *gin.Context, info *CommandReqInfo) {
 	select {
 	case <-tmr.C:
 		cmdErrResp(c, rttyCmdErrTimeout)
+		MetricsRecordCommandExecution("timeout", time.Since(startTime).Seconds())
 	case <-ctx.Done():
 	}
 
@@ -113,6 +117,9 @@ func (dev *Device) handleCmdReq(c *gin.Context, info *CommandReqInfo) {
 
 	if !req.acked {
 		cmdErrResp(c, rttyCmdErrOffline)
+		MetricsRecordCommandExecution("offline", time.Since(startTime).Seconds())
+	} else {
+		MetricsRecordCommandExecution("success", time.Since(startTime).Seconds())
 	}
 
 	log.Debug().Msgf("handle cmd request for device '%s', token '%s' done", dev.id, token)

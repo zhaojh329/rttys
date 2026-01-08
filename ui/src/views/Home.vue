@@ -32,6 +32,16 @@
           </el-table-column>
           <el-table-column prop="ipaddr" :label="$t('ipaddr')" width="150" />
           <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip width="150" />
+          <el-table-column :label="$t('Tags')" width="200">
+            <template #default="{ row }">
+              <el-space wrap v-if="row.tags && Object.keys(row.tags).length > 0">
+                <el-tag v-for="(value, key) in row.tags" :key="key" size="small" type="info">
+                  {{ key }}: {{ value }}
+                </el-tag>
+              </el-space>
+              <span v-else style="color: #999">-</span>
+            </template>
+          </el-table-column>
           <el-table-column width="100">
             <template #default="{ row }">
               <el-space size="large">
@@ -129,7 +139,24 @@ const handleLogout = () => {
 const handleSearch = () => {
   filteredDevices.value = devlists.value.filter((d) => {
     const filterStr = filterString.value.toLowerCase()
-    return d.id.toLowerCase().indexOf(filterStr) > -1 || d.description.toLowerCase().indexOf(filterStr) > -1
+    
+    // Search in ID and description
+    if (d.id.toLowerCase().indexOf(filterStr) > -1 || d.description.toLowerCase().indexOf(filterStr) > -1) {
+      return true
+    }
+    
+    // Search in tags (key:value or just value)
+    if (d.tags) {
+      for (const [key, value] of Object.entries(d.tags)) {
+        if (key.toLowerCase().indexOf(filterStr) > -1 || 
+            value.toLowerCase().indexOf(filterStr) > -1 ||
+            `${key}:${value}`.toLowerCase().indexOf(filterStr) > -1) {
+          return true
+        }
+      }
+    }
+    
+    return false
   })
 }
 
