@@ -28,24 +28,27 @@ import (
 )
 
 type DeviceInfo struct {
-	Group     string `json:"group"`
-	ID        string `json:"id"`
-	Connected uint32 `json:"connected"`
-	Uptime    uint32 `json:"uptime"`
-	Desc      string `json:"description"`
-	Proto     uint8  `json:"proto"`
-	IPaddr    string `json:"ipaddr"`
+	Group          string                `json:"group"`
+	ID             string                `json:"id"`
+	Connected      uint32                `json:"connected"`
+	Uptime         uint32                `json:"uptime"`
+	Desc           string                `json:"description"`
+	Proto          uint8                 `json:"proto"`
+	Capabilities   uint32                `json:"capabilities"`
+	PeerICEServers []PeerICEServerConfig `json:"peerIceServers,omitempty"`
+	IPaddr         string                `json:"ipaddr"`
 }
 
 type Device struct {
-	group     string
-	id        string
-	proto     uint8
-	desc      string
-	timestamp int64
-	uptime    uint32
-	token     string
-	heartbeat time.Duration
+	group        string
+	id           string
+	proto        uint8
+	capabilities uint32
+	desc         string
+	timestamp    int64
+	uptime       uint32
+	token        string
+	heartbeat    time.Duration
 
 	users    sync.Map
 	pending  sync.Map
@@ -56,9 +59,15 @@ type Device struct {
 	close  sync.Once
 	ctx    context.Context
 	cancel context.CancelFunc
+	srv    *RttyServer
 
 	msg *proto.MsgReaderWriter
 }
+
+const (
+	msgRegAttrCapabilities = proto.MsgRegAttrGroup + 1
+	msgTypePeerSignal      = proto.MsgTypeAck + 1
+)
 
 const (
 	devRegErrUnsupportedProto = iota + 1
@@ -91,6 +100,7 @@ var DeviceMsgHandlers = map[byte]func(*Device, []byte) error{
 	proto.MsgTypeFile:      handleFileMsg,
 	proto.MsgTypeCmd:       handleCmdMsg,
 	proto.MsgTypeHttp:      handleHttpMsg,
+	msgTypePeerSignal:      handlePeerSignalMsg,
 }
 
 func (srv *RttyServer) ListenDevices() {
@@ -149,6 +159,7 @@ func handleDeviceConnection(srv *RttyServer, conn net.Conn) {
 		conn:      conn,
 		heartbeat: DefaultHeartbeat,
 		timestamp: time.Now().Unix(),
+		srv:       srv,
 
 		msg: proto.NewMsgReaderWriter(proto.RoleRttys, conn),
 	}
@@ -203,11 +214,11 @@ func handleDeviceConnection(srv *RttyServer, conn net.Conn) {
 			return
 		}
 
-		log.Debug().Msgf("device msg %s from device %s", proto.MsgTypeName(typ), dev.id)
+		log.Debug().Msgf("device msg %s from device %s", deviceMsgTypeName(typ), dev.id)
 
 		handler, ok := DeviceMsgHandlers[typ]
 		if !ok {
-			log.Error().Msgf("unexpected message '%s' from device '%s'", proto.MsgTypeName(typ), dev.id)
+			log.Error().Msgf("unexpected message '%s' from device '%s'", deviceMsgTypeName(typ), dev.id)
 			return
 		}
 
@@ -257,6 +268,11 @@ func (dev *Device) ParseRegister(b []byte) error {
 				dev.token = string(val)
 			case proto.MsgRegAttrGroup:
 				dev.group = string(val)
+			case msgRegAttrCapabilities:
+				if len(val) != 4 {
+					return fmt.Errorf("invalid capabilities length: %d", len(val))
+				}
+				dev.capabilities = binary.BigEndian.Uint32(val)
 			}
 		}
 	} else {
@@ -331,6 +347,18 @@ func (dev *Device) Register(srv *RttyServer) byte {
 	}
 
 	return 0
+}
+
+func deviceMsgTypeName(typ byte) string {
+	if typ == msgTypePeerSignal {
+		return "peersignal"
+	}
+
+	return proto.MsgTypeName(typ)
+}
+
+func (dev *Device) SupportsCapability(cap uint32) bool {
+	return dev.capabilities&cap != 0
 }
 
 func handleHeartbeatMsg(dev *Device, data []byte) error {

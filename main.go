@@ -91,6 +91,10 @@ func main() {
 				Usage: "allow all origins for cross-domain request",
 			},
 			&cli.StringFlag{
+				Name:  "peer-ice-servers",
+				Usage: "JSON array of ICE server objects for experimental peer transport",
+			},
+			&cli.StringFlag{
 				Name:  "pprof",
 				Usage: "enable pprof and listen on specified address (e.g. localhost:6060)",
 			},

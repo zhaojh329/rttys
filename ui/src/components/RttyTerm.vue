@@ -48,6 +48,13 @@ import RttyKeyboard from '../components/RttyKeyboard.vue'
 const LoginErrorOffline = 4000
 const LoginErrorBusy = 4001
 const LoginErrorTimeout = 4002
+const PeerCapabilitySignal = 1
+const PeerSignalOffer = 0
+const PeerSignalAnswer = 1
+const PeerSignalCandidate = 2
+const PeerSignalReady = 3
+const PeerSignalFailed = 4
+const PeerSignalFallbackRelay = 5
 
 const MsgTypeFileData = 0x03
 
@@ -63,6 +70,7 @@ const props = defineProps({
 const emit = defineEmits(['split', 'close'])
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 const { toClipboard } = useClipboard()
 
@@ -125,8 +133,262 @@ let term = null
 let fitAddon = null
 let searchAddon = null
 let unack = 0
+let peerConnection = null
+let peerDataChannel = null
+let peerIceServers = []
+let peerFallbackTimer = null
 const showKeyboard = ref(false)
 const isConnected = ref(false)
+const peerTransportRequested = ref(false)
+const peerTransportMode = ref('server-relay')
+const peerProbeSent = ref(false)
+const lastPeerNotice = ref('')
+
+const routeQueryValue = (value) => Array.isArray(value) ? value[0] : (value ?? '')
+
+const wantsPeerTransport = () => {
+  const transport = routeQueryValue(route.query.transport)
+  const peer = routeQueryValue(route.query.peer)
+
+  return transport === 'peer' || peer === '1' || peer === 'true'
+}
+
+const buildConnectPath = () => {
+  const params = new URLSearchParams()
+  const group = routeQueryValue(route.query.group)
+
+  if (group)
+    params.set('group', group)
+
+  if (peerTransportRequested.value)
+    params.set('transport', 'peer')
+
+  const query = params.toString()
+
+  return `/connect/${props.devid}${query ? `?${query}` : ''}`
+}
+
+const buildWebSocketUrl = () => {
+  const protocol = location.protocol === 'https:' ? 'wss://' : 'ws://'
+  return protocol + location.host + buildConnectPath()
+}
+
+const buildDeviceInfoPath = () => {
+  const params = new URLSearchParams()
+  const group = routeQueryValue(route.query.group)
+
+  if (group)
+    params.set('group', group)
+
+  const query = params.toString()
+  return `/dev/${props.devid}${query ? `?${query}` : ''}`
+}
+
+const loadPeerConfig = async() => {
+  if (!peerTransportRequested.value)
+    return
+
+  try {
+    const resp = await fetch(buildDeviceInfoPath(), { credentials: 'same-origin' })
+    if (!resp.ok)
+      return
+
+    const dev = await resp.json()
+    peerIceServers = Array.isArray(dev.peerIceServers) ? dev.peerIceServers : []
+
+    if ((dev.capabilities & PeerCapabilitySignal) === 0) {
+      peerTransportRequested.value = false
+      peerTransportMode.value = 'server-relay'
+    }
+  } catch (error) {
+    console.error('load peer config failed', error)
+  }
+}
+
+const sendPeerSignal = (signalType, payload) => {
+  if (!socket)
+    return
+
+  socket.send(JSON.stringify({type: 'peerSignal', signalType, payload}))
+}
+
+const sendPeerControl = (payload) => {
+  if (peerTransportMode.value !== 'peer' || !peerDataChannel || peerDataChannel.readyState !== 'open')
+    return false
+
+  peerDataChannel.send(JSON.stringify(payload))
+  return true
+}
+
+const showPeerNotice = (text, level = 'info') => {
+  if (lastPeerNotice.value === text)
+    return
+
+  lastPeerNotice.value = text
+
+  if (level === 'success')
+    ElMessage.success(text)
+  else if (level === 'warning')
+    ElMessage.warning(text)
+  else
+    ElMessage.info(text)
+
+  if (term)
+    term.writeln(`\r\n[peer] ${text}`)
+}
+
+const clearPeerFallbackTimer = () => {
+  if (peerFallbackTimer !== null) {
+    clearTimeout(peerFallbackTimer)
+    peerFallbackTimer = null
+  }
+}
+
+const closePeerConnection = () => {
+  clearPeerFallbackTimer()
+
+  if (peerDataChannel) {
+    peerDataChannel.close()
+    peerDataChannel = null
+  }
+
+  if (peerConnection) {
+    peerConnection.onicecandidate = null
+    peerConnection.onconnectionstatechange = null
+    peerConnection.ondatachannel = null
+    peerConnection.close()
+    peerConnection = null
+  }
+}
+
+const supportsPeerTransport = () => typeof RTCPeerConnection !== 'undefined'
+
+const setupPeerDataChannel = (dc) => {
+  peerDataChannel = dc
+
+  dc.onopen = () => {
+    peerTransportMode.value = 'negotiating'
+  }
+
+  dc.onclose = () => {
+    peerDataChannel = null
+  }
+
+  dc.onmessage = (event) => {
+    const data = typeof event.data === 'string'
+      ? new TextEncoder().encode(event.data)
+      : new Uint8Array(event.data)
+
+    term.write(data)
+  }
+}
+
+const requestPeerTransport = async() => {
+  if (!peerTransportRequested.value || peerProbeSent.value || !socket)
+    return
+
+  if (!supportsPeerTransport()) {
+    peerTransportRequested.value = false
+    peerTransportMode.value = 'server-relay'
+    const text = 'WebRTC is not supported by this browser, using server relay.'
+    ElMessage.info(text)
+    if (term)
+      term.writeln(`\r\n[peer] ${text}`)
+    return
+  }
+
+  peerProbeSent.value = true
+  peerTransportMode.value = 'negotiating'
+  closePeerConnection()
+  showPeerNotice('Attempting experimental peer transport...')
+
+  try {
+    peerConnection = new RTCPeerConnection({ iceServers: peerIceServers })
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate)
+        sendPeerSignal(PeerSignalCandidate, event.candidate.toJSON())
+    }
+
+    peerConnection.onconnectionstatechange = () => {
+      if (!peerConnection)
+        return
+
+      const state = peerConnection.connectionState
+      if (state === 'failed' || state === 'disconnected') {
+        peerTransportMode.value = 'server-relay'
+        clearPeerFallbackTimer()
+        peerFallbackTimer = setTimeout(() => {
+          peerFallbackTimer = null
+          showPeerNotice(`Peer connection ${state}, using server relay.`)
+        }, 800)
+        closePeerConnection()
+      }
+    }
+
+    const dc = peerConnection.createDataChannel('terminal')
+    setupPeerDataChannel(dc)
+
+    const offer = await peerConnection.createOffer()
+    await peerConnection.setLocalDescription(offer)
+
+    sendPeerSignal(PeerSignalOffer, {
+      offer: peerConnection.localDescription ?? offer,
+      iceServers: peerIceServers
+    })
+  } catch (error) {
+    peerTransportMode.value = 'server-relay'
+    showPeerNotice(`Peer negotiation failed, using server relay: ${error.message ?? error}`)
+    closePeerConnection()
+  }
+}
+
+const peerMessageText = (prefix, reason = '') => {
+  if (!reason)
+    return prefix
+
+  return `${prefix}: ${reason}`
+}
+
+const handlePeerSignal = async(msg) => {
+  if (msg.signalType === PeerSignalAnswer) {
+    if (!peerConnection || !msg.payload)
+      return
+
+    await peerConnection.setRemoteDescription(msg.payload)
+    return
+  }
+
+  if (msg.signalType === PeerSignalCandidate) {
+    if (!peerConnection || !msg.payload)
+      return
+
+    await peerConnection.addIceCandidate(msg.payload)
+    return
+  }
+
+  if (msg.signalType === PeerSignalReady) {
+    clearPeerFallbackTimer()
+    peerTransportMode.value = 'peer'
+    showPeerNotice('Experimental peer transport is ready.', 'success')
+    return
+  }
+
+  if (msg.signalType === PeerSignalFailed) {
+    clearPeerFallbackTimer()
+    peerTransportMode.value = 'server-relay'
+    const reason = typeof msg.payload === 'object' && msg.payload !== null ? msg.payload.reason : ''
+    showPeerNotice(peerMessageText('Experimental peer transport failed, using server relay', reason))
+    closePeerConnection()
+  }
+
+  if (msg.signalType === PeerSignalFallbackRelay) {
+    clearPeerFallbackTimer()
+    peerTransportMode.value = 'server-relay'
+
+    const reason = typeof msg.payload === 'object' && msg.payload !== null ? msg.payload.reason : ''
+    showPeerNotice(peerMessageText('Experimental peer transport unavailable, using server relay', reason))
+  }
+}
 
 const copyText = async(text) => {
   try {
@@ -293,7 +555,16 @@ const doUploadFile = () => {
   readFileBlob(fr, fileCtx.file, fileCtx.offset, ReadFileBlkSize)
 }
 
-const sendTermData = (data) => socket.send(new Uint8Array([0, ...new TextEncoder().encode(data)]))
+const sendTermData = (data) => {
+  const encoded = new TextEncoder().encode(data)
+
+  if (peerTransportMode.value === 'peer' && peerDataChannel && peerDataChannel.readyState === 'open') {
+    peerDataChannel.send(encoded)
+    return
+  }
+
+  socket.send(new Uint8Array([0, ...encoded]))
+}
 
 const sendFileData = (data) => {
   let b
@@ -314,6 +585,10 @@ const closed = () => {
   dispose()
   isConnected.value = false
   showKeyboard.value = false
+  peerTransportMode.value = 'server-relay'
+  peerProbeSent.value = false
+  lastPeerNotice.value = ''
+  closePeerConnection()
 }
 
 const openTerm = () => {
@@ -344,7 +619,8 @@ const openTerm = () => {
 
   disposables.push(term.onResize(size => {
     const msg = {type: 'winsize', cols: size.cols, rows: size.rows}
-    socket.send(JSON.stringify(msg))
+    if (!sendPeerControl(msg))
+      socket.send(JSON.stringify(msg))
     overlayAddon.show(term.cols + 'x' + term.rows)
   }))
 
@@ -380,6 +656,8 @@ const openTerm = () => {
 const dispose = () => disposables.forEach(d => d.dispose())
 
 onMounted(() => {
+  peerTransportRequested.value = wantsPeerTransport()
+  loadPeerConfig().finally(() => {
   const loading = ElLoading.service({
     lock: true,
     text: t('Requesting device to create terminal...'),
@@ -387,12 +665,7 @@ onMounted(() => {
     customClass: 'rtty-loading'
   })
 
-  const route = useRoute()
-  const group = route.query.group ?? ''
-
-  const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://'
-
-  socket = new WebSocket(protocol + location.host + `/connect/${props.devid}?group=${group}`)
+  socket = new WebSocket(buildWebSocketUrl())
   socket.binaryType = 'arraybuffer'
 
   socket.addEventListener('close', (ev) => {
@@ -411,14 +684,10 @@ onMounted(() => {
 
   socket.addEventListener('error', () => {
     loading.close()
-
-    let href = `/connect/${props.devid}`
-    if (group)
-      href += `?group=${group}`
-    window.location.href = href
+    window.location.href = buildConnectPath()
   })
 
-  socket.addEventListener('message', ev => {
+    socket.addEventListener('message', async(ev) => {
     const data = ev.data
 
     if (typeof data === 'string') {
@@ -426,6 +695,8 @@ onMounted(() => {
       if (msg.type === 'login') {
         loading.close()
         openTerm()
+        if (peerTransportRequested.value)
+          requestPeerTransport()
       } else if (msg.type === 'sendfile') {
         fileCtx.name = msg.name
         fileCtx.chunks = []
@@ -438,6 +709,8 @@ onMounted(() => {
       } else if (msg.type === 'fileAck') {
         if (fileCtx.file && fileCtx.offset < fileCtx.file.size)
           readFileBlob(fileCtx.fr, fileCtx.file, fileCtx.offset, ReadFileBlkSize)
+      } else if (msg.type === 'peerSignal') {
+        await handlePeerSignal(msg)
       }
     } else {
       const data = new Uint8Array(ev.data)
@@ -473,6 +746,7 @@ onMounted(() => {
       }
     }
   })
+  })
 })
 
 onUnmounted(() => {
@@ -485,6 +759,8 @@ onUnmounted(() => {
 
   if (socket)
     socket.close()
+
+  closePeerConnection()
 })
 </script>
 

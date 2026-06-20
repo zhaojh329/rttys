@@ -7,6 +7,7 @@
           <el-option v-for="item in groups" :key="item" :label="item == '' ? $t('ungrouped'): item " :value="item"/>
         </el-select>
         <el-input style="width:200px" v-model="filterString" search @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
+        <el-switch v-model="peerMode" inline-prompt active-text="P2P" inactive-text="Relay" />
         <el-button @click="showCmdForm" type="primary">{{ $t('Execute command') }}</el-button>
       </el-space>
       <el-space>
@@ -35,7 +36,7 @@
           <el-table-column width="100">
             <template #default="{ row }">
               <el-space size="large">
-                <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
+                <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row)"><TerminalIcon /></el-icon>
                 <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
               </el-space>
             </template>
@@ -56,8 +57,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, useTemplateRef } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted, useTemplateRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { InternetExplorer as IEIcon } from '@vicons/fa'
 import { Terminal as TerminalIcon } from '@vicons/ionicons5'
 import RttyCmd from '../components/RttyCmd.vue'
@@ -65,6 +66,9 @@ import RttyWeb from '../components/RttyWeb.vue'
 import axios from 'axios'
 
 const router = useRouter()
+const route = useRoute()
+
+const PeerCapabilitySignal = 1
 
 const rttyCmd = useTemplateRef('rttyCmd')
 
@@ -77,9 +81,26 @@ const filteredDevices = ref([])
 const selection = ref([])
 const currentPage = ref(1)
 const pageSize = ref(10)
+const peerMode = ref(false)
 const web = reactive({
   modal: false,
   dev: null
+})
+
+const routeQueryValue = (value) => Array.isArray(value) ? value[0] : (value ?? '')
+
+const loadPeerMode = () => {
+  const routePeer = routeQueryValue(route.query.peer)
+  if (routePeer === '1' || routePeer === 'true') {
+    peerMode.value = true
+    return
+  }
+
+  peerMode.value = localStorage.getItem('rttys-peer-mode') === '1'
+}
+
+watch(peerMode, (enabled) => {
+  localStorage.setItem('rttys-peer-mode', enabled ? '1' : '0')
 })
 
 const pagedevlists = computed(() => {
@@ -160,10 +181,20 @@ const handleRefresh = () => {
 
 const handleSelection = (sel) => selection.value = sel
 
-const connectDevice = (devid) => {
-  let url = `/rtty/${devid}`
+const connectDevice = (dev) => {
+  const params = new URLSearchParams()
+
   if (group.value)
-    url += `?group=${group.value}`
+    params.set('group', group.value)
+
+  if (peerMode.value && (dev.capabilities & PeerCapabilitySignal) !== 0)
+    params.set('transport', 'peer')
+
+  let url = `/rtty/${dev.id}`
+  const query = params.toString()
+  if (query)
+    url += `?${query}`
+
   window.open(url)
 }
 
@@ -174,7 +205,10 @@ const connectDeviceWeb = (dev) => {
 
 const showCmdForm = () => rttyCmd.value.showCmdForm()
 
-onMounted(() => getGroups())
+onMounted(() => {
+  loadPeerMode()
+  getGroups()
+})
 </script>
 
 <style scoped>

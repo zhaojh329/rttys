@@ -6,11 +6,18 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/urfave/cli/v3"
 )
+
+type PeerICEServerConfig struct {
+	URLs       []string `json:"urls"`
+	Username   string   `json:"username,omitempty"`
+	Credential string   `json:"credential,omitempty"`
+}
 
 type Config struct {
 	AddrDev       string
@@ -20,12 +27,13 @@ type Config struct {
 	HttpProxyRedirURL    string
 	HttpProxyRedirDomain string
 
-	Token        string
-	DevHookUrl   string
-	UserHookUrl  string
-	LocalAuth    bool
-	Password     string
-	AllowOrigins bool
+	Token          string
+	DevHookUrl     string
+	UserHookUrl    string
+	LocalAuth      bool
+	Password       string
+	AllowOrigins   bool
+	PeerICEServers string
 
 	PprofAddr string
 
@@ -55,12 +63,13 @@ func (cfg *Config) Parse(c *cli.Command) error {
 		"http-proxy-redir-url":    &cfg.HttpProxyRedirURL,
 		"http-proxy-redir-domain": &cfg.HttpProxyRedirDomain,
 
-		"token":         &cfg.Token,
-		"dev-hook-url":  &cfg.DevHookUrl,
-		"user-hook-url": &cfg.UserHookUrl,
-		"local-auth":    &cfg.LocalAuth,
-		"password":      &cfg.Password,
-		"allow-origins": &cfg.AllowOrigins,
+		"token":            &cfg.Token,
+		"dev-hook-url":     &cfg.DevHookUrl,
+		"user-hook-url":    &cfg.UserHookUrl,
+		"local-auth":       &cfg.LocalAuth,
+		"password":         &cfg.Password,
+		"allow-origins":    &cfg.AllowOrigins,
+		"peer-ice-servers": &cfg.PeerICEServers,
 
 		"pprof": &cfg.PprofAddr,
 
@@ -80,6 +89,19 @@ func (cfg *Config) Parse(c *cli.Command) error {
 	}
 
 	return nil
+}
+
+func (cfg *Config) ParsePeerICEServers() ([]PeerICEServerConfig, error) {
+	if cfg.PeerICEServers == "" {
+		return nil, nil
+	}
+
+	var servers []PeerICEServerConfig
+	if err := json.Unmarshal([]byte(cfg.PeerICEServers), &servers); err != nil {
+		return nil, fmt.Errorf("invalid peer-ice-servers: %w", err)
+	}
+
+	return servers, nil
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt any) error {

@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -25,18 +26,21 @@ type User struct {
 	conn    *websocket.Conn
 	sid     string
 	dev     *Device
+	peer    *PeerSession
 	pending chan bool
 	close   sync.Once
 	closed  atomic.Bool
 }
 
 type UserMsg struct {
-	Type string `json:"type"`
-	Cols uint16 `json:"cols"`
-	Rows uint16 `json:"rows"`
-	Ack  uint16 `json:"ack"`
-	Size uint32 `json:"size"`
-	Name string `json:"name"`
+	Type       string          `json:"type"`
+	Cols       uint16          `json:"cols"`
+	Rows       uint16          `json:"rows"`
+	Ack        uint16          `json:"ack"`
+	Size       uint32          `json:"size"`
+	Name       string          `json:"name"`
+	SignalType byte            `json:"signalType"`
+	Payload    json.RawMessage `json:"payload"`
 }
 
 const (
@@ -79,6 +83,10 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 	user.sid = sid
 	user.dev = dev
 	user.pending = make(chan bool, 1)
+	if c.Query("transport") == "peer" && dev.SupportsCapability(peerCapabilitySignal) {
+		user.peer = newPeerSession(sid, dev, user)
+		srv.StorePeerSession(user.peer)
+	}
 
 	dev.pending.Store(sid, user)
 
@@ -118,6 +126,10 @@ func (user *User) Close() {
 
 		if _, loaded := dev.users.LoadAndDelete(sid); loaded {
 			dev.WriteMsg(proto.MsgTypeLogout, sid)
+		}
+
+		if user.peer != nil {
+			dev.srv.DeletePeerSession(user.peer.id)
 		}
 
 		dev.pending.Delete(sid)
@@ -202,6 +214,14 @@ func (user *User) handleMsg() {
 
 			case "fileAck":
 				err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileAck)
+
+			case "peerSignal":
+				if user.peer == nil {
+					log.Warn().Msgf("peer signal ignored for session '%s': peer transport not enabled", sid)
+					continue
+				}
+
+				err = dev.WriteMsg(msgTypePeerSignal, sid, msg.SignalType, []byte(msg.Payload))
 			}
 		}
 

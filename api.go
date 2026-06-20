@@ -242,13 +242,14 @@ func (a *APIServer) handleDevs(c *gin.Context) {
 		dev := value.(*Device)
 
 		devs = append(devs, &DeviceInfo{
-			Group:     dev.group,
-			ID:        dev.id,
-			Desc:      dev.desc,
-			Connected: uint32(time.Now().Unix() - dev.timestamp),
-			Uptime:    dev.uptime,
-			Proto:     dev.proto,
-			IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
+			Group:        dev.group,
+			ID:           dev.id,
+			Desc:         dev.desc,
+			Connected:    uint32(time.Now().Unix() - dev.timestamp),
+			Uptime:       dev.uptime,
+			Proto:        dev.proto,
+			Capabilities: dev.capabilities,
+			IPaddr:       dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
 		})
 
 		return true
@@ -259,13 +260,20 @@ func (a *APIServer) handleDevs(c *gin.Context) {
 
 func (a *APIServer) handleDev(c *gin.Context) {
 	if dev := a.srv.GetDevice(c.Query("group"), c.Param("devid")); dev != nil {
+		peerICEServers, err := a.srv.cfg.ParsePeerICEServers()
+		if err != nil {
+			log.Error().Err(err).Msg("invalid peer ICE server config")
+		}
+
 		info := &DeviceInfo{
-			ID:        dev.id,
-			Desc:      dev.desc,
-			Connected: uint32(time.Now().Unix() - dev.timestamp),
-			Uptime:    dev.uptime,
-			Proto:     dev.proto,
-			IPaddr:    dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
+			ID:             dev.id,
+			Desc:           dev.desc,
+			Connected:      uint32(time.Now().Unix() - dev.timestamp),
+			Uptime:         dev.uptime,
+			Proto:          dev.proto,
+			Capabilities:   dev.capabilities,
+			PeerICEServers: peerICEServers,
+			IPaddr:         dev.conn.RemoteAddr().(*net.TCPAddr).IP.String(),
 		}
 		c.JSON(http.StatusOK, info)
 	} else {

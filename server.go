@@ -17,6 +17,7 @@ import (
 type RttyServer struct {
 	mu            sync.RWMutex
 	groups        sync.Map
+	peerSessions  sync.Map
 	cfg           Config
 	httpProxyPort int
 }
