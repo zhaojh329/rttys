@@ -3,7 +3,7 @@
  * Author: Jianhui Zhao <zhaojh329@gmail.com>
  */
 
-package main
+package server
 
 import (
 	"context"
@@ -13,7 +13,8 @@ import (
 	"time"
 
 	"github.com/zhaojh329/rtty-go/proto"
-	"github.com/zhaojh329/rttys/v5/utils"
+	xlog "github.com/zhaojh329/rttys/v5/internal/log"
+	"github.com/zhaojh329/rttys/v5/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -50,7 +51,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func handleUserConnection(srv *RttyServer, c *gin.Context) {
-	defer logPanic()
+	defer xlog.RecoverPanic()
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {

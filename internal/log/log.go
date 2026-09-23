@@ -6,7 +6,9 @@
 package log
 
 import (
+	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/dwdcth/consoleEx"
@@ -30,4 +32,12 @@ func init() {
 
 func Verbose() {
 	log.Logger = log.Logger.With().Caller().Logger()
+}
+
+func RecoverPanic() {
+	if r := recover(); r != nil {
+		log.Error().Msgf("%v", r)
+		log.Error().Msg(string(debug.Stack()))
+		os.Exit(2)
+	}
 }

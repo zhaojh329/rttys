@@ -6,6 +6,10 @@ import compression from 'vite-plugin-compression2'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    emptyOutDir: true,
+    outDir: '../internal/server/assets/dist/'
+  },
   plugins: [
     vue(),
     eslint(),

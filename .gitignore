@@ -14,3 +14,4 @@
 .glide/
 
 assets/dist
+internal/server/assets/dist

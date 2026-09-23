@@ -3,7 +3,7 @@
  * Author: Jianhui Zhao <zhaojh329@gmail.com>
  */
 
-package main
+package server
 
 import (
 	"io/fs"
@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhaojh329/rttys/v5/utils"
+	"github.com/zhaojh329/rttys/v5/internal/utils"
 
 	"github.com/fanjindong/go-cache"
 	"github.com/gin-contrib/cors"

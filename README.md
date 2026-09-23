@@ -41,6 +41,7 @@ This repository contains only the server-side components:
 - **Server binary**: The main rttys server program
 - **Web UI**: Browser-based management interface
 - **API**: RESTful API for device management
+```
 
 ## ⭐ Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=zhaojh329/rttys&type=Date)](https://www.star-history.com/#zhaojh329/rttys&Date)

@@ -13,7 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	xlog "github.com/zhaojh329/rttys/v5/log"
+	xlog "github.com/zhaojh329/rttys/v5/internal/log"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
