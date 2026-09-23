@@ -72,6 +72,7 @@ func (srv *RttyServer) ListenAPI() error {
 	authorized.GET("/groups", a.handleGroups)
 	authorized.GET("/devs", a.handleDevs)
 	authorized.GET("/dev/:devid", a.handleDev)
+	authorized.GET("/serial-ports/:devid", a.handleSerialPorts)
 	authorized.POST("/cmd/:devid", a.handleCmd)
 	authorized.Any("/web/:devid/:proto/:addr/*path", a.handleWeb)
 	authorized.Any("/web2/:group/:devid/:proto/:addr/*path", a.handleWeb2)
@@ -271,6 +272,35 @@ func (a *APIServer) handleDev(c *gin.Context) {
 	} else {
 		c.Status(http.StatusNotFound)
 	}
+}
+
+func (a *APIServer) handleSerialPorts(c *gin.Context) {
+	if !a.callUserHookUrl(c) {
+		c.Status(http.StatusForbidden)
+		return
+	}
+
+	dev := a.srv.GetDevice(c.Query("group"), c.Param("devid"))
+	if dev == nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	if dev.proto < 6 {
+		c.Status(http.StatusUpgradeRequired)
+		return
+	}
+
+	ports, err := dev.ListSerialPorts(c.Request.Context())
+	if err != nil {
+		log.Error().Err(err).Msgf("list serial ports on device %s failed", dev.id)
+		c.Status(http.StatusServiceUnavailable)
+		return
+	}
+	if ports == nil {
+		ports = []string{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"ports": ports})
 }
 
 func (a *APIServer) handleCmd(c *gin.Context) {

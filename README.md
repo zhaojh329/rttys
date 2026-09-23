@@ -52,6 +52,12 @@ cd ui && npm ci && npm run build && cd ..
 go build -o rttys ./cmd/rttys
 ```
 
+Go 1.27 or newer is required. Serial access requires a device client supporting
+protocol version 6. On the device list, select the serial icon, choose a detected
+port and its baud rate, data bits, stop bits and parity, then open the console in
+a new tab. The connection owns the port until the tab is closed.
+An existing terminal session continues to work with older clients.
+
 ## ⭐ Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=zhaojh329/rttys&type=Date)](https://www.star-history.com/#zhaojh329/rttys&Date)
 

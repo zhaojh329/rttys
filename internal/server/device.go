@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -48,17 +49,19 @@ type Device struct {
 	token     string
 	heartbeat time.Duration
 
-	users    sync.Map
-	pending  sync.Map
-	commands sync.Map
-	https    sync.Map
+	users          sync.Map
+	pending        sync.Map
+	commands       sync.Map
+	https          sync.Map
+	serialRequests sync.Map
 
 	conn   net.Conn
 	close  sync.Once
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	msg *proto.MsgReaderWriter
+	msg     *proto.MsgReaderWriter
+	writeMu sync.Mutex
 }
 
 const (
@@ -85,13 +88,15 @@ var DevRegErrMsg = map[byte]string{
 }
 
 var DeviceMsgHandlers = map[byte]func(*Device, []byte) error{
-	proto.MsgTypeHeartbeat: handleHeartbeatMsg,
-	proto.MsgTypeLogin:     handleLoginMsg,
-	proto.MsgTypeLogout:    handleLogoutMsg,
-	proto.MsgTypeTermData:  handleTermDataMsg,
-	proto.MsgTypeFile:      handleFileMsg,
-	proto.MsgTypeCmd:       handleCmdMsg,
-	proto.MsgTypeHttp:      handleHttpMsg,
+	proto.MsgTypeHeartbeat:   handleHeartbeatMsg,
+	proto.MsgTypeLogin:       handleLoginMsg,
+	proto.MsgTypeLogout:      handleLogoutMsg,
+	proto.MsgTypeTermData:    handleTermDataMsg,
+	proto.MsgTypeFile:        handleFileMsg,
+	proto.MsgTypeCmd:         handleCmdMsg,
+	proto.MsgTypeHttp:        handleHttpMsg,
+	proto.MsgTypeSerialPorts: handleSerialPortsMsg,
+	proto.MsgTypeSerialOpen:  handleSerialOpenMsg,
 }
 
 func (srv *RttyServer) ListenDevices() {
@@ -225,6 +230,9 @@ func (dev *Device) ReadMsg() (byte, []byte, error) {
 }
 
 func (dev *Device) WriteMsg(typ byte, data ...any) error {
+	dev.writeMu.Lock()
+	defer dev.writeMu.Unlock()
+
 	return dev.msg.Write(typ, data...)
 }
 
@@ -399,9 +407,84 @@ func handleLoginMsg(dev *Device, data []byte) error {
 			user.SendCloseMsg(LoginErrorBusy, "device busy")
 		}
 
-		user.pending <- ok
+		if ok {
+			user.pending <- 0
+		} else {
+			user.pending <- 1
+		}
 	}
 
+	return nil
+}
+
+type serialPortsResult struct {
+	ports []string
+	err   error
+}
+
+func (dev *Device) ListSerialPorts(ctx context.Context) ([]string, error) {
+	id := utils.GenUniqueID()
+	result := make(chan serialPortsResult, 1)
+	dev.serialRequests.Store(id, result)
+	defer dev.serialRequests.Delete(id)
+
+	if err := dev.WriteMsg(proto.MsgTypeSerialPorts, id); err != nil {
+		return nil, err
+	}
+
+	timer := time.NewTimer(10 * time.Second)
+	defer timer.Stop()
+
+	select {
+	case res := <-result:
+		return res.ports, res.err
+	case <-timer.C:
+		return nil, fmt.Errorf("serial port query timed out")
+	case <-dev.ctx.Done():
+		return nil, fmt.Errorf("device disconnected")
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func handleSerialPortsMsg(dev *Device, data []byte) error {
+	id := string(data[:32])
+	value, ok := dev.serialRequests.LoadAndDelete(id)
+	if !ok {
+		return nil
+	}
+
+	res := serialPortsResult{}
+	if data[32] != proto.SerialOK {
+		res.err = fmt.Errorf("serial port query failed")
+	} else if err := json.Unmarshal(data[33:], &res.ports); err != nil {
+		res.err = fmt.Errorf("invalid serial port response: %w", err)
+	}
+
+	value.(chan serialPortsResult) <- res
+	return nil
+}
+
+func handleSerialOpenMsg(dev *Device, data []byte) error {
+	sid := string(data[:32])
+	code := data[32]
+	value, loaded := dev.pending.LoadAndDelete(sid)
+	if !loaded {
+		if code == proto.SerialOK {
+			return dev.WriteMsg(proto.MsgTypeLogout, sid)
+		}
+		return nil
+	}
+
+	user := value.(*User)
+	if code == proto.SerialOK {
+		dev.users.Store(sid, user)
+		user.WriteMsg(websocket.TextMessage, []byte(`{"type":"login"}`))
+	} else {
+		user.SendCloseMsg(4100+int(code), "serial open failed")
+	}
+
+	user.pending <- code
 	return nil
 }
 

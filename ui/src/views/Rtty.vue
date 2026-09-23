@@ -1,8 +1,11 @@
 <template>
-  <RttySplitter :devid="devid" :config="rootConfig" @split="handleSplitPanel" @close="handleClosePanel" @resize="handleResize" class="splitter-root"/>
-  <div id="terminal-pool">
-    <RttyTerm v-for="id in terms" :key="id" :data-terminal-id="id" :devid="devid" :panel-id="id" @split="handleSplitPanel" @close="handleClosePanel"/>
-  </div>
+  <RttyTerm v-if="mode === 'serial'" :devid="devid" mode="serial" class="splitter-root"/>
+  <template v-else>
+    <RttySplitter :devid="devid" :config="rootConfig" @split="handleSplitPanel" @close="handleClosePanel" @resize="handleResize" class="splitter-root"/>
+    <div id="terminal-pool">
+      <RttyTerm v-for="id in terms" :key="id" :data-terminal-id="id" :devid="devid" :panel-id="id" @split="handleSplitPanel" @close="handleClosePanel"/>
+    </div>
+  </template>
 </template>
 
 <script setup>
@@ -12,11 +15,12 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 
-defineProps({
+const props = defineProps({
   devid: {
     type: String,
     required: true
-  }
+  },
+  mode: { type: String, default: 'terminal' }
 })
 
 const { t } = useI18n()
@@ -61,7 +65,9 @@ const moveTerminalsToPlaceholders = () => {
   })
 }
 
-onMounted(() => moveTerminalsToPlaceholders())
+onMounted(() => {
+  if (props.mode !== 'serial') moveTerminalsToPlaceholders()
+})
 
 const handleResize = () => dispatchEventRttyResize()
 

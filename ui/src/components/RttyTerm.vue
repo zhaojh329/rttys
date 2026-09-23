@@ -3,7 +3,7 @@
     <div ref="terminal" class="rtty-terminal" @contextmenu.prevent="showContextmenu"></div>
     <el-button v-show="isConnected && !showKeyboard" @click="toggleKeyboard" type="primary" size="small" circle class="keyboard-toggle-btn">⌨</el-button>
     <RttyKeyboard v-show="showKeyboard" @keypress="handleKeypress" @close="hideKeyboard" class="floating-keyboard"/>
-    <el-dialog v-model="fileCtx.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
+    <el-dialog v-if="!isSerial" v-model="fileCtx.modal" :title="$t('Upload file to device')" @close="onUploadDialogClosed" :width="400">
       <el-upload :before-upload="beforeUpload" action="#">
         <el-button type="primary">{{ $t("Select file") }}</el-button>
       </el-upload>
@@ -31,7 +31,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick, useTemplateRef, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
@@ -57,14 +57,21 @@ const AckBlkSize = 4 * 1024
 
 const props = defineProps({
   devid: String,
-  panelId: String
+  panelId: String,
+  mode: { type: String, default: 'terminal' }
 })
 
 const emit = defineEmits(['split', 'close'])
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 const { toClipboard } = useClipboard()
+const isSerial = computed(() => props.mode === 'serial')
+const serialSettings = {
+  port: route.query.port || '', baudRate: route.query.baudRate || '',
+  dataBits: route.query.dataBits || '', stopBits: route.query.stopBits || '', parity: route.query.parity || ''
+}
 
 const terminal = useTemplateRef('terminal')
 const contextmenuPos = ref(null)
@@ -85,7 +92,7 @@ const contextmenus = [
   {name: 'split-down', caption: t('split-down')},
   {name: 'close', caption: t('Close')},
   {name: 'about', caption: t('About')}
-]
+].filter(item => !isSerial.value || !['upload', 'download', 'split-left', 'split-right', 'split-up', 'split-down', 'close'].includes(item.name))
 
 const showFindBox = ref(false)
 const findInput = useTemplateRef('findInput')
@@ -293,7 +300,14 @@ const doUploadFile = () => {
   readFileBlob(fr, fileCtx.file, fileCtx.offset, ReadFileBlkSize)
 }
 
-const sendTermData = (data) => socket.send(new Uint8Array([0, ...new TextEncoder().encode(data)]))
+const sendTermData = (data) => {
+  if (socket?.readyState !== WebSocket.OPEN) return
+
+  const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data
+  const frame = new Uint8Array(bytes.length + 1)
+  frame.set(bytes, 1)
+  socket.send(frame)
+}
 
 const sendFileData = (data) => {
   let b
@@ -333,20 +347,22 @@ const openTerm = () => {
   searchAddon = new SearchAddon()
   term.loadAddon(searchAddon)
 
-  const overlayAddon = new OverlayAddon()
-  term.loadAddon(overlayAddon)
+  const overlayAddon = isSerial.value ? null : new OverlayAddon()
+  if (overlayAddon) term.loadAddon(overlayAddon)
 
   term.open(terminal.value)
   term.focus()
 
   disposables.push(term.onData(data => sendTermData(data)))
-  disposables.push(term.onBinary(data => sendTermData(data)))
+  disposables.push(term.onBinary(data => sendTermData(isSerial.value ? Uint8Array.from(data, c => c.charCodeAt(0)) : data)))
 
-  disposables.push(term.onResize(size => {
-    const msg = {type: 'winsize', cols: size.cols, rows: size.rows}
-    socket.send(JSON.stringify(msg))
-    overlayAddon.show(term.cols + 'x' + term.rows)
-  }))
+  if (!isSerial.value) {
+    disposables.push(term.onResize(size => {
+      const msg = {type: 'winsize', cols: size.cols, rows: size.rows}
+      socket.send(JSON.stringify(msg))
+      overlayAddon.show(term.cols + 'x' + term.rows)
+    }))
+  }
 
   disposables.push(term.onKey(({ domEvent }) => {
     const e = domEvent
@@ -362,10 +378,13 @@ const openTerm = () => {
   }))
 
   window.addEventListener('rtty-resize', fitTerm)
+  if (isSerial.value) window.addEventListener('resize', fitTerm)
   fitTerm()
   nextTick(() => term.focus())
 
   isConnected.value = true
+
+  if (isSerial.value) return
 
   term.writeln([
     ' ┌─────────────────────────────────────────────────────────────┐',
@@ -379,26 +398,41 @@ const openTerm = () => {
 
 const dispose = () => disposables.forEach(d => d.dispose())
 
-onMounted(() => {
-  const loading = ElLoading.service({
+const connect = () => {
+  unack = 0
+
+  const loading = isSerial.value ? null : ElLoading.service({
     lock: true,
     text: t('Requesting device to create terminal...'),
     background: '#555',
     customClass: 'rtty-loading'
   })
 
-  const route = useRoute()
   const group = route.query.group ?? ''
+  const params = isSerial.value
+    ? new URLSearchParams({ ...serialSettings, group, mode: 'serial' })
+    : new URLSearchParams({ group })
+  const protocol = location.protocol === 'https:' ? 'wss://' : 'ws://'
+  const ws = new WebSocket(`${protocol}${location.host}/api/connect/${encodeURIComponent(props.devid)}?${params}`)
+  ws.binaryType = 'arraybuffer'
+  socket = ws
 
-  const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://'
+  ws.addEventListener('close', (ev) => {
+    if (ws !== socket) return
+    loading?.close()
 
-  socket = new WebSocket(protocol + location.host + `/api/connect/${props.devid}?group=${group}`)
-  socket.binaryType = 'arraybuffer'
-
-  socket.addEventListener('close', (ev) => {
-    loading.close()
-
-    if (ev.code === LoginErrorOffline) {
+    if (isSerial.value) {
+      closed()
+      const messages = {
+        4000: 'Device offline', 4002: 'Device Response Timeout',
+        4003: 'Upgrade client for serial access', 4004: 'Invalid serial settings',
+        4101: 'Serial port busy', 4102: 'Serial port not found',
+        4103: 'Serial port permission denied', 4104: 'Invalid serial settings',
+        4105: 'Unable to open serial port'
+      }
+      if (ev.code !== 1000 && ev.code !== 1001)
+        ElMessage.error(t(messages[ev.code] || 'Connection failed'))
+    } else if (ev.code === LoginErrorOffline) {
       router.push('/error/offline')
     } else if (ev.code === LoginErrorBusy) {
       router.push('/error/full')
@@ -409,8 +443,11 @@ onMounted(() => {
     }
   })
 
-  socket.addEventListener('error', () => {
-    loading.close()
+  ws.addEventListener('error', () => {
+    if (ws !== socket) return
+    loading?.close()
+
+    if (isSerial.value) return
 
     let href = `/api/connect/${props.devid}`
     if (group)
@@ -418,14 +455,17 @@ onMounted(() => {
     window.location.href = href
   })
 
-  socket.addEventListener('message', ev => {
+  ws.addEventListener('message', ev => {
+    if (ws !== socket) return
     const data = ev.data
 
     if (typeof data === 'string') {
       const msg = JSON.parse(data)
       if (msg.type === 'login') {
-        loading.close()
+        loading?.close()
         openTerm()
+      } else if (isSerial.value) {
+        return
       } else if (msg.type === 'sendfile') {
         fileCtx.name = msg.name
         fileCtx.chunks = []
@@ -446,12 +486,12 @@ onMounted(() => {
         unack += data.length - 1
         term.write(data.slice(1))
 
-        if (unack > AckBlkSize) {
+        if (unack > AckBlkSize || (isSerial.value && unack === AckBlkSize)) {
           const msg = {type: 'ack', ack: unack}
-          socket.send(JSON.stringify(msg))
+          ws.send(JSON.stringify(msg))
           unack = 0
         }
-      } else {
+      } else if (!isSerial.value) {
         if (data.length === 1) {
           const blob = new Blob(fileCtx.chunks)
           const url = URL.createObjectURL(blob)
@@ -468,15 +508,18 @@ onMounted(() => {
           }, 100)
         } else {
           fileCtx.chunks.push(data.slice(1))
-          socket.send(JSON.stringify({type: 'fileAck'}))
+          ws.send(JSON.stringify({type: 'fileAck'}))
         }
       }
     }
   })
-})
+}
+
+onMounted(() => connect())
 
 onUnmounted(() => {
   window.removeEventListener('rtty-resize', fitTerm)
+  if (isSerial.value) window.removeEventListener('resize', fitTerm)
 
   dispose()
 

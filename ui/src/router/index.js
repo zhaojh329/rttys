@@ -29,6 +29,12 @@ const routes = [
     props: true
   },
   {
+    path: '/serial/:devid',
+    name: 'Serial',
+    component: Rtty,
+    props: route => ({ devid: route.params.devid, mode: 'serial' })
+  },
+  {
     path: '/error/:err',
     name: 'Error',
     component: Error,
