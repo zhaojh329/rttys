@@ -32,11 +32,20 @@
           </el-table-column>
           <el-table-column prop="ipaddr" :label="$t('ipaddr')" width="150" />
           <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip width="150" />
-          <el-table-column width="100">
+          <el-table-column width="170">
             <template #default="{ row }">
               <el-space size="large">
-                <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
-                <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
+                <el-tooltip :content="$t('Terminal')">
+                  <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
+                </el-tooltip>
+                <el-tooltip :content="row.proto >= 6 ? $t('Serial port') : $t('Upgrade client for serial access')">
+                  <el-button text :disabled="row.proto < 6" @click="showSerial(row)">
+                    <el-icon size="25"><SerialPortIcon /></el-icon>
+                  </el-button>
+                </el-tooltip>
+                <el-tooltip :content="$t('Device web')">
+                  <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
+                </el-tooltip>
               </el-space>
             </template>
           </el-table-column>
@@ -52,6 +61,7 @@
     </el-main>
     <RttyCmd ref="rttyCmd" :selection="selection"/>
     <RttyWeb v-model="web.modal" :dev="web.dev"/>
+    <RttySerialDialog v-model="serial.modal" :dev="serial.dev" :group="group"/>
   </el-container>
 </template>
 
@@ -60,8 +70,10 @@ import { ref, reactive, computed, onMounted, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { InternetExplorer as IEIcon } from '@vicons/fa'
 import { Terminal as TerminalIcon } from '@vicons/ionicons5'
+import { SerialPort16Regular as SerialPortIcon } from '@vicons/fluent'
 import RttyCmd from '../components/RttyCmd.vue'
 import RttyWeb from '../components/RttyWeb.vue'
+import RttySerialDialog from '../components/RttySerialDialog.vue'
 import axios from 'axios'
 
 const router = useRouter()
@@ -81,6 +93,7 @@ const web = reactive({
   modal: false,
   dev: null
 })
+const serial = reactive({ modal: false, dev: null })
 
 const pagedevlists = computed(() => {
   return filteredDevices.value.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value)
@@ -170,6 +183,11 @@ const connectDevice = (devid) => {
 const connectDeviceWeb = (dev) => {
   web.dev = dev
   web.modal = true
+}
+
+const showSerial = (dev) => {
+  serial.dev = dev
+  serial.modal = true
 }
 
 const showCmdForm = () => rttyCmd.value.showCmdForm()

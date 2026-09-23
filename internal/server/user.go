@@ -7,7 +7,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,7 +28,8 @@ type User struct {
 	conn    *websocket.Conn
 	sid     string
 	dev     *Device
-	pending chan bool
+	pending chan byte
+	serial  bool
 	close   sync.Once
 	closed  atomic.Bool
 }
@@ -41,9 +44,11 @@ type UserMsg struct {
 }
 
 const (
-	LoginErrorOffline = 4000
-	LoginErrorBusy    = 4001
-	LoginErrorTimeout = 4002
+	LoginErrorOffline     = 4000
+	LoginErrorBusy        = 4001
+	LoginErrorTimeout     = 4002
+	LoginErrorUnsupported = 4003
+	LoginErrorInvalid     = 4004
 )
 
 var upgrader = websocket.Upgrader{
@@ -66,11 +71,21 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 		return
 	}
 
-	user := &User{conn: conn}
+	user := &User{conn: conn, serial: c.Query("mode") == "serial"}
 
 	dev := srv.GetDevice(c.Query("group"), devid)
 	if dev == nil {
 		user.SendCloseMsg(LoginErrorOffline, "device not found")
+		conn.Close()
+		return
+	}
+	if user.serial && dev.proto < 6 {
+		user.SendCloseMsg(LoginErrorUnsupported, "serial unsupported")
+		conn.Close()
+		return
+	}
+	if mode := c.Query("mode"); mode != "" && mode != "serial" {
+		user.SendCloseMsg(LoginErrorInvalid, "invalid mode")
 		conn.Close()
 		return
 	}
@@ -79,14 +94,31 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 
 	user.sid = sid
 	user.dev = dev
-	user.pending = make(chan bool, 1)
+	user.pending = make(chan byte, 1)
 
 	dev.pending.Store(sid, user)
 
 	defer user.Close()
 
-	if err := dev.WriteMsg(proto.MsgTypeLogin, sid); err != nil {
-		log.Error().Msgf("send login msg to device %s fail: %v", dev.id, err)
+	var requestErr error
+	if user.serial {
+		settings, err := parseSerialSettings(c)
+		if err != nil {
+			user.SendCloseMsg(LoginErrorInvalid, "invalid serial settings")
+			return
+		}
+
+		payload, err := settings.MarshalBinary()
+		if err != nil {
+			user.SendCloseMsg(LoginErrorInvalid, "invalid serial settings")
+			return
+		}
+		requestErr = dev.WriteMsg(proto.MsgTypeSerialOpen, sid, payload)
+	} else {
+		requestErr = dev.WriteMsg(proto.MsgTypeLogin, sid)
+	}
+	if requestErr != nil {
+		log.Error().Msgf("send session request to device %s fail: %v", dev.id, requestErr)
 		return
 	}
 
@@ -104,6 +136,43 @@ func handleUserConnection(srv *RttyServer, c *gin.Context) {
 	}
 
 	user.handleMsg()
+}
+
+func parseSerialSettings(c *gin.Context) (proto.SerialSettings, error) {
+	baud, err := strconv.Atoi(c.Query("baudRate"))
+	if err != nil {
+		return proto.SerialSettings{}, err
+	}
+	dataBits, err := strconv.Atoi(c.Query("dataBits"))
+	if err != nil {
+		return proto.SerialSettings{}, err
+	}
+	stopBits, err := strconv.Atoi(c.Query("stopBits"))
+	if err != nil {
+		return proto.SerialSettings{}, err
+	}
+
+	var parity proto.SerialParity
+	switch c.Query("parity") {
+	case "none":
+		parity = proto.SerialParityNone
+	case "odd":
+		parity = proto.SerialParityOdd
+	case "even":
+		parity = proto.SerialParityEven
+	default:
+		return proto.SerialSettings{}, fmt.Errorf("invalid serial parity")
+	}
+
+	settings := proto.SerialSettings{
+		Port: c.Query("port"), BaudRate: baud, DataBits: dataBits,
+		StopBits: stopBits, Parity: parity,
+	}
+	if !settings.Valid() {
+		return proto.SerialSettings{}, fmt.Errorf("invalid serial settings")
+	}
+
+	return settings, nil
 }
 
 func (user *User) SendCloseMsg(code int, text string) {
@@ -133,15 +202,22 @@ func (user *User) WriteMsg(typ int, data []byte) error {
 }
 
 func (user *User) waitForLogin(dev *Device, ctx context.Context, sid string) bool {
+	timeout := TermLoginTimeout
+	if user.serial {
+		timeout = 10 * time.Second
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return false
 
-		case ok := <-user.pending:
-			return ok
+		case code := <-user.pending:
+			return code == 0
 
-		case <-time.After(TermLoginTimeout):
+		case <-timer.C:
 			if _, loaded := dev.pending.LoadAndDelete(sid); loaded {
 				log.Error().Msgf("login timeout for session %s of device %s", sid, dev.id)
 				user.SendCloseMsg(LoginErrorTimeout, "login timeout")
@@ -174,8 +250,10 @@ func (user *User) handleMsg() {
 			}
 
 			typ := proto.MsgTypeTermData
-			if data[0] == 1 {
+			if data[0] == 1 && !user.serial {
 				typ = proto.MsgTypeFile
+			} else if data[0] != 0 {
+				return
 			}
 
 			err = dev.WriteMsg(typ, sid, data[1:])
@@ -190,19 +268,27 @@ func (user *User) handleMsg() {
 
 			switch msg.Type {
 			case "winsize":
-				err = dev.WriteMsg(proto.MsgTypeWinsize, sid, msg.Cols, msg.Rows)
+				if !user.serial {
+					err = dev.WriteMsg(proto.MsgTypeWinsize, sid, msg.Cols, msg.Rows)
+				}
 
 			case "ack":
 				err = dev.WriteMsg(proto.MsgTypeAck, sid, msg.Ack)
 
 			case "fileInfo":
-				err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileInfo, msg.Size, msg.Name)
+				if !user.serial {
+					err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileInfo, msg.Size, msg.Name)
+				}
 
 			case "fileCanceled":
-				err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileAbort)
+				if !user.serial {
+					err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileAbort)
+				}
 
 			case "fileAck":
-				err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileAck)
+				if !user.serial {
+					err = dev.WriteMsg(proto.MsgTypeFile, sid, proto.MsgTypeFileAck)
+				}
 			}
 		}
 
