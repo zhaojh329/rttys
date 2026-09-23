@@ -3,7 +3,7 @@
  * Author: Jianhui Zhao <zhaojh329@gmail.com>
  */
 
-package main
+package server
 
 import (
 	"bytes"
@@ -24,7 +24,8 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rtty-go/proto"
-	"github.com/zhaojh329/rttys/v5/utils"
+	xlog "github.com/zhaojh329/rttys/v5/internal/log"
+	"github.com/zhaojh329/rttys/v5/internal/utils"
 )
 
 type DeviceInfo struct {
@@ -143,7 +144,7 @@ func (srv *RttyServer) ListenDevices() {
 }
 
 func handleDeviceConnection(srv *RttyServer, conn net.Conn) {
-	defer logPanic()
+	defer xlog.RecoverPanic()
 
 	dev := &Device{
 		conn:      conn,

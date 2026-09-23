@@ -10,31 +10,10 @@ import (
 
 	"github.com/kylelemons/go-gypsy/yaml"
 	"github.com/urfave/cli/v3"
+	"github.com/zhaojh329/rttys/v5/internal/server"
 )
 
-type Config struct {
-	AddrDev       string
-	AddrUser      string
-	AddrHttpProxy string
-
-	HttpProxyRedirURL    string
-	HttpProxyRedirDomain string
-
-	Token        string
-	DevHookUrl   string
-	UserHookUrl  string
-	LocalAuth    bool
-	Password     string
-	AllowOrigins bool
-
-	PprofAddr string
-
-	SslCert string
-	SslKey  string
-	CaCert  string
-}
-
-func (cfg *Config) Parse(c *cli.Command) error {
+func parseConfig(c *cli.Command, cfg *server.Config) error {
 	var yamlCfg *yaml.File
 	var err error
 
