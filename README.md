@@ -37,10 +37,20 @@
 
 ## 🏗️ Project Structure
 
-This repository contains only the server-side components:
-- **Server binary**: The main rttys server program
-- **Web UI**: Browser-based management interface
-- **API**: RESTful API for device management
+This repository contains the server and its browser-based management interface:
+- `cmd/rttys/`: CLI entry point and configuration parsing
+- `internal/server/`: device connections, API, HTTP proxy, and embedded web assets
+- `internal/log/`, `internal/utils/`: server support code
+- `ui/`: Vue web interface
+- `scripts/`: release and Debian build scripts
+- `deploy/`: example configuration and systemd unit
+
+Build the web interface first, then build the server from the repository root:
+
+```sh
+cd ui && npm ci && npm run build -- --outDir ../internal/server/assets/dist --emptyOutDir && cd ..
+go build -o rttys ./cmd/rttys
+```
 
 ## ⭐ Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=zhaojh329/rttys&type=Date)](https://www.star-history.com/#zhaojh329/rttys&Date)

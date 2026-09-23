@@ -3,7 +3,7 @@
  * Author: Jianhui Zhao <zhaojh329@gmail.com>
  */
 
-package main
+package server
 
 import (
 	"net"
@@ -19,6 +19,32 @@ type RttyServer struct {
 	groups        sync.Map
 	cfg           Config
 	httpProxyPort int
+}
+
+type Config struct {
+	AddrDev       string
+	AddrUser      string
+	AddrHttpProxy string
+
+	HttpProxyRedirURL    string
+	HttpProxyRedirDomain string
+
+	Token        string
+	DevHookUrl   string
+	UserHookUrl  string
+	LocalAuth    bool
+	Password     string
+	AllowOrigins bool
+
+	PprofAddr string
+
+	SslCert string
+	SslKey  string
+	CaCert  string
+}
+
+func New(cfg Config) *RttyServer {
+	return &RttyServer{cfg: cfg}
 }
 
 type DeviceGroup struct {

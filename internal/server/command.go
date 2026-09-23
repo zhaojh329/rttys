@@ -3,7 +3,7 @@
  * Author: Jianhui Zhao <zhaojh329@gmail.com>
  */
 
-package main
+package server
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/zhaojh329/rtty-go/proto"
-	"github.com/zhaojh329/rttys/v5/utils"
+	"github.com/zhaojh329/rttys/v5/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"

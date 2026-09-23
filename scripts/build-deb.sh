@@ -4,9 +4,11 @@
 
 set -e
 
+cd "$(dirname "$0")/.."
+
 # Configuration
 PACKAGE_NAME="rttys"
-VERSION=$(grep 'const RttysVersion' main.go | cut -d'"' -f2 | sed 's/^v//')
+VERSION=$(grep 'const RttysVersion' cmd/rttys/main.go | cut -d'"' -f2 | sed 's/^v//')
 MAINTAINER="Jianhui Zhao <zhaojh329@gmail.com>"
 DESCRIPTION="Access your device's terminal from anywhere via the web"
 URL="https://github.com/zhaojh329/rttys"
@@ -21,7 +23,7 @@ ARCH="$1"  # Pass architecture as an argument, e.g., amd64 or arm64
     exit 1;
 }
 
-[ -d assets/dist ] || {
+[ -d internal/server/assets/dist ] || {
 	echo "Please build ui first"
 	exit 1
 }
@@ -38,12 +40,12 @@ mkdir -p $BUILD_DIR/{usr/bin,etc/rttys,lib/systemd/system}
 
 # Build the binary
 echo "Building binary..."
-CGO_ENABLED=0 GOOS=linux GOARCH=$ARCH go build -ldflags "-s -w -X main.GitCommit=$GitCommit -X main.BuildTime=$BuildTime" -o $INSTALL_DIR/bin/rttys .
+CGO_ENABLED=0 GOOS=linux GOARCH=$ARCH go build -ldflags "-s -w -X main.GitCommit=$GitCommit -X main.BuildTime=$BuildTime" -o $INSTALL_DIR/bin/rttys ./cmd/rttys
 
 # Copy configuration files
 echo "Copying configuration files..."
-cp rttys.conf $BUILD_DIR/etc/rttys/
-cp rttys.service $BUILD_DIR/lib/systemd/system/
+cp deploy/rttys.conf $BUILD_DIR/etc/rttys/
+cp deploy/rttys.service $BUILD_DIR/lib/systemd/system/
 
 # Create postinstall script
 cat > $BUILD_DIR/postinstall.sh << 'EOF'

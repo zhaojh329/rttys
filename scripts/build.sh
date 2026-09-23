@@ -1,6 +1,8 @@
 #!/bin/sh
 
-VERSION=$(grep 'const RttysVersion' main.go | cut -d'"' -f2 | sed 's/^v//')
+cd "$(dirname "$0")/.." || exit 1
+
+VERSION=$(grep 'const RttysVersion' cmd/rttys/main.go | cut -d'"' -f2 | sed 's/^v//')
 
 GitCommit=$(git log --pretty=format:"%h" -1)
 BuildTime=$(date +%FT%T%z)
@@ -10,7 +12,7 @@ BuildTime=$(date +%FT%T%z)
 	exit 1
 }
 
-[ -d assets/dist ] || {
+[ -d internal/server/assets/dist ] || {
 	echo "Please build ui first"
 	exit 1
 }
@@ -23,13 +25,13 @@ generate() {
 
 	rm -rf $dir
 	mkdir $dir
-	cp rttys.conf $dir
+	cp deploy/rttys.conf $dir
 
 	[ "$os" = "windows" ] && {
 		bin="rttys.exe"
 	}
 
-	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$GitCommit -X main.BuildTime=$BuildTime" -o $dir/$bin && cp rttys.service $dir
+	GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$GitCommit -X main.BuildTime=$BuildTime" -o $dir/$bin ./cmd/rttys && cp deploy/rttys.service $dir
 
 	[ -n "$COMPRESS" ] && {
 		tar -jcvf $dir.tar.bz2 $dir

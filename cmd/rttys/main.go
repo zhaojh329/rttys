@@ -10,9 +10,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
-	"runtime/debug"
 
-	xlog "github.com/zhaojh329/rttys/v5/log"
+	xlog "github.com/zhaojh329/rttys/v5/internal/log"
+	"github.com/zhaojh329/rttys/v5/internal/server"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -122,7 +122,7 @@ func main() {
 }
 
 func cmdAction(c context.Context, cmd *cli.Command) error {
-	defer logPanic()
+	defer xlog.RecoverPanic()
 
 	switch cmd.String("log-level") {
 	case "debug":
@@ -156,30 +156,18 @@ func cmdAction(c context.Context, cmd *cli.Command) error {
 		go signalHandle()
 	}
 
-	cfg := Config{
+	cfg := server.Config{
 		AddrDev:   ":5912",
 		AddrUser:  ":5913",
 		LocalAuth: true,
 	}
 
-	err := cfg.Parse(cmd)
+	err := parseConfig(cmd, &cfg)
 	if err != nil {
 		return err
 	}
 
-	srv := &RttyServer{cfg: cfg}
+	srv := server.New(cfg)
 
 	return srv.Run()
-}
-
-func logPanic() {
-	if r := recover(); r != nil {
-		saveCrashLog(r, debug.Stack())
-		os.Exit(2)
-	}
-}
-
-func saveCrashLog(p any, stack []byte) {
-	log.Error().Msgf("%v", p)
-	log.Error().Msg(string(stack))
 }

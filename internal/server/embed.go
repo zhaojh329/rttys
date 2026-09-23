@@ -3,7 +3,7 @@
  * Author: Jianhui Zhao <zhaojh329@gmail.com>
  */
 
-package main
+package server
 
 import "embed"
 
