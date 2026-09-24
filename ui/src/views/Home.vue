@@ -8,6 +8,7 @@
         </el-select>
         <el-input style="width:200px" v-model="filterString" search @input="handleSearch" :placeholder="$t('Please enter the filter key...')"/>
         <el-button @click="showCmdForm" type="primary">{{ $t('Execute command') }}</el-button>
+        <el-button :icon="Share" @click="rttyShares.openManager()" type="primary">{{ $t('Shares') }}</el-button>
       </el-space>
       <el-space>
         <span style="color: var(--el-color-primary); font-size: 24px">{{ $t('device-count', {count: devlists.length}) }}</span>
@@ -32,9 +33,9 @@
           </el-table-column>
           <el-table-column prop="ipaddr" :label="$t('ipaddr')" width="150" />
           <el-table-column prop="description" :label="$t('Description')" show-overflow-tooltip width="150" />
-          <el-table-column width="170">
+          <el-table-column width="200">
             <template #default="{ row }">
-              <el-space size="large">
+              <el-space size="small">
                 <el-tooltip :content="$t('Terminal')">
                   <el-icon size="25" color="black" style="cursor:pointer;" @click="connectDevice(row.id)"><TerminalIcon /></el-icon>
                 </el-tooltip>
@@ -45,6 +46,9 @@
                 </el-tooltip>
                 <el-tooltip :content="$t('Device web')">
                   <el-icon size="25" color="#409EFF" style="cursor:pointer;" @click="connectDeviceWeb(row)"><IEIcon /></el-icon>
+                </el-tooltip>
+                <el-tooltip :content="$t('Share device')">
+                  <el-button text :icon="Share" @click="rttyShares.openCreate(row, group)"/>
                 </el-tooltip>
               </el-space>
             </template>
@@ -62,6 +66,7 @@
     <RttyCmd ref="rttyCmd" :selection="selection"/>
     <RttyWeb v-model="web.modal" :dev="web.dev"/>
     <RttySerialDialog v-model="serial.modal" :dev="serial.dev" :group="group"/>
+    <RttyShares ref="rttyShares"/>
   </el-container>
 </template>
 
@@ -74,11 +79,14 @@ import { SerialPort16Regular as SerialPortIcon } from '@vicons/fluent'
 import RttyCmd from '../components/RttyCmd.vue'
 import RttyWeb from '../components/RttyWeb.vue'
 import RttySerialDialog from '../components/RttySerialDialog.vue'
+import RttyShares from '../components/RttyShares.vue'
 import axios from 'axios'
+import { Share } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
 const rttyCmd = useTemplateRef('rttyCmd')
+const rttyShares = useTemplateRef('rttyShares')
 
 const group = ref('')
 const groups = ref([])

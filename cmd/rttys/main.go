@@ -56,6 +56,11 @@ func main() {
 				Name:  "addr-http-proxy",
 				Usage: "address to listen for HTTP proxy (default auto)",
 			},
+			&cli.StringFlag{Name: "share-bind-host", Usage: "address to bind temporary share ports (default all interfaces)"},
+			&cli.StringFlag{Name: "share-public-host", Usage: "public hostname for share connection details"},
+			&cli.IntFlag{Name: "share-port-start", Value: 20000, Usage: "first allowed temporary share port"},
+			&cli.IntFlag{Name: "share-port-end", Value: 21000, Usage: "last allowed temporary share port"},
+			&cli.StringFlag{Name: "share-host-key", Usage: "SSH host key path for temporary shares"},
 			&cli.StringFlag{
 				Name:  "http-proxy-redir-url",
 				Usage: "url to redirect for HTTP proxy",

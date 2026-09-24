@@ -259,7 +259,7 @@ func httpProxyRedirect(a *APIServer, c *gin.Context, group string) {
 	addr := c.Param("addr")
 	rawPath := c.Param("path")
 
-	if !a.callUserHookUrl(c) {
+	if !a.callUserHookUrl(c, devid, group) {
 		c.Status(http.StatusForbidden)
 		return
 	}

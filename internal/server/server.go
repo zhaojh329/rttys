@@ -19,12 +19,18 @@ type RttyServer struct {
 	groups        sync.Map
 	cfg           Config
 	httpProxyPort int
+	shares        *shareManager
 }
 
 type Config struct {
-	AddrDev       string
-	AddrUser      string
-	AddrHttpProxy string
+	AddrDev         string
+	AddrUser        string
+	AddrHttpProxy   string
+	ShareBindHost   string
+	SharePublicHost string
+	SharePortStart  int
+	SharePortEnd    int
+	ShareHostKey    string
 
 	HttpProxyRedirURL    string
 	HttpProxyRedirDomain string
@@ -44,7 +50,15 @@ type Config struct {
 }
 
 func New(cfg Config) *RttyServer {
-	return &RttyServer{cfg: cfg}
+	if cfg.SharePortStart == 0 {
+		cfg.SharePortStart = 20000
+	}
+	if cfg.SharePortEnd == 0 {
+		cfg.SharePortEnd = 21000
+	}
+	srv := &RttyServer{cfg: cfg}
+	srv.shares = &shareManager{srv: srv, entries: make(map[string]*Share)}
+	return srv
 }
 
 type DeviceGroup struct {
@@ -120,6 +134,7 @@ func (srv *RttyServer) AddDevice(dev *Device) bool {
 }
 
 func (srv *RttyServer) DelDevice(dev *Device) {
+	srv.shares.closeDevice(dev)
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 

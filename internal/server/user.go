@@ -34,6 +34,58 @@ type User struct {
 	closed  atomic.Bool
 }
 
+type devicePeer interface {
+	OnOpen(byte)
+	OnData([]byte)
+	OnFile([]byte)
+	Close()
+}
+
+func (user *User) OnOpen(code byte) {
+	if user.closed.Load() {
+		if _, loaded := user.dev.users.LoadAndDelete(user.sid); loaded {
+			user.dev.WriteMsg(proto.MsgTypeLogout, user.sid)
+		}
+		return
+	}
+
+	if code == 0 {
+		user.WriteMsg(websocket.TextMessage, []byte(`{"type":"login"}`))
+	} else if user.serial {
+		user.SendCloseMsg(4100+int(code), "serial open failed")
+	} else {
+		user.SendCloseMsg(LoginErrorBusy, "device busy")
+	}
+	user.pending <- code
+}
+
+func (user *User) OnData(data []byte) {
+	msg := make([]byte, len(data)+1)
+	copy(msg[1:], data)
+	if err := user.WriteMsg(websocket.BinaryMessage, msg); err != nil {
+		user.Close()
+	}
+}
+
+func (user *User) OnFile(data []byte) {
+	if len(data) == 0 {
+		return
+	}
+	switch data[0] {
+	case proto.MsgTypeFileSend:
+		user.WriteMsg(websocket.TextMessage,
+			fmt.Appendf(nil, `{"type":"sendfile", "name": "%s"}`, string(data[1:])))
+	case proto.MsgTypeFileRecv:
+		user.WriteMsg(websocket.TextMessage, []byte(`{"type":"recvfile"}`))
+	case proto.MsgTypeFileData:
+		user.WriteMsg(websocket.BinaryMessage, append([]byte{1}, data[1:]...))
+	case proto.MsgTypeFileAck:
+		user.WriteMsg(websocket.TextMessage, []byte(`{"type":"fileAck"}`))
+	case proto.MsgTypeFileAbort:
+		user.WriteMsg(websocket.BinaryMessage, []byte{1})
+	}
+}
+
 type UserMsg struct {
 	Type string `json:"type"`
 	Cols uint16 `json:"cols"`

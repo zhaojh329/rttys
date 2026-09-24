@@ -20,7 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rtty-go/proto"
@@ -53,6 +52,7 @@ type Device struct {
 	commands       sync.Map
 	https          sync.Map
 	serialRequests sync.Map
+	tcpForwards    sync.Map
 
 	conn   net.Conn
 	close  sync.Once
@@ -96,6 +96,7 @@ var DeviceMsgHandlers = map[byte]func(*Device, []byte) error{
 	proto.MsgTypeHttp:        handleHttpMsg,
 	proto.MsgTypeSerialPorts: handleSerialPortsMsg,
 	proto.MsgTypeSerialOpen:  handleSerialOpenMsg,
+	proto.MsgTypeTCP:         handleDeviceTCPMsg,
 }
 
 func (srv *RttyServer) ListenDevices() {
@@ -238,9 +239,9 @@ func (dev *Device) WriteMsg(typ byte, data ...any) error {
 func (dev *Device) Close(srv *RttyServer) {
 	dev.close.Do(func() {
 		log.Error().Msgf("device '%s' disconnected", dev.id)
-		srv.DelDevice(dev)
 		dev.cancel()
 		dev.conn.Close()
+		srv.DelDevice(dev)
 	})
 }
 
@@ -375,8 +376,7 @@ func handleLogoutMsg(dev *Device, data []byte) error {
 	sid := string(data[:32])
 
 	if val, loaded := dev.users.LoadAndDelete(sid); loaded {
-		user := val.(*User)
-		user.Close()
+		val.(devicePeer).Close()
 	}
 
 	return nil
@@ -387,30 +387,19 @@ func handleLoginMsg(dev *Device, data []byte) error {
 	code := data[32]
 
 	if val, loaded := dev.pending.LoadAndDelete(sid); loaded {
-		user := val.(*User)
+		user := val.(devicePeer)
 
 		ok := code == 0
-		errCode := 0
-
 		if ok {
 			log.Debug().Msgf("login session '%s' for device '%s' success", sid, dev.id)
 			dev.users.Store(sid, user)
 		} else {
-			errCode = LoginErrorBusy
 			log.Error().Msgf("login session '%s' for device '%s' fail, due to device busy", sid, dev.id)
 		}
 
-		if errCode == 0 {
-			user.WriteMsg(websocket.TextMessage, []byte(fmt.Appendf(nil, `{"type":"login"}`)))
-		} else {
-			user.SendCloseMsg(LoginErrorBusy, "device busy")
-		}
-
-		if ok {
-			user.pending <- 0
-		} else {
-			user.pending <- 1
-		}
+		user.OnOpen(code)
+	} else if code == 0 {
+		return dev.WriteMsg(proto.MsgTypeLogout, sid)
 	}
 
 	return nil
@@ -496,15 +485,11 @@ func handleSerialOpenMsg(dev *Device, data []byte) error {
 		return nil
 	}
 
-	user := value.(*User)
+	user := value.(devicePeer)
 	if code == proto.SerialOK {
 		dev.users.Store(sid, user)
-		user.WriteMsg(websocket.TextMessage, []byte(`{"type":"login"}`))
-	} else {
-		user.SendCloseMsg(4100+int(code), "serial open failed")
 	}
-
-	user.pending <- code
+	user.OnOpen(code)
 	return nil
 }
 
@@ -512,9 +497,7 @@ func handleTermDataMsg(dev *Device, data []byte) error {
 	sid := string(data[:32])
 
 	if val, ok := dev.users.Load(sid); ok {
-		user := val.(*User)
-		data[31] = 0
-		user.WriteMsg(websocket.BinaryMessage, data[31:])
+		val.(devicePeer).OnData(data[32:])
 	}
 
 	return nil
@@ -522,29 +505,9 @@ func handleTermDataMsg(dev *Device, data []byte) error {
 
 func handleFileMsg(dev *Device, data []byte) error {
 	sid := string(data[:32])
-	typ := data[32]
 
 	if val, ok := dev.users.Load(sid); ok {
-		user := val.(*User)
-
-		switch typ {
-		case proto.MsgTypeFileSend:
-			user.WriteMsg(websocket.TextMessage,
-				fmt.Appendf(nil, `{"type":"sendfile", "name": "%s"}`, string(data[33:])))
-
-		case proto.MsgTypeFileRecv:
-			user.WriteMsg(websocket.TextMessage, []byte(`{"type":"recvfile"}`))
-
-		case proto.MsgTypeFileData:
-			data[32] = 1
-			user.WriteMsg(websocket.BinaryMessage, data[32:])
-
-		case proto.MsgTypeFileAck:
-			user.WriteMsg(websocket.TextMessage, []byte(`{"type":"fileAck"}`))
-
-		case proto.MsgTypeFileAbort:
-			user.WriteMsg(websocket.BinaryMessage, []byte{1})
-		}
+		val.(devicePeer).OnFile(data[32:])
 	}
 
 	return nil
