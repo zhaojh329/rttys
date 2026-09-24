@@ -22,7 +22,7 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '^/api/': {
+      '^/api': {
         ws: true,
         target: 'http://127.0.0.1:5913'
       }

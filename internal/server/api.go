@@ -73,6 +73,9 @@ func (srv *RttyServer) ListenAPI() error {
 	authorized.GET("/devs", a.handleDevs)
 	authorized.GET("/dev/:devid", a.handleDev)
 	authorized.GET("/serial-ports/:devid", a.handleSerialPorts)
+	authorized.GET("/shares", a.handleListShares)
+	authorized.POST("/shares", a.handleCreateShare)
+	authorized.DELETE("/shares/:id", a.handleDeleteShare)
 	authorized.POST("/cmd/:devid", a.handleCmd)
 	authorized.Any("/web/:devid/:proto/:addr/*path", a.handleWeb)
 	authorized.Any("/web2/:group/:devid/:proto/:addr/*path", a.handleWeb2)
@@ -92,6 +95,68 @@ func (srv *RttyServer) ListenAPI() error {
 	log.Info().Msgf("Listen users on: %s", ln.Addr().(*net.TCPAddr))
 
 	return r.RunListener(ln)
+}
+
+func (a *APIServer) handleListShares(c *gin.Context) {
+	shares := a.srv.shares.list()
+	visible := make([]shareInfo, 0, len(shares))
+	for _, info := range shares {
+		if c.Request.Context().Err() != nil {
+			return
+		}
+
+		if a.callUserHookUrl(c, info.DeviceID, info.Group) {
+			visible = append(visible, info)
+		}
+	}
+
+	c.JSON(http.StatusOK, visible)
+}
+
+func (a *APIServer) handleCreateShare(c *gin.Context) {
+	var req shareRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid share request"})
+		return
+	}
+
+	if err := req.validate(); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !a.callUserHookUrl(c, req.DeviceID, req.Group) {
+		c.Status(http.StatusForbidden)
+		return
+	}
+
+	host := c.Request.Host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	s, password, err := a.srv.shares.create(req, host)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"share": s.snapshot(), "password": password})
+}
+
+func (a *APIServer) handleDeleteShare(c *gin.Context) {
+	s := a.srv.shares.get(c.Param("id"))
+	if s == nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	info := s.snapshot()
+	if !a.callUserHookUrl(c, info.DeviceID, info.Group) {
+		c.Status(http.StatusForbidden)
+		return
+	}
+
+	s.close()
+	c.Status(http.StatusNoContent)
 }
 
 func isLocalRequest(c *gin.Context) bool {
@@ -128,7 +193,7 @@ func (a *APIServer) auth(c *gin.Context) bool {
 	return true
 }
 
-func (a *APIServer) callUserHookUrl(c *gin.Context) bool {
+func (a *APIServer) callUserHookUrl(c *gin.Context, dev string, group string) bool {
 	cfg := &a.srv.cfg
 
 	if cfg.UserHookUrl == "" {
@@ -138,7 +203,7 @@ func (a *APIServer) callUserHookUrl(c *gin.Context) bool {
 	upath := c.Request.URL.RawPath
 
 	// Create HTTP request with original headers
-	req, err := http.NewRequest("GET", cfg.UserHookUrl, nil)
+	req, err := http.NewRequestWithContext(c.Request.Context(), "GET", cfg.UserHookUrl, nil)
 	if err != nil {
 		log.Error().Err(err).Msgf("create hook request for \"%s\" fail", upath)
 		return false
@@ -147,7 +212,8 @@ func (a *APIServer) callUserHookUrl(c *gin.Context) bool {
 	// Copy all headers from original request
 	for key, values := range c.Request.Header {
 		lowerKey := strings.ToLower(key)
-		if lowerKey == "upgrade" || lowerKey == "connection" || lowerKey == "accept-encoding" {
+		if lowerKey == "upgrade" || lowerKey == "connection" || lowerKey == "accept-encoding" ||
+			strings.HasPrefix(lowerKey, "x-rttys-") {
 			continue
 		}
 
@@ -158,6 +224,8 @@ func (a *APIServer) callUserHookUrl(c *gin.Context) bool {
 
 	// Add custom headers for hook identification
 	req.Header.Set("X-Rttys-Hook", "true")
+	req.Header.Set("X-Rttys-Device-ID", dev)
+	req.Header.Set("X-Rttys-Group", group)
 	req.Header.Set("X-Original-Method", c.Request.Method)
 	req.Header.Set("X-Original-URL", c.Request.URL.String())
 
@@ -181,7 +249,7 @@ func (a *APIServer) callUserHookUrl(c *gin.Context) bool {
 }
 
 func (a *APIServer) handleConnect(c *gin.Context) {
-	if !a.callUserHookUrl(c) {
+	if !a.callUserHookUrl(c, c.Param("devid"), c.Query("group")) {
 		c.Status(http.StatusForbidden)
 		return
 	}
@@ -275,7 +343,7 @@ func (a *APIServer) handleDev(c *gin.Context) {
 }
 
 func (a *APIServer) handleSerialPorts(c *gin.Context) {
-	if !a.callUserHookUrl(c) {
+	if !a.callUserHookUrl(c, c.Param("devid"), c.Query("group")) {
 		c.Status(http.StatusForbidden)
 		return
 	}
@@ -304,7 +372,7 @@ func (a *APIServer) handleSerialPorts(c *gin.Context) {
 }
 
 func (a *APIServer) handleCmd(c *gin.Context) {
-	if !a.callUserHookUrl(c) {
+	if !a.callUserHookUrl(c, c.Param("devid"), c.Query("group")) {
 		c.Status(http.StatusForbidden)
 		return
 	}

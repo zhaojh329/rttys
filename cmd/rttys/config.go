@@ -27,9 +27,14 @@ func parseConfig(c *cli.Command, cfg *server.Config) error {
 	}
 
 	fields := map[string]any{
-		"addr-dev":        &cfg.AddrDev,
-		"addr-user":       &cfg.AddrUser,
-		"addr-http-proxy": &cfg.AddrHttpProxy,
+		"addr-dev":          &cfg.AddrDev,
+		"addr-user":         &cfg.AddrUser,
+		"addr-http-proxy":   &cfg.AddrHttpProxy,
+		"share-bind-host":   &cfg.ShareBindHost,
+		"share-public-host": &cfg.SharePublicHost,
+		"share-port-start":  &cfg.SharePortStart,
+		"share-port-end":    &cfg.SharePortEnd,
+		"share-host-key":    &cfg.ShareHostKey,
 
 		"http-proxy-redir-url":    &cfg.HttpProxyRedirURL,
 		"http-proxy-redir-domain": &cfg.HttpProxyRedirDomain,
