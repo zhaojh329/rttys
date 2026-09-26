@@ -22,29 +22,8 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/groups': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '/devs': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '/signin': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '/signout': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '/alive': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '^/cmd/.*': {
-        target: 'http://127.0.0.1:5913'
-      },
-      '^/connect/.*': {
+      '^/api/': {
         ws: true,
-        target: 'http://127.0.0.1:5913'
-      },
-      '^/web/*': {
         target: 'http://127.0.0.1:5913'
       }
     }

@@ -108,7 +108,7 @@ func runDeviceTest(ctx context.Context, devices *sync.Map, group, devID string) 
 }
 
 func runWebSocketTest(ctx context.Context, group, devID string, wg *sync.WaitGroup) {
-	conn, _, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:5913/connect/"+devID+"?group="+group, nil)
+	conn, _, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:5913/api/connect/"+devID+"?group="+group, nil)
 	if err != nil {
 		log.Fatal().Msg(err.Error())
 	}
@@ -176,9 +176,9 @@ func runHttpTestOnce(ctx context.Context, group, devID string) {
 	addr := ""
 
 	if group == "" {
-		addr = "http://127.0.0.1:5913/web/"
+		addr = "http://127.0.0.1:5913/api/web/"
 	} else {
-		addr = "http://127.0.0.1:5913/web2/" + group + "/"
+		addr = "http://127.0.0.1:5913/api/web2/" + group + "/"
 	}
 
 	addr += devID + "/http/" + encodeURIComponent("127.0.0.1:80/")

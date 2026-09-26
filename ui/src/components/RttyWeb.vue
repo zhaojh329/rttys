@@ -126,9 +126,9 @@ const open = () => {
       const devid = dev.id
 
       if (group)
-        window.open(`/web2/${group}/${devid}/${proto}/${addr}`)
+        window.open(`/api/web2/${group}/${devid}/${proto}/${addr}`)
       else
-        window.open(`/web/${devid}/${proto}/${addr}`)
+        window.open(`/api/web/${devid}/${proto}/${addr}`)
     }, 100)
   })
 }
