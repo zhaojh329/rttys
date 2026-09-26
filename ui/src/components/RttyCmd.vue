@@ -155,7 +155,7 @@ const doCmd = () => {
           params: cmdData.params
         }
 
-        axios.post(`/cmd/${item.id}?group=${item.group}&wait=${cmdData.wait}`, data).then((response) => {
+        axios.post(`/api/cmd/${item.id}?group=${item.group}&wait=${cmdData.wait}`, data).then((response) => {
           if (cmdData.wait === 0) {
             cmdStatus.responses.push({
               err: 0,

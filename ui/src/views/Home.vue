@@ -121,7 +121,7 @@ const handlePageChange = (page, size) => {
 }
 
 const handleLogout = () => {
-  axios.get('/signout').then(() => {
+  axios.get('/api/signout').then(() => {
     router.push('/login')
   })
 }
@@ -134,7 +134,7 @@ const handleSearch = () => {
 }
 
 const getGroups = () => {
-  axios.get('/groups').then(res => {
+  axios.get('/api/groups').then(res => {
     groups.value = res.data
     if (groups.value.indexOf(group.value) === -1)
       group.value = groups.value[0]
@@ -143,7 +143,7 @@ const getGroups = () => {
 }
 
 const getDevices = () => {
-  axios.get(`/devs?group=${group.value}`).then(res => {
+  axios.get(`/api/devs?group=${group.value}`).then(res => {
     loading.value = false
     devlists.value = res.data
     selection.value = []

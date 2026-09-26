@@ -56,7 +56,7 @@ func (srv *RttyServer) ListenAPI() error {
 		r.Use(cors.Default())
 	}
 
-	authorized := r.Group("/", func(c *gin.Context) {
+	authorized := r.Group("/api", func(c *gin.Context) {
 		if !cfg.LocalAuth && isLocalRequest(c) {
 			return
 		}
@@ -77,8 +77,8 @@ func (srv *RttyServer) ListenAPI() error {
 	authorized.Any("/web2/:group/:devid/:proto/:addr/*path", a.handleWeb2)
 	authorized.GET("/signout", a.handleSignout)
 
-	r.POST("/signin", a.handleSignin)
-	r.GET("/alive", a.handleAlive)
+	r.POST("/api/signin", a.handleSignin)
+	r.GET("/api/alive", a.handleAlive)
 
 	r.NoRoute(a.handleFile)
 
@@ -354,6 +354,12 @@ func (a *APIServer) handleAlive(c *gin.Context) {
 
 func (a *APIServer) handleFile(c *gin.Context) {
 	upath := path.Clean(c.Request.URL.Path)
+
+	if upath == "/api" || strings.HasPrefix(upath, "/api/") {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
 	root := a.root
 
 	if strings.HasSuffix(upath, ".js") || strings.HasSuffix(upath, ".css") {

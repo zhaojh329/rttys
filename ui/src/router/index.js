@@ -43,7 +43,7 @@ const router = createRouter({
 
 router.beforeEach((to, from, next) => {
   if (to.path !== '/login') {
-    axios.get('/alive').then(() => {
+    axios.get('/api/alive').then(() => {
       next()
     }).catch(() => {
       next({ name: 'Login' })

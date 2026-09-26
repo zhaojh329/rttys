@@ -34,7 +34,7 @@ const handleSubmit = () => {
     password: formValue.password
   }
 
-  axios.post('/signin', params).then(() => {
+  axios.post('/api/signin', params).then(() => {
     router.push('/')
   }).catch(() => {
     ElMessage.error(t('Signin Fail! password wrong.'))
