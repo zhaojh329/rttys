@@ -113,12 +113,12 @@ const fileCtx = reactive({
   modal: false,
   accepted: false,
   file: null,
-  offset: 0,
-  fr: new FileReader(),
+  downloading: false,
   name: '',
   chunks: []
 })
 
+let upload = null
 let disposables = []
 let socket = null
 let term = null
@@ -235,13 +235,34 @@ const doFind = (type) => {
     searchAddon.findPrevious(findText.value, options)
 }
 
+const resetFileTransfer = () => {
+  if (upload) {
+    const reader = upload.reader
+    upload = null
+    reader.onload = null
+    reader.onerror = null
+
+    if (reader.readyState === FileReader.LOADING)
+      reader.abort()
+  }
+
+  fileCtx.accepted = true
+  fileCtx.modal = false
+  fileCtx.file = null
+  fileCtx.downloading = false
+  fileCtx.name = ''
+  fileCtx.chunks = []
+}
+
 const onUploadDialogClosed = () => {
-  term.focus()
   if (fileCtx.accepted)
     return
-  fileCtx.file = null
-  const msg = {type: 'fileCanceled'}
-  socket.send(JSON.stringify(msg))
+
+  term.focus()
+  resetFileTransfer()
+
+  if (socket?.readyState === WebSocket.OPEN)
+    socket.send(JSON.stringify({type: 'fileCanceled'}))
 }
 
 const beforeUpload = (file) => {
@@ -254,12 +275,27 @@ const sendFileInfo = (file) => {
   socket.send(JSON.stringify(msg))
 }
 
-const readFileBlob = (fr, file, offset, size) => {
-  const blob = file.slice(offset, offset + size)
-  fr.readAsArrayBuffer(blob)
+const readFileBlob = () => {
+  if (!upload || upload.reader.readyState === FileReader.LOADING)
+    return
+
+  if (upload.offset >= upload.file.size)
+    return
+
+  if (socket !== upload.socket || socket.readyState !== WebSocket.OPEN) {
+    resetFileTransfer()
+    return
+  }
+
+  upload.reader.readAsArrayBuffer(upload.file.slice(upload.offset, upload.offset + ReadFileBlkSize))
 }
 
 const doUploadFile = () => {
+  if (socket?.readyState !== WebSocket.OPEN) {
+    resetFileTransfer()
+    return
+  }
+
   if (!fileCtx.file) {
     onUploadDialogClosed()
     return
@@ -282,15 +318,42 @@ const doUploadFile = () => {
     return
   }
 
-  fileCtx.offset = 0
-
-  const fr = fileCtx.fr
-
-  fr.onload = e => {
-    fileCtx.offset += e.loaded
-    sendFileData(new Uint8Array(fr.result))
+  const transfer = {
+    file: fileCtx.file,
+    socket,
+    reader: new FileReader(),
+    offset: 0
   }
-  readFileBlob(fr, fileCtx.file, fileCtx.offset, ReadFileBlkSize)
+  upload = transfer
+
+  transfer.reader.onload = () => {
+    if (upload !== transfer)
+      return
+
+    if (socket !== transfer.socket || socket.readyState !== WebSocket.OPEN) {
+      resetFileTransfer()
+      return
+    }
+
+    const data = new Uint8Array(transfer.reader.result)
+    transfer.offset += data.length
+    sendFileData(data)
+  }
+
+  transfer.reader.onerror = () => {
+    if (upload !== transfer)
+      return
+
+    const error = transfer.reader.error
+    resetFileTransfer()
+
+    if (socket === transfer.socket && socket.readyState === WebSocket.OPEN)
+      socket.send(JSON.stringify({type: 'fileCanceled'}))
+
+    ElMessage.error(error.message)
+  }
+
+  readFileBlob()
 }
 
 const sendTermData = (data) => socket.send(new Uint8Array([0, ...new TextEncoder().encode(data)]))
@@ -397,6 +460,7 @@ onMounted(() => {
 
   socket.addEventListener('close', (ev) => {
     loading.close()
+    resetFileTransfer()
 
     if (ev.code === LoginErrorOffline) {
       router.push('/error/offline')
@@ -427,17 +491,18 @@ onMounted(() => {
         loading.close()
         openTerm()
       } else if (msg.type === 'sendfile') {
+        resetFileTransfer()
+        fileCtx.downloading = true
         fileCtx.name = msg.name
-        fileCtx.chunks = []
+
         socket.send(JSON.stringify({type: 'fileAck'}))
       } else if (msg.type === 'recvfile') {
+        resetFileTransfer()
         fileCtx.modal = true
-        fileCtx.file = null
         fileCtx.accepted = false
         term.blur()
       } else if (msg.type === 'fileAck') {
-        if (fileCtx.file && fileCtx.offset < fileCtx.file.size)
-          readFileBlob(fileCtx.fr, fileCtx.file, fileCtx.offset, ReadFileBlkSize)
+        readFileBlob()
       }
     } else {
       const data = new Uint8Array(ev.data)
@@ -452,6 +517,12 @@ onMounted(() => {
           unack = 0
         }
       } else {
+        if (!fileCtx.downloading) {
+          if (data.length === 1)
+            resetFileTransfer()
+          return
+        }
+
         if (data.length === 1) {
           const blob = new Blob(fileCtx.chunks)
           const url = URL.createObjectURL(blob)
@@ -460,9 +531,9 @@ onMounted(() => {
           a.download = fileCtx.name
           document.body.appendChild(a)
           a.click()
+          resetFileTransfer()
 
           setTimeout(() => {
-            fileCtx.chunks = []
             document.body.removeChild(a)
             window.URL.revokeObjectURL(url)
           }, 100)
@@ -476,6 +547,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  resetFileTransfer()
+
   window.removeEventListener('rtty-resize', fitTerm)
 
   dispose()
