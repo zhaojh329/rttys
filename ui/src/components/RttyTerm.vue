@@ -52,6 +52,7 @@ const LoginErrorTimeout = 4002
 const MsgTypeFileData = 0x03
 
 const ReadFileBlkSize = 63 * 1024
+const FileWindowSize = 16
 
 const AckBlkSize = 4 * 1024
 
@@ -275,11 +276,11 @@ const sendFileInfo = (file) => {
   socket.send(JSON.stringify(msg))
 }
 
-const readFileBlob = () => {
+const pumpFileUpload = () => {
   if (!upload || upload.reader.readyState === FileReader.LOADING)
     return
 
-  if (upload.offset >= upload.file.size)
+  if (upload.inFlight >= FileWindowSize || upload.offset >= upload.file.size)
     return
 
   if (socket !== upload.socket || socket.readyState !== WebSocket.OPEN) {
@@ -322,7 +323,8 @@ const doUploadFile = () => {
     file: fileCtx.file,
     socket,
     reader: new FileReader(),
-    offset: 0
+    offset: 0,
+    inFlight: 0
   }
   upload = transfer
 
@@ -337,7 +339,9 @@ const doUploadFile = () => {
 
     const data = new Uint8Array(transfer.reader.result)
     transfer.offset += data.length
+    transfer.inFlight++
     sendFileData(data)
+    pumpFileUpload()
   }
 
   transfer.reader.onerror = () => {
@@ -353,20 +357,20 @@ const doUploadFile = () => {
     ElMessage.error(error.message)
   }
 
-  readFileBlob()
+  pumpFileUpload()
 }
 
 const sendTermData = (data) => socket.send(new Uint8Array([0, ...new TextEncoder().encode(data)]))
 
 const sendFileData = (data) => {
-  let b
+  const frame = new Uint8Array(2 + (data?.length ?? 0))
+  frame[0] = 1
+  frame[1] = MsgTypeFileData
 
-  if (data !== null)
-    b = new Uint8Array([1, MsgTypeFileData, ...data])
-  else
-    b = new Uint8Array([1, MsgTypeFileData])
+  if (data)
+    frame.set(data, 2)
 
-  socket.send(b)
+  socket.send(frame)
 }
 
 const fitTerm = () => nextTick(() => fitAddon.fit())
@@ -502,7 +506,10 @@ onMounted(() => {
         fileCtx.accepted = false
         term.blur()
       } else if (msg.type === 'fileAck') {
-        readFileBlob()
+        if (upload && upload.inFlight > 0) {
+          upload.inFlight--
+          pumpFileUpload()
+        }
       }
     } else {
       const data = new Uint8Array(ev.data)
